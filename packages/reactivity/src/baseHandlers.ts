@@ -25,8 +25,8 @@ function createGetter(isReadonly: boolean) {
       ? isReadonly
         ? // need to lazy access readonly and reactive here to avoid
           // circular dependency
-          readonly(res)
-        : reactive(res)
+          readonly(res) // ! 深度监听
+        : reactive(res) // ! 深度监听
       : res
   }
 }

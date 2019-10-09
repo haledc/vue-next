@@ -4,12 +4,14 @@ const queue: Function[] = []
 const postFlushCbs: Function[] = []
 const p = Promise.resolve()
 
-let isFlushing = false
+let isFlushing = false // ! 是否正在执行函数
 
+// ! 使用 Promise 处理函数，无兼容处理
 export function nextTick(fn?: () => void): Promise<void> {
   return fn ? p.then(fn) : p
 }
 
+// ! job 队列化
 export function queueJob(job: () => void) {
   if (queue.indexOf(job) === -1) {
     queue.push(job)
@@ -19,9 +21,10 @@ export function queueJob(job: () => void) {
   }
 }
 
+// ! cb 队列化
 export function queuePostFlushCb(cb: Function | Function[]) {
   if (Array.isArray(cb)) {
-    postFlushCbs.push.apply(postFlushCbs, cb)
+    postFlushCbs.push.apply(postFlushCbs, cb) // ! 降维添加数组使用 apply
   } else {
     postFlushCbs.push(cb)
   }
@@ -30,12 +33,14 @@ export function queuePostFlushCb(cb: Function | Function[]) {
   }
 }
 
+// ! 去重的函数
 const dedupe = (cbs: Function[]): Function[] => Array.from(new Set(cbs))
 
+// ! 执行 cbs
 export function flushPostFlushCbs() {
   if (postFlushCbs.length) {
-    const cbs = dedupe(postFlushCbs)
-    postFlushCbs.length = 0
+    const cbs = dedupe(postFlushCbs) // ! 去重
+    postFlushCbs.length = 0 // ! 清除
     for (let i = 0; i < cbs.length; i++) {
       cbs[i]()
     }
@@ -45,6 +50,7 @@ export function flushPostFlushCbs() {
 const RECURSION_LIMIT = 100
 type JobCountMap = Map<Function, number>
 
+// ! 执行 jobs
 function flushJobs(seenJobs?: JobCountMap) {
   isFlushing = true
   let job
@@ -75,11 +81,11 @@ function flushJobs(seenJobs?: JobCountMap) {
       handleError(err, null, ErrorCodes.SCHEDULER)
     }
   }
-  flushPostFlushCbs()
+  flushPostFlushCbs() // ! 执行 cbs
   isFlushing = false
   // some postFlushCb queued jobs!
   // keep flushing until it drains.
   if (queue.length) {
-    flushJobs(seenJobs)
+    flushJobs(seenJobs) // ! 执行 job
   }
 }

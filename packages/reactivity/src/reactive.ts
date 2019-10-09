@@ -29,7 +29,7 @@ const readonlyValues = new WeakSet<any>()
 const nonReactiveValues = new WeakSet<any>()
 
 const collectionTypes = new Set<Function>([Set, Map, WeakMap, WeakSet])
-const observableValueRE = /^\[object (?:Object|Array|Map|Set|WeakMap|WeakSet)\]$/
+const observableValueRE = /^\[object (?:Object|Array|Map|Set|WeakMap|WeakSet)\]$/ // ! 可以设置响应式的六种引用类型
 
 const canObserve = (value: any): boolean => {
   return (
@@ -40,6 +40,7 @@ const canObserve = (value: any): boolean => {
   )
 }
 
+// ! 响应式设置，返回未嵌套的 Ref 类型
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
@@ -59,6 +60,7 @@ export function reactive(target: object) {
   )
 }
 
+// ! 只读响应性设置
 export function readonly<T extends object>(
   target: T
 ): Readonly<UnwrapNestedRefs<T>>
@@ -66,7 +68,7 @@ export function readonly(target: object) {
   // value is a mutable observable, retrieve its original and return
   // a readonly version.
   if (reactiveToRaw.has(target)) {
-    target = reactiveToRaw.get(target)
+    target = reactiveToRaw.get(target) // ! get raw
   }
   return createReactiveObject(
     target,
@@ -77,6 +79,7 @@ export function readonly(target: object) {
   )
 }
 
+// ! 创建响应式对象
 function createReactiveObject(
   target: any,
   toProxy: WeakMap<any, any>,
@@ -103,14 +106,16 @@ function createReactiveObject(
   if (!canObserve(target)) {
     return target
   }
+  // ! 根据 target 类型使用不同的 handlers
+  // ! Set, Map, WeakMap, WeakSet 类型使用 collectionHandlers
   const handlers = collectionTypes.has(target.constructor)
     ? collectionHandlers
     : baseHandlers
-  observed = new Proxy(target, handlers)
-  toProxy.set(target, observed)
-  toRaw.set(observed, target)
+  observed = new Proxy(target, handlers) // ! 代理
+  toProxy.set(target, observed) // ! 保存到 toProxy 的映射表中 target => observed
+  toRaw.set(observed, target) // ! 保存到 toRaw 的映射表中 observed => target
   if (!targetMap.has(target)) {
-    targetMap.set(target, new Map())
+    targetMap.set(target, new Map()) // ! 保存到 targetMap 的映射表中 target => new Map() 收集依赖所用
   }
   return observed
 }
@@ -123,15 +128,18 @@ export function isReadonly(value: any): boolean {
   return readonlyToRaw.has(value)
 }
 
+// ! 响应式转原生
 export function toRaw<T>(observed: T): T {
   return reactiveToRaw.get(observed) || readonlyToRaw.get(observed) || observed
 }
 
+// ! 加入到只读集合中
 export function markReadonly<T>(value: T): T {
   readonlyValues.add(value)
   return value
 }
 
+// ! 加入到非响应集合中
 export function markNonReactive<T>(value: T): T {
   nonReactiveValues.add(value)
   return value

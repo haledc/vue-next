@@ -2,6 +2,7 @@ import { effect, ReactiveEffect, activeReactiveEffectStack } from './effect'
 import { Ref, refSymbol, UnwrapNestedRefs } from './ref'
 import { isFunction } from '@vue/shared'
 
+// ! 继承于 Ref
 export interface ComputedRef<T> extends Ref<T> {
   readonly value: UnwrapNestedRefs<T>
   readonly effect: ReactiveEffect
@@ -24,26 +25,31 @@ export function computed<T>(
   getterOrOptions: (() => T) | WritableComputedOptions<T>
 ): any {
   const isReadonly = isFunction(getterOrOptions)
+  // ! 获取 getter
   const getter = isReadonly
     ? (getterOrOptions as (() => T))
     : (getterOrOptions as WritableComputedOptions<T>).get
+
+  // ! 获取 setter
   const setter = isReadonly
     ? () => {
         // TODO warn attempting to mutate readonly computed value
       }
     : (getterOrOptions as WritableComputedOptions<T>).set
 
-  let dirty = true
+  let dirty = true // ! 设置 dirty 为 true
   let value: T
 
+  // ! 执行副作用
   const runner = effect(getter, {
-    lazy: true,
+    lazy: true, // ! 延迟计算
     // mark effect as computed so that it gets priority during trigger
-    computed: true,
+    computed: true, // ! 计算属性
     scheduler: () => {
       dirty = true
     }
   })
+  // ! 返回 Ref 类型的值
   return {
     [refSymbol]: true,
     // expose effect so computed can be stopped
@@ -51,7 +57,7 @@ export function computed<T>(
     get value() {
       if (dirty) {
         value = runner()
-        dirty = false
+        dirty = false // ! 获取值后重置为 false
       }
       // When computed effects are accessed in a parent effect, the parent
       // should track all the dependencies the computed property has tracked.
