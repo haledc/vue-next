@@ -1,11 +1,9 @@
 import { effect, ReactiveEffect, activeReactiveEffectStack } from './effect'
-import { Ref, refSymbol, UnwrapNestedRefs } from './ref'
-import { isFunction } from '@vue/shared'
+import { Ref, refSymbol, UnwrapRef } from './ref'
+import { isFunction, NOOP } from '@vue/shared'
 
-// ! 继承于 Ref
-export interface ComputedRef<T> extends Ref<T> {
-  readonly value: UnwrapNestedRefs<T>
-  readonly effect: ReactiveEffect
+export interface ComputedRef<T> extends WritableComputedRef<T> {
+  readonly value: UnwrapRef<T>
 }
 
 export interface WritableComputedRef<T> extends Ref<T> {
@@ -32,9 +30,11 @@ export function computed<T>(
 
   // ! 获取 setter
   const setter = isReadonly
-    ? () => {
-        // TODO warn attempting to mutate readonly computed value
-      }
+    ? __DEV__
+      ? () => {
+          console.warn('Write operation failed: computed value is readonly')
+        }
+      : NOOP
     : (getterOrOptions as WritableComputedOptions<T>).set
 
   let dirty = true // ! 设置 dirty 为 true

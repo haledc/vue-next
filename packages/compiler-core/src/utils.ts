@@ -20,7 +20,8 @@ import {
   BlockCodegenNode,
   ElementCodegenNode,
   SlotOutletCodegenNode,
-  ComponentCodegenNode
+  ComponentCodegenNode,
+  ExpressionNode
 } from './ast'
 import { parse } from 'acorn'
 import { walk } from 'estree-walker'
@@ -62,8 +63,13 @@ export const walkJS: typeof walk = (ast, walker) => {
   return walk(ast, walker)
 }
 
+const nonIdentifierRE = /^\d|[^\$\w]/
 export const isSimpleIdentifier = (name: string): boolean =>
-  !/^\d|[^\w]/.test(name)
+  !nonIdentifierRE.test(name)
+
+const memberExpRE = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\[[^\]]+\])*$/
+export const isMemberExpression = (path: string): boolean =>
+  memberExpRE.test(path)
 
 export function getInnerRange(
   loc: SourceLocation,
@@ -236,4 +242,8 @@ export function toValidAssetId(
   type: 'component' | 'directive'
 ): string {
   return `_${type}_${name.replace(/[^\w]/g, '')}`
+}
+
+export function isEmptyExpression(node: ExpressionNode) {
+  return node.type === NodeTypes.SIMPLE_EXPRESSION && !node.content.trim()
 }
