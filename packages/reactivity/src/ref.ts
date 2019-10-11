@@ -6,8 +6,8 @@ import { reactive } from './reactive'
 export const refSymbol = Symbol(__DEV__ ? 'refSymbol' : undefined)
 
 export interface Ref<T = any> {
-  [refSymbol]: true
-  value: UnwrapRef<T>
+  [refSymbol]: true // ! 标识
+  value: UnwrapRef<T> // ! 值
 }
 
 const convert = (val: any): any => (isObject(val) ? reactive(val) : val)
@@ -63,7 +63,7 @@ function toProxyRef<T extends object, K extends keyof T>(
   }
 }
 
-// ! 忽略的类型
+// ! 不应该继续递归的引用类型
 type BailTypes =
   | Function
   | Map<any, any>
@@ -72,10 +72,18 @@ type BailTypes =
   | WeakSet<any>
 
 // Recursively unwraps nested value bindings.
+// ! 递归获取嵌套数据的类型
 export type UnwrapRef<T> = {
+  // ! 如果是 Ref 类型，继续解套
   ref: T extends Ref<infer V> ? UnwrapRef<V> : T
+
+  // ! 如果是数组类型，循环解套
   array: T extends Array<infer V> ? Array<UnwrapRef<V>> : T
+
+  // ! 如果是对象类型，遍历解套
   object: { [K in keyof T]: UnwrapRef<T[K]> }
+
+  // ! 否则，停止解套
   stop: T
 }[T extends Ref
   ? 'ref'
@@ -86,4 +94,5 @@ export type UnwrapRef<T> = {
       : T extends object ? 'object' : 'stop']
 
 // only unwrap nested ref
+// ! 类型别名，已经是 Ref 类型，不需要解套，否则递归解套
 export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
