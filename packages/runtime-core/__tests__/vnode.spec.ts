@@ -1,6 +1,12 @@
 import { createVNode } from '@vue/runtime-test'
-import { ShapeFlags } from '@vue/runtime-core'
-import { mergeProps } from '../src/vnode'
+import {
+  ShapeFlags,
+  Comment,
+  Fragment,
+  Text,
+  cloneVNode
+} from '@vue/runtime-core'
+import { mergeProps, normalizeVNode } from '../src/vnode'
 import { Data } from '../src/component'
 
 describe('vnode', () => {
@@ -109,11 +115,64 @@ describe('vnode', () => {
     })
   })
 
-  test.todo('normalizeVNode')
+  test('normalizeVNode', () => {
+    // null / undefined -> Comment
+    expect(normalizeVNode(null)).toMatchObject({ type: Comment })
+    expect(normalizeVNode(undefined)).toMatchObject({ type: Comment })
 
-  test.todo('node type/shapeFlag inference')
+    // array -> Fragment
+    expect(normalizeVNode(['foo'])).toMatchObject({ type: Fragment })
 
-  test.todo('cloneVNode')
+    // VNode -> VNode
+    const vnode = createVNode('div')
+    expect(normalizeVNode(vnode)).toBe(vnode)
+
+    // mounted VNode -> cloned VNode
+    const mounted = createVNode('div')
+    mounted.el = {}
+    const normalized = normalizeVNode(mounted)
+    expect(normalized).not.toBe(mounted)
+    expect(normalized).toEqual({ ...mounted, el: null })
+
+    // primitive types
+    expect(normalizeVNode('foo')).toMatchObject({ type: Text, children: `foo` })
+    expect(normalizeVNode(1)).toMatchObject({ type: Text, children: `1` })
+    expect(normalizeVNode(true)).toMatchObject({ type: Text, children: `true` })
+  })
+
+  test('type shapeFlag inference', () => {
+    expect(createVNode('div').shapeFlag).toBe(ShapeFlags.ELEMENT)
+    expect(createVNode({}).shapeFlag).toBe(ShapeFlags.STATEFUL_COMPONENT)
+    expect(createVNode(() => {}).shapeFlag).toBe(
+      ShapeFlags.FUNCTIONAL_COMPONENT
+    )
+    expect(createVNode(Text).shapeFlag).toBe(0)
+  })
+
+  test('cloneVNode', () => {
+    const node1 = createVNode('div', { foo: 1 }, null)
+    expect(cloneVNode(node1)).toEqual(node1)
+
+    const node2 = createVNode({}, null, [node1])
+    const cloned2 = cloneVNode(node2)
+    expect(cloned2).toEqual(node2)
+    expect(cloneVNode(node2)).toEqual(node2)
+    expect(cloneVNode(node2)).toEqual(cloned2)
+
+    // should reset mounted state
+    const node3 = createVNode('div', { foo: 1 }, [node1])
+    node3.el = {}
+    node3.anchor = {}
+    node3.component = {} as any
+    node3.suspense = {} as any
+    expect(cloneVNode(node3)).toEqual({
+      ...node3,
+      el: null,
+      anchor: null,
+      component: null,
+      suspense: null
+    })
+  })
 
   describe('mergeProps', () => {
     test('class', () => {
