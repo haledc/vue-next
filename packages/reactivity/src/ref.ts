@@ -2,6 +2,7 @@ import { track, trigger } from './effect'
 import { OperationTypes } from './operations'
 import { isObject } from '@vue/shared'
 import { reactive } from './reactive'
+import { ComputedRef } from './computed'
 
 export const refSymbol = Symbol(__DEV__ ? 'refSymbol' : '')
 
@@ -76,7 +77,7 @@ type BailTypes =
 // Recursively unwraps nested value bindings.
 // ! 递归获取嵌套数据的类型
 export type UnwrapRef<T> = {
-  // ! 如果是 Ref 类型，继续解套
+  cRef: T extends ComputedRef<infer V> ? UnwrapRef<V> : T
   ref: T extends Ref<infer V> ? UnwrapRef<V> : T
 
   // ! 如果是数组类型，循环解套
@@ -87,14 +88,12 @@ export type UnwrapRef<T> = {
 
   // ! 否则，停止解套
   stop: T
-}[T extends Ref
-  ? 'ref'
-  : T extends Array<any>
-    ? 'array'
-    : T extends BailTypes
-      ? 'stop' // bail out on types that shouldn't be unwrapped
-      : T extends object ? 'object' : 'stop']
-
-// only unwrap nested ref
-// ! 类型别名，已经是 Ref 类型，不需要解套，否则递归解套
-export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
+}[T extends ComputedRef<any>
+  ? 'cRef'
+  : T extends Ref
+    ? 'ref'
+    : T extends Array<any>
+      ? 'array'
+      : T extends BailTypes
+        ? 'stop' // bail out on types that shouldn't be unwrapped
+        : T extends object ? 'object' : 'stop']

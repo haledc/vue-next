@@ -1,4 +1,5 @@
-import { handleError, ErrorCodes } from './errorHandling'
+import { ErrorCodes, callWithErrorHandling } from './errorHandling'
+import { isArray } from '@vue/shared'
 
 const queue: Function[] = []
 const postFlushCbs: Function[] = []
@@ -13,7 +14,7 @@ export function nextTick(fn?: () => void): Promise<void> {
 
 // ! job 队列化
 export function queueJob(job: () => void) {
-  if (queue.indexOf(job) === -1) {
+  if (!queue.includes(job)) {
     queue.push(job)
     if (!isFlushing) {
       nextTick(flushJobs)
@@ -23,18 +24,18 @@ export function queueJob(job: () => void) {
 
 // ! cb 队列化
 export function queuePostFlushCb(cb: Function | Function[]) {
-  if (Array.isArray(cb)) {
-    postFlushCbs.push.apply(postFlushCbs, cb) // ! 降维添加数组使用 apply
-  } else {
+  if (!isArray(cb)) {
     postFlushCbs.push(cb)
+  } else {
+    postFlushCbs.push(...cb)
   }
+
   if (!isFlushing) {
     nextTick(flushJobs)
   }
 }
 
-// ! 去重的函数
-const dedupe = (cbs: Function[]): Function[] => Array.from(new Set(cbs))
+const dedupe = (cbs: Function[]): Function[] => [...new Set(cbs)]
 
 // ! 执行 cbs
 export function flushPostFlushCbs() {
@@ -75,11 +76,7 @@ function flushJobs(seenJobs?: JobCountMap) {
         }
       }
     }
-    try {
-      job()
-    } catch (err) {
-      handleError(err, null, ErrorCodes.SCHEDULER)
-    }
+    callWithErrorHandling(job, null, ErrorCodes.SCHEDULER)
   }
   flushPostFlushCbs() // ! 执行 cbs
   isFlushing = false
