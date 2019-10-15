@@ -29,12 +29,13 @@ const nonReactiveValues = new WeakSet<any>()
 const collectionTypes = new Set<Function>([Set, Map, WeakMap, WeakSet])
 const observableValueRE = /^\[object (?:Object|Array|Map|Set|WeakMap|WeakSet)\]$/ // ! 可以设置响应式的六种引用类型
 
+// ! 判断能否监听对象
 const canObserve = (value: any): boolean => {
   return (
-    !value._isVue &&
-    !value._isVNode &&
-    observableValueRE.test(toTypeString(value)) &&
-    !nonReactiveValues.has(value)
+    !value._isVue && // ! 不能时 Vue 组件
+    !value._isVNode && // ! 不能是 VNode
+    observableValueRE.test(toTypeString(value)) && // ! 必须符合正则的类型
+    !nonReactiveValues.has(value) // ! 不能是非响应式集合中的值
   )
 }
 
@@ -44,10 +45,12 @@ type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
+  // ! 已经是只读响应式对象时直接返回它
   if (readonlyToRaw.has(target)) {
     return target
   }
   // target is explicitly marked as readonly by user
+  // ! 存在只读的集合中时使用只读响应式转换
   if (readonlyValues.has(target)) {
     return readonly(target)
   }
@@ -67,7 +70,7 @@ export function readonly<T extends object>(
   // value is a mutable observable, retrieve its original and return
   // a readonly version.
   if (reactiveToRaw.has(target)) {
-    target = reactiveToRaw.get(target) // ! get raw
+    target = reactiveToRaw.get(target) // ! 获取原生目标对象
   }
   return createReactiveObject(
     target,
@@ -86,6 +89,7 @@ function createReactiveObject(
   baseHandlers: ProxyHandler<any>,
   collectionHandlers: ProxyHandler<any>
 ) {
+  // ! 目标不是对象时在生产环境报错，并返回目标对象
   if (!isObject(target)) {
     if (__DEV__) {
       console.warn(`value cannot be made reactive: ${String(target)}`)
@@ -93,15 +97,17 @@ function createReactiveObject(
     return target
   }
   // target already has corresponding Proxy
-  let observed = toProxy.get(target)
+  let observed = toProxy.get(target) // ! 已经是代理对象的直接从 toProxy 中通过 get 获取
   if (observed !== void 0) {
     return observed
   }
   // target is already a Proxy
+  // ! 已经是代理对象的直接从 toRaw 中获取
   if (toRaw.has(target)) {
     return target
   }
   // only a whitelist of value types can be observed.
+  // ! 无法监听的目标直接返回本身
   if (!canObserve(target)) {
     return target
   }
@@ -110,19 +116,21 @@ function createReactiveObject(
   const handlers = collectionTypes.has(target.constructor)
     ? collectionHandlers
     : baseHandlers
-  observed = new Proxy(target, handlers) // ! 代理
+  observed = new Proxy(target, handlers) // ! 生成代理对象
   toProxy.set(target, observed) // ! 保存到 toProxy 的映射表中 target => observed
   toRaw.set(observed, target) // ! 保存到 toRaw 的映射表中 observed => target
   if (!targetMap.has(target)) {
     targetMap.set(target, new Map()) // ! 保存到 targetMap 的映射表中 target => new Map() 收集依赖所用
   }
-  return observed
+  return observed // ! 返回代理对象
 }
 
+// ! 判断是否是响应式对象
 export function isReactive(value: any): boolean {
   return reactiveToRaw.has(value) || readonlyToRaw.has(value)
 }
 
+// ! 判断是否是只读响应式对象
 export function isReadonly(value: any): boolean {
   return readonlyToRaw.has(value)
 }

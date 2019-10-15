@@ -8,17 +8,22 @@ export const refSymbol = Symbol(__DEV__ ? 'refSymbol' : '')
 
 export interface Ref<T = any> {
   [refSymbol]: true // ! 标识
-  value: UnwrapRef<T> // ! 值
+  value: UnwrapRef<T> // ! 值的类型
 }
 
+// ! 转换，对象类型创建响应性对象，原始类型直接返回本身
 const convert = (val: any): any => (isObject(val) ? reactive(val) : val)
 
+// ! 创建 Ref 类型的对象
 export function ref<T extends Ref>(raw: T): T
 export function ref<T>(raw: T): Ref<T>
 export function ref(raw: any) {
+  // ! 已经是 Ref 类型直接返回，不会重复创建
   if (isRef(raw)) {
     return raw
   }
+
+  // ! 转换
   raw = convert(raw)
   // ! 包装成对象，为了 Proxy
   const v = {
@@ -28,13 +33,14 @@ export function ref(raw: any) {
       return raw
     },
     set value(newVal) {
-      raw = convert(newVal)
+      raw = convert(newVal) // ! 新增转换
       trigger(v, OperationTypes.SET, '') // ! 派发 SET 类型
     }
   }
   return v as Ref
 }
 
+// ! 判断是否是 Ref 类型
 export function isRef(v: any): v is Ref {
   return v ? v[refSymbol] === true : false
 }
@@ -45,12 +51,12 @@ export function toRefs<T extends object>(
 ): { [K in keyof T]: Ref<T[K]> } {
   const ret: any = {}
   for (const key in object) {
-    ret[key] = toProxyRef(object, key)
+    ret[key] = toProxyRef(object, key) // ! 把 key 值转换成 Ref 类型
   }
   return ret
 }
 
-// ! 把 key 值转换成 Ref 类型
+// ! 把 key 值转换成 Ref 类型的方法
 function toProxyRef<T extends object, K extends keyof T>(
   object: T,
   key: K
@@ -77,7 +83,10 @@ type BailTypes =
 // Recursively unwraps nested value bindings.
 // ! 递归获取嵌套数据的类型
 export type UnwrapRef<T> = {
+  // ! 如果是 ComputedRef，继续解套
   cRef: T extends ComputedRef<infer V> ? UnwrapRef<V> : T
+
+  // ! 如果是 Ref，继续解套
   ref: T extends Ref<infer V> ? UnwrapRef<V> : T
 
   // ! 如果是数组类型，循环解套

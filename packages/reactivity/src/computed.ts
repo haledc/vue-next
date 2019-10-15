@@ -2,6 +2,7 @@ import { effect, ReactiveEffect, activeReactiveEffectStack } from './effect'
 import { Ref, refSymbol, UnwrapRef } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
 
+// ! 新增 ComputedRef 接口
 export interface ComputedRef<T> extends WritableComputedRef<T> {
   readonly value: UnwrapRef<T>
 }
@@ -15,6 +16,7 @@ export interface WritableComputedOptions<T> {
   set: (v: T) => void
 }
 
+// ! 计算属性
 export function computed<T>(getter: () => T): ComputedRef<T>
 export function computed<T>(
   options: WritableComputedOptions<T>
