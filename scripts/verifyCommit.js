@@ -1,13 +1,16 @@
 // Invoked on the commit-msg git hook by yorkie.
 
 const chalk = require('chalk')
-const msgPath = process.env.GIT_PARAMS
+const msgPath = process.env.GIT_PARAMS // ! 获取 Commit Msg 路径
+// ! 获取 Commit Msg 内容
 const msg = require('fs')
   .readFileSync(msgPath, 'utf-8')
   .trim()
 
+// ! Commit 关键词匹配正则
 const commitRE = /^(revert: )?(feat|fix|docs|dx|style|refactor|perf|test|workflow|build|ci|chore|types|wip)(\(.+\))?: .{1,50}/
 
+// ! 如果关键词匹配不成功，打印错误信息和提示，并关闭进程
 if (!commitRE.test(msg)) {
   console.log()
   console.error(
@@ -23,5 +26,5 @@ if (!commitRE.test(msg)) {
       )}\n\n` +
       chalk.red(`  See .github/commit-convention.md for more details.\n`)
   )
-  process.exit(1)
+  process.exit(1) // ! 关闭进程
 }

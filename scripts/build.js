@@ -33,6 +33,7 @@ const commit = execa.sync('git', ['rev-parse', 'HEAD']).stdout.slice(0, 7)
 
 run()
 
+// ! 打包
 async function run() {
   if (!targets.length) {
     await buildAll(allTargets)
@@ -43,12 +44,14 @@ async function run() {
   }
 }
 
+// ! 打包所有的包
 async function buildAll(targets) {
   for (const target of targets) {
     await build(target)
   }
 }
 
+// ! 打包的方法
 async function build(target) {
   const pkgDir = path.resolve(`packages/${target}`)
   const pkg = require(`${pkgDir}/package.json`)
@@ -112,6 +115,7 @@ async function build(target) {
   }
 }
 
+// ! 检查所有包的最小尺寸，并打印其结果
 function checkAllSizes(targets) {
   console.log()
   for (const target of targets) {
@@ -120,16 +124,18 @@ function checkAllSizes(targets) {
   console.log()
 }
 
+// ! 检查最小包的尺寸，并打印结果
 function checkSize(target) {
-  const pkgDir = path.resolve(`packages/${target}`)
-  const esmProdBuild = `${pkgDir}/dist/${target}.global.prod.js`
+  const pkgDir = path.resolve(`packages/${target}`) // ! 包的路径
+  const esmProdBuild = `${pkgDir}/dist/${target}.global.prod.js` // ! 编译后最小包路径
   if (fs.existsSync(esmProdBuild)) {
-    const file = fs.readFileSync(esmProdBuild)
-    const minSize = (file.length / 1024).toFixed(2) + 'kb'
+    const file = fs.readFileSync(esmProdBuild) // ! 读取文件
+    const minSize = (file.length / 1024).toFixed(2) + 'kb' // ! 原始尺寸
     const gzipped = gzipSync(file)
-    const gzippedSize = (gzipped.length / 1024).toFixed(2) + 'kb'
+    const gzippedSize = (gzipped.length / 1024).toFixed(2) + 'kb' // ! gzip 尺寸
     const compressed = compress(file)
-    const compressedSize = (compressed.length / 1024).toFixed(2) + 'kb'
+    const compressedSize = (compressed.length / 1024).toFixed(2) + 'kb' // ! 压缩尺寸
+    // ! 打印结果
     console.log(
       `${chalk.gray(
         chalk.bold(target)
