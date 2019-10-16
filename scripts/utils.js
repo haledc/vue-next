@@ -1,4 +1,5 @@
 const fs = require('fs')
+const chalk = require('chalk')
 
 // ! 筛选 packages 中的包文件夹名称
 const targets = (exports.targets = fs.readdirSync('packages').filter(f => {
@@ -33,6 +34,14 @@ exports.fuzzyMatchTarget = (partialTargets, includeAllMatching) => {
   if (matched.length) {
     return matched
   } else {
-    throw new Error(`Target ${partialTargets} not found!`)
+    console.log()
+    console.error(
+      `  ${chalk.bgRed.white(' ERROR ')} ${chalk.red(
+        `Target ${chalk.underline(partialTargets)} not found!`
+      )}`
+    )
+    console.log()
+
+    process.exit(1)
   }
 }

@@ -95,7 +95,7 @@ function run(effect: ReactiveEffect, fn: Function, args: any[]): any {
   if (!effect.active) {
     return fn(...args) // ! 执行函数，触发函数里面数据的 getter，收集依赖
   }
-  if (activeReactiveEffectStack.indexOf(effect) === -1) {
+  if (!activeReactiveEffectStack.includes(effect)) {
     cleanup(effect)
     try {
       activeReactiveEffectStack.push(effect) // ! effect 放入到收集栈中
