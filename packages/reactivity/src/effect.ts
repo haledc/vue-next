@@ -137,30 +137,31 @@ export function track(
     return
   }
   const effect = activeReactiveEffectStack[activeReactiveEffectStack.length - 1]
-  if (effect) {
-    if (type === OperationTypes.ITERATE) {
-      key = ITERATE_KEY
-    }
-    let depsMap = targetMap.get(target) // ! 获取依赖 depsMap
-    if (depsMap === void 0) {
-      targetMap.set(target, (depsMap = new Map())) // ! 没有获取到依赖，创建依赖 depsMap
-    }
-    let dep = depsMap.get(key!) // ! 获取 key 对应的 dep
-    if (dep === void 0) {
-      depsMap.set(key!, (dep = new Set())) // ! 没有获取到 dep，创建 dep
-    }
-    if (!dep.has(effect)) {
-      dep.add(effect) // ! dep 添加 effect
-      effect.deps.push(dep) // ! effect 的 deps 添加 dep 循环引用
-      // ! 生产环境执行 track 监听器
-      if (__DEV__ && effect.onTrack) {
-        effect.onTrack({
-          effect,
-          target,
-          type,
-          key
-        })
-      }
+  if (!effect) {
+    return
+  }
+  if (type === OperationTypes.ITERATE) {
+    key = ITERATE_KEY
+  }
+  let depsMap = targetMap.get(target) // ! 获取依赖 depsMap
+  if (depsMap === void 0) {
+    targetMap.set(target, (depsMap = new Map())) // ! 没有获取到依赖，创建 depsMap
+  }
+  let dep = depsMap.get(key!) // ! 获取 key 对应的 dep
+  if (dep === void 0) {
+    depsMap.set(key!, (dep = new Set())) // ! 没有获取到 dep，创建 dep
+  }
+  if (!dep.has(effect)) {
+    dep.add(effect) // ! dep 添加 effect
+    effect.deps.push(dep) // ! effect 的 deps 添加 dep 循环引用
+    // ! 生产环境执行 track 监听器
+    if (__DEV__ && effect.onTrack) {
+      effect.onTrack({
+        effect,
+        target,
+        type,
+        key
+      })
     }
   }
 }
