@@ -4,10 +4,8 @@ import { isObject } from '@vue/shared'
 import { reactive } from './reactive'
 import { ComputedRef } from './computed'
 
-export const refSymbol = Symbol(__DEV__ ? 'refSymbol' : '')
-
 export interface Ref<T = any> {
-  [refSymbol]: true // ! 标识
+  _isRef: true // ! 标识
   value: UnwrapRef<T> // ! 值的类型
 }
 
@@ -27,7 +25,7 @@ export function ref(raw: any) {
   raw = convert(raw)
   // ! 包装成对象，为了 Proxy
   const v = {
-    [refSymbol]: true, // ! Ref 类型标识
+    _isRef: true, // ! Ref 类型标识
     get value() {
       track(v, OperationTypes.GET, '') // ! 追踪 GET 类型
       return raw
@@ -42,7 +40,7 @@ export function ref(raw: any) {
 
 // ! 判断是否是 Ref 类型
 export function isRef(v: any): v is Ref {
-  return v ? v[refSymbol] === true : false
+  return v ? v._isRef === true : false
 }
 
 // ! 把普通对象的 key 值转换成 Ref 类型
@@ -62,7 +60,7 @@ function toProxyRef<T extends object, K extends keyof T>(
   key: K
 ): Ref<T[K]> {
   return {
-    [refSymbol]: true,
+    _isRef: true,
     get value(): any {
       return object[key]
     },

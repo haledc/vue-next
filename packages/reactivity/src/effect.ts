@@ -35,7 +35,7 @@ export interface DebuggerEvent {
 }
 
 // ! 依赖 effect 收集栈
-export const activeReactiveEffectStack: ReactiveEffect[] = []
+export const effectStack: ReactiveEffect[] = []
 
 export const ITERATE_KEY = Symbol('iterate')
 
@@ -95,13 +95,13 @@ function run(effect: ReactiveEffect, fn: Function, args: any[]): any {
   if (!effect.active) {
     return fn(...args) // ! 执行函数，触发函数里面数据的 getter，收集依赖
   }
-  if (!activeReactiveEffectStack.includes(effect)) {
+  if (!effectStack.includes(effect)) {
     cleanup(effect)
     try {
-      activeReactiveEffectStack.push(effect) // ! effect 放入到收集栈中
+      effectStack.push(effect) // ! effect 放入到收集栈中
       return fn(...args) // ! 执行一次，收集依赖
     } finally {
-      activeReactiveEffectStack.pop() // ! 最后在收集栈中删除这个 effect
+      effectStack.pop() // ! 最后在收集栈中删除这个 effect
     }
   }
 }
@@ -133,13 +133,10 @@ export function track(
   type: OperationTypes,
   key?: string | symbol
 ) {
-  if (!shouldTrack) {
+  if (!shouldTrack || effectStack.length === 0) {
     return
   }
-  const effect = activeReactiveEffectStack[activeReactiveEffectStack.length - 1]
-  if (!effect) {
-    return
-  }
+  const effect = effectStack[effectStack.length - 1]
   if (type === OperationTypes.ITERATE) {
     key = ITERATE_KEY
   }

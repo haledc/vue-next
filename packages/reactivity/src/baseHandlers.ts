@@ -13,9 +13,9 @@ const builtInSymbols = new Set(
 
 // ! 生成 getter ，根据参数是否生成只读的 getter
 function createGetter(isReadonly: boolean) {
-  // ! 拦截属性的读取
-  return function get(target: any, key: string | symbol, receiver: any) {
-    const res = Reflect.get(target, key, receiver) // ! 获取原生返回值
+  return function get(target: any, key: string | symbol) {
+    // not using Reflect.get here for perf reasons
+    const res = target[key] // ! 获取原生返回值
 
     // ! 是内置的 Symbol 直接返回原生值
     if (isSymbol(key) && builtInSymbols.has(key)) {
