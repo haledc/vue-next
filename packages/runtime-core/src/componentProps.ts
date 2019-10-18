@@ -26,6 +26,7 @@ export type ComponentObjectPropsOptions<P = Data> = {
 
 export type Prop<T> = PropOptions<T> | PropType<T>
 
+// ! props 选项设置
 interface PropOptions<T = any> {
   type?: PropType<T> | true | null
   required?: boolean
@@ -94,6 +95,7 @@ type NormalizedPropsOptions = Record<string, NormalizedProp>
 //   - if has declared props: put declared ones in `props`, the rest in `attrs`
 //   - else: everything goes in `props`.
 
+// ! 解析 props
 export function resolveProps(
   instance: ComponentInternalInstance,
   rawProps: any,
@@ -198,6 +200,7 @@ export function resolveProps(
 
 const normalizationMap = new WeakMap()
 
+// ! 规范化 props 选项
 function normalizePropsOptions(
   raw: ComponentPropsOptions | void
 ): NormalizedPropsOptions | null {
@@ -277,6 +280,7 @@ type AssertionResult = {
   expectedType: string
 }
 
+// ! 校验 props
 function validateProp(
   name: string,
   value: any,

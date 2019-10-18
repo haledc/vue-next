@@ -35,16 +35,19 @@ import {
 
 export type Data = { [key: string]: unknown }
 
+// ! 函数组件接口
 export interface FunctionalComponent<P = {}> {
   (props: P, ctx: SetupContext): VNodeChild
   props?: ComponentPropsOptions<P>
   displayName?: string
 }
 
+// ! 组件类型
 export type Component = ComponentOptions | FunctionalComponent
 
 type LifecycleHook = Function[] | null
 
+// ! 生命周期函数枚举
 export const enum LifecycleHooks {
   BEFORE_CREATE = 'bc',
   CREATED = 'c',
@@ -71,6 +74,7 @@ export interface SetupContext {
 
 export type RenderFunction = () => VNodeChild
 
+// ! 组件内部实例接口
 export interface ComponentInternalInstance {
   type: FunctionalComponent | ComponentOptions
   parent: ComponentInternalInstance | null
@@ -126,6 +130,7 @@ export interface ComponentInternalInstance {
 
 const emptyAppContext = createAppContext()
 
+// ! 创建组件实例
 export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null
@@ -212,7 +217,7 @@ export function createComponentInstance(
     }
   }
 
-  instance.root = parent ? parent.root : instance
+  instance.root = parent ? parent.root : instance // ! 设置根组件
   return instance
 }
 
@@ -239,6 +244,7 @@ export function validateComponentName(name: string, config: AppConfig) {
   }
 }
 
+// ! 启动状态组件
 export function setupStatefulComponent(
   instance: ComponentInternalInstance,
   parentSuspense: SuspenseBoundary | null
@@ -264,10 +270,11 @@ export function setupStatefulComponent(
   // 2. create props proxy
   // the propsProxy is a reactive AND readonly proxy to the actual props.
   // it will be updated in resolveProps() on updates before render
-  const propsProxy = (instance.propsProxy = readonly(instance.props))
+  const propsProxy = (instance.propsProxy = readonly(instance.props)) // ! props
   // 3. call setup()
   const { setup } = Component
   if (setup) {
+    // ! 上下文
     const setupContext = (instance.setupContext =
       setup.length > 1 ? createSetupContext(instance) : null)
 
@@ -277,7 +284,7 @@ export function setupStatefulComponent(
       setup,
       instance,
       ErrorCodes.SETUP_FUNCTION,
-      [propsProxy, setupContext]
+      [propsProxy, setupContext] // ! 传入 props 和 上下文参数
     )
     currentInstance = null
     currentSuspense = null
@@ -295,7 +302,7 @@ export function setupStatefulComponent(
       }
       return
     } else {
-      handleSetupResult(instance, setupResult, parentSuspense)
+      handleSetupResult(instance, setupResult, parentSuspense) // ! 处理 setup 结果
     }
   } else {
     finishComponentSetup(instance, parentSuspense)
@@ -309,7 +316,7 @@ export function handleSetupResult(
 ) {
   if (isFunction(setupResult)) {
     // setup returned an inline render function
-    instance.render = setupResult as RenderFunction
+    instance.render = setupResult as RenderFunction // ! 函数赋值为 render
   } else if (isObject(setupResult)) {
     if (__DEV__ && isVNode(setupResult)) {
       warn(
@@ -319,7 +326,7 @@ export function handleSetupResult(
     }
     // setup returned bindings.
     // assuming a render function compiled from template is present.
-    instance.renderContext = reactive(setupResult)
+    instance.renderContext = reactive(setupResult) // ! 转换成响应式
   } else if (__DEV__ && setupResult !== undefined) {
     warn(
       `setup() should return an object. Received: ${
@@ -416,6 +423,7 @@ const SetupProxyHandlers: { [key: string]: ProxyHandler<any> } = {}
   }
 })
 
+// ! 创建启动上下文参数
 function createSetupContext(instance: ComponentInternalInstance): SetupContext {
   const context = {
     // attrs, slots & refs are non-reactive, but they need to always expose

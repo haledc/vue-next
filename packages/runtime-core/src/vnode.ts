@@ -57,6 +57,7 @@ export type NormalizedChildren<HostNode = any, HostElement = any> =
   | RawSlots
   | null
 
+// ! VNode 接口
 export interface VNode<HostNode = any, HostElement = any> {
   _isVNode: true
   type: VNodeTypes
@@ -132,6 +133,7 @@ export function isVNode(value: any): value is VNode {
   return value ? value._isVNode === true : false
 }
 
+// ! 创建 VNode
 export function createVNode(
   type: VNodeTypes,
   props: { [key: string]: any } | null = null,
@@ -146,7 +148,7 @@ export function createVNode(
       props = extend({}, props)
     }
     if (props.class != null) {
-      props.class = normalizeClass(props.class)
+      props.class = normalizeClass(props.class) // ! 规范化 class
     }
     let { style } = props
     if (style != null) {
@@ -155,11 +157,12 @@ export function createVNode(
       if (isReactive(style) && !isArray(style)) {
         style = extend({}, style)
       }
-      props.style = normalizeStyle(style)
+      props.style = normalizeStyle(style) // ! 规范化 style
     }
   }
 
   // encode the vnode type information into a bitmap
+  // ! 确定 shapeFlag
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
     : isObject(type)
@@ -187,7 +190,7 @@ export function createVNode(
     appContext: null
   }
 
-  normalizeChildren(vnode, children)
+  normalizeChildren(vnode, children) // ! 规范化 children
 
   // presence of a patch flag indicates this node needs patching on updates.
   // component nodes also should always be patched, because even if the

@@ -144,22 +144,28 @@ export function h(
   propsOrChildren?: any,
   children?: any
 ): VNode {
+  // ! 如果只有两个参数时，判断第二个参数是 props 还是 children
   if (arguments.length === 2) {
+    // ! 如果它是一个对象而不是数组，说明是 props
     if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {
       // single vnode without props
+      // ! 如果它是一个 VNode
       if (isVNode(propsOrChildren)) {
-        return createVNode(type, null, [propsOrChildren])
+        return createVNode(type, null, [propsOrChildren]) // ! 把 VNode 作为到 children 的元素创建 VNode
       }
       // props without children
-      return createVNode(type, propsOrChildren)
+      return createVNode(type, propsOrChildren) // ! 通过 type 和 props 创建 VNode
     } else {
       // omit props
-      return createVNode(type, null, propsOrChildren)
+      // ! 其他情况，作为 children
+      return createVNode(type, null, propsOrChildren) // ! 通过 type 和 children 创建 VNode，此时 props 是 null
     }
+    // ! 有一个或者三个参数时，一般是三个参数
   } else {
+    // ! 如果第三个参数是 VNode，把 VNode 作为到 children 的元素
     if (isVNode(children)) {
       children = [children]
     }
-    return createVNode(type, propsOrChildren, children)
+    return createVNode(type, propsOrChildren, children) // ! 通过 type props 和 children 创建 VNode
   }
 }
