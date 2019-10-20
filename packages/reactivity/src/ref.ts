@@ -92,9 +92,6 @@ export type UnwrapRef<T> = {
 
   // ! 如果是对象类型，遍历解套
   object: { [K in keyof T]: UnwrapRef<T[K]> }
-
-  // ! 否则，停止解套
-  stop: T
 }[T extends ComputedRef<any>
   ? 'cRef'
   : T extends Ref
@@ -102,5 +99,5 @@ export type UnwrapRef<T> = {
     : T extends Array<any>
       ? 'array'
       : T extends BailTypes
-        ? 'stop' // bail out on types that shouldn't be unwrapped
-        : T extends object ? 'object' : 'stop']
+        ? 'ref' // bail out on types that shouldn't be unwrapped
+        : T extends object ? 'object' : 'ref']

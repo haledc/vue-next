@@ -6,6 +6,7 @@ import {
 } from './collectionHandlers'
 import { ReactiveEffect } from './effect'
 import { UnwrapRef, Ref } from './ref'
+import { makeMap } from '@vue/shared'
 
 // The main WeakMap that stores {target -> key -> dep} connections.
 // Conceptually, it's easier to think of a dependency as a Dep class
@@ -27,14 +28,18 @@ const readonlyValues = new WeakSet<any>()
 const nonReactiveValues = new WeakSet<any>()
 
 const collectionTypes = new Set<Function>([Set, Map, WeakMap, WeakSet])
-const observableValueRE = /^\[object (?:Object|Array|Map|Set|WeakMap|WeakSet)\]$/ // ! 可以设置响应式的六种引用类型
+const isObservableType = /*#__PURE__*/ makeMap(
+  ['Object', 'Array', 'Map', 'Set', 'WeakMap', 'WeakSet'] // ! 可以设置响应式的六种引用类型
+    .map(t => `[object ${t}]`)
+    .join(',')
+)
 
 // ! 判断能否监听对象
 const canObserve = (value: any): boolean => {
   return (
     !value._isVue && // ! 不能时 Vue 组件
     !value._isVNode && // ! 不能是 VNode
-    observableValueRE.test(toTypeString(value)) && // ! 必须符合正则的类型
+    isObservableType(toTypeString(value)) && // ! 必须符合正则的类型
     !nonReactiveValues.has(value) // ! 不能是非响应式集合中的值
   )
 }
