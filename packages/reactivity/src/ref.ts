@@ -5,7 +5,7 @@ import { reactive } from './reactive'
 import { ComputedRef } from './computed'
 
 export interface Ref<T = any> {
-  _isRef: true // ! 标识
+  _isRef: true // ! Ref 类型标识
   value: UnwrapRef<T> // ! 值的类型
 }
 
@@ -27,12 +27,12 @@ export function ref(raw: any) {
   const v = {
     _isRef: true, // ! Ref 类型标识
     get value() {
-      track(v, OperationTypes.GET, '') // ! 追踪 GET 类型
+      track(v, OperationTypes.GET, '') // ! 收集依赖
       return raw
     },
     set value(newVal) {
       raw = convert(newVal) // ! 新增转换
-      trigger(v, OperationTypes.SET, '') // ! 派发 SET 类型
+      trigger(v, OperationTypes.SET, '') // ! 触发依赖执行
     }
   }
   return v as Ref

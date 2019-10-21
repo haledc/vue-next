@@ -34,12 +34,12 @@ const isObservableType = /*#__PURE__*/ makeMap(
     .join(',')
 )
 
-// ! 判断能否监听对象
+// ! 判断能否观察
 const canObserve = (value: any): boolean => {
   return (
     !value._isVue && // ! 不能时 Vue 组件
     !value._isVNode && // ! 不能是 VNode
-    isObservableType(toTypeString(value)) && // ! 必须符合正则的类型
+    isObservableType(toTypeString(value)) && // ! 必须符合设置的类型
     !nonReactiveValues.has(value) // ! 不能是非响应式集合中的值
   )
 }
@@ -121,13 +121,13 @@ function createReactiveObject(
   const handlers = collectionTypes.has(target.constructor)
     ? collectionHandlers
     : baseHandlers
-  observed = new Proxy(target, handlers) // ! 生成代理对象
+  observed = new Proxy(target, handlers) // ! 生成响应式对象
   toProxy.set(target, observed) // ! 保存到 toProxy 的映射表中 target => observed
   toRaw.set(observed, target) // ! 保存到 toRaw 的映射表中 observed => target
   if (!targetMap.has(target)) {
     targetMap.set(target, new Map()) // ! 保存到 targetMap 的映射表中 target => new Map() 收集依赖所用
   }
-  return observed // ! 返回代理对象
+  return observed // ! 返回响应式对象
 }
 
 // ! 判断是否是响应式对象

@@ -52,8 +52,10 @@ export function effect<T = any>(
     fn = fn.raw
   }
   const effect = createReactiveEffect(fn, options)
+
+  // ! 创建好之后先执行一次，收集依赖（除非设置了 lazy）
   if (!options.lazy) {
-    effect() // ! lazy 为 flase，先执行一次
+    effect()
   }
   return effect
 }
@@ -93,20 +95,20 @@ function createReactiveEffect<T = any>(
 // ! 执行函数 fn 的函数
 function run(effect: ReactiveEffect, fn: Function, args: any[]): any {
   if (!effect.active) {
-    return fn(...args) // ! 执行函数，触发函数里面数据的 getter，收集依赖
+    return fn(...args) // ! 执行函数，触发函数里面对象的 getter，收集依赖
   }
   if (!effectStack.includes(effect)) {
-    cleanup(effect)
+    cleanup(effect) // ! 清除 effect 之前所有的 dep
     try {
-      effectStack.push(effect) // ! effect 放入到收集栈中
-      return fn(...args) // ! 执行一次，收集依赖
+      effectStack.push(effect) // ! 先把 effect 放入到收集栈中，方便收集
+      return fn(...args) // ! 先执行一次，触发函数里面对象的 getter, 收集依赖
     } finally {
-      effectStack.pop() // ! 最后在收集栈中删除这个 effect
+      effectStack.pop() // ! 依赖收集完成后，在收集栈中删除这个 effect
     }
   }
 }
 
-// ! 清除 effect 的所有依赖
+// ! 清除 effect 的所有 dep
 function cleanup(effect: ReactiveEffect) {
   const { deps } = effect
   if (deps.length) {
@@ -117,17 +119,20 @@ function cleanup(effect: ReactiveEffect) {
   }
 }
 
+// ! 是否收集依赖
 let shouldTrack = true
 
+// ! 停止收集
 export function pauseTracking() {
   shouldTrack = false
 }
 
+// ! 恢复收集
 export function resumeTracking() {
   shouldTrack = true
 }
 
-// ! 追踪
+// ! 收集依赖
 export function track(
   target: any,
   type: OperationTypes,
@@ -136,21 +141,21 @@ export function track(
   if (!shouldTrack || effectStack.length === 0) {
     return
   }
-  const effect = effectStack[effectStack.length - 1]
+  const effect = effectStack[effectStack.length - 1] // ! 从收集栈中获取依赖 effect
   if (type === OperationTypes.ITERATE) {
-    key = ITERATE_KEY
+    key = ITERATE_KEY // ! 迭代的依赖对应的 key 统一为 ITERATE_KEY
   }
-  let depsMap = targetMap.get(target) // ! 获取依赖 depsMap
+  let depsMap = targetMap.get(target) // ! 获取对象的依赖映射 depsMap
   if (depsMap === void 0) {
-    targetMap.set(target, (depsMap = new Map())) // ! 没有获取到依赖，创建 depsMap
+    targetMap.set(target, (depsMap = new Map())) // ! 没有获取到（第一次），先创建 depsMap
   }
-  let dep = depsMap.get(key!) // ! 获取 key 对应的 dep
+  let dep = depsMap.get(key!) // ! 获取 key 对应的 dep（依赖集合）
   if (dep === void 0) {
-    depsMap.set(key!, (dep = new Set())) // ! 没有获取到 dep，创建 dep
+    depsMap.set(key!, (dep = new Set())) // ! 没有获取到（第一次），创建 dep
   }
   if (!dep.has(effect)) {
     dep.add(effect) // ! dep 添加 effect
-    effect.deps.push(dep) // ! effect 的 deps 添加 dep 循环引用
+    effect.deps.push(dep) // ! effect 的 deps 也添加 dep（循环引用）
     // ! 生产环境执行 track 监听器
     if (__DEV__ && effect.onTrack) {
       effect.onTrack({
@@ -163,14 +168,14 @@ export function track(
   }
 }
 
-// ! 派发
+// ! 触发依赖执行
 export function trigger(
   target: any,
   type: OperationTypes,
   key?: string | symbol,
   extraInfo?: any
 ) {
-  const depsMap = targetMap.get(target) // ! 获取依赖
+  const depsMap = targetMap.get(target) // ! 获取 target 的依赖
 
   // ! 没有依赖直接返回
   if (depsMap === void 0) {
@@ -179,20 +184,22 @@ export function trigger(
   }
   const effects = new Set<ReactiveEffect>() // ! 创建依赖集合
   const computedRunners = new Set<ReactiveEffect>() // ! 创建计算属性依赖集合
-  // ! 是清除类型时
+  // ! 如果是清除类型时
   if (type === OperationTypes.CLEAR) {
     // collection being cleared, trigger all effects for target
     depsMap.forEach(dep => {
-      addRunners(effects, computedRunners, dep) // ! 把 dep 里面的 effect 添加到相应的集合中
+      addRunners(effects, computedRunners, dep) // ! 把所有 dep 里面的 effect 添加到对应的集合中
     })
   } else {
     // schedule runs for SET | ADD | DELETE
     if (key !== void 0) {
-      addRunners(effects, computedRunners, depsMap.get(key))
+      addRunners(effects, computedRunners, depsMap.get(key)) // ! 把对应 key 的 effect 添加到对应的集合中
     }
     // also run for iteration key on ADD | DELETE
     if (type === OperationTypes.ADD || type === OperationTypes.DELETE) {
       const iterationKey = Array.isArray(target) ? 'length' : ITERATE_KEY
+
+      // ! 把迭代的 effect 添加到对应的集合中
       addRunners(effects, computedRunners, depsMap.get(iterationKey))
     }
   }
@@ -202,8 +209,8 @@ export function trigger(
   }
   // Important: computed effects must be run first so that computed getters
   // can be invalidated before any normal effects that depend on them are run.
-  computedRunners.forEach(run)
-  effects.forEach(run)
+  computedRunners.forEach(run) // ! 执行计算属性的依赖
+  effects.forEach(run) // ! 执行依赖
 }
 
 // ! 添加执行依赖到集合中

@@ -11,12 +11,12 @@ const builtInSymbols = new Set(
     .filter(isSymbol)
 )
 
-// ! 生成 getter ，根据参数是否生成只读的 getter
+// ! 生成 getter，根据参数是否生成只读的 getter
 function createGetter(isReadonly: boolean) {
   return function get(target: any, key: string | symbol, receiver: any) {
-    const res = Reflect.get(target, key, receiver) // ! 获取原生返回值
+    const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
 
-    // ! 是内置的 Symbol 直接返回原生值
+    // ! 是内置的 Symbol 直接返回原始数据值
     if (isSymbol(key) && builtInSymbols.has(key)) {
       return res
     }
@@ -26,9 +26,9 @@ function createGetter(isReadonly: boolean) {
       return res.value
     }
 
-    track(target, OperationTypes.GET, key) // ! 追踪
+    track(target, OperationTypes.GET, key) // ! 收集依赖
 
-    // ! 对象类型进行深度监听
+    // ! 返回值，对象类型进行深度监听
     return isObject(res)
       ? isReadonly
         ? // need to lazy access readonly and reactive here to avoid
@@ -53,16 +53,16 @@ function set(
     return true
   }
   const hadKey = hasOwn(target, key)
-  const result = Reflect.set(target, key, value, receiver) // ! 获取原生返回值
+  const result = Reflect.set(target, key, value, receiver) // ! 获取原始数据返回值
   // don't trigger if target is something up in the prototype chain of original
   if (target === toRaw(receiver)) {
     /* istanbul ignore else */
     if (__DEV__) {
       const extraInfo = { oldValue, newValue: value }
       if (!hadKey) {
-        trigger(target, OperationTypes.ADD, key, extraInfo) // ! 派发 ADD 类型
+        trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行
       } else if (value !== oldValue) {
-        trigger(target, OperationTypes.SET, key, extraInfo) // ! 派发 SET 类型
+        trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖执行
       }
     } else {
       if (!hadKey) {
@@ -83,7 +83,7 @@ function deleteProperty(target: any, key: string | symbol): boolean {
   if (result && hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.DELETE, key, { oldValue }) // ! 派发 DELETE 类型
+      trigger(target, OperationTypes.DELETE, key, { oldValue }) // ! 触发依赖执行
     } else {
       trigger(target, OperationTypes.DELETE, key)
     }
@@ -94,13 +94,13 @@ function deleteProperty(target: any, key: string | symbol): boolean {
 // ! 拦截 HasProperty 操作，比如使用 in 运算符
 function has(target: any, key: string | symbol): boolean {
   const result = Reflect.has(target, key)
-  track(target, OperationTypes.HAS, key) // ! 派发 HAS 类型
+  track(target, OperationTypes.HAS, key) // ! 收集依赖
   return result
 }
 
 // ! 拦截自身属性的读取操作
 function ownKeys(target: any): (string | number | symbol)[] {
-  track(target, OperationTypes.ITERATE) // ! 派发 ITERATE 类型
+  track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
   return Reflect.ownKeys(target)
 }
 
@@ -113,7 +113,7 @@ export const mutableHandlers: ProxyHandler<any> = {
   ownKeys
 }
 
-// ! 只读的 handlers，在拦截修改、新值、删除时特殊处理下
+// ! 只读的 handlers，在拦截修改、新增、删除时特殊处理下
 export const readonlyHandlers: ProxyHandler<any> = {
   get: createGetter(true),
 
