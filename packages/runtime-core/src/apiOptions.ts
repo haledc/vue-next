@@ -2,7 +2,8 @@ import {
   ComponentInternalInstance,
   Data,
   Component,
-  SetupContext
+  SetupContext,
+  RenderFunction
 } from './component'
 import {
   isFunction,
@@ -29,10 +30,13 @@ import {
   DebuggerHook,
   ErrorCapturedHook
 } from './apiLifecycle'
-import { reactive } from '@vue/reactivity'
+import {
+  reactive,
+  ComputedGetter,
+  WritableComputedOptions
+} from '@vue/reactivity'
 import { ComponentObjectPropsOptions, ExtractPropTypes } from './componentProps'
 import { Directive } from './directives'
-import { VNodeChild } from './vnode'
 import { ComponentPublicInstance } from './componentProxy'
 import { warn } from './warning'
 
@@ -47,7 +51,7 @@ interface ComponentOptionsBase<
     this: null,
     props: Props,
     ctx: SetupContext
-  ) => RawBindings | (() => VNodeChild) | void
+  ) => RawBindings | RenderFunction | void
   name?: string
   template?: string
   // Note: we are intentionally using the signature-less `Function` type here
@@ -100,14 +104,10 @@ export type ComponentOptions =
 // TODO legacy component definition also supports constructors with .options
 type LegacyComponent = ComponentOptions
 
-export interface ComputedOptions {
-  [key: string]:
-    | Function
-    | {
-        get: Function
-        set: Function
-      }
-}
+export type ComputedOptions = Record<
+  string,
+  ComputedGetter<any> | WritableComputedOptions<any>
+>
 
 export interface MethodOptions {
   [key: string]: Function

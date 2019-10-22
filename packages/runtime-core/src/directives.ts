@@ -5,14 +5,14 @@ const comp = resolveComponent('comp')
 const foo = resolveDirective('foo')
 const bar = resolveDirective('bar')
 
-return applyDirectives(h(comp), [
+return withDirectives(h(comp), [
   [foo, this.x],
   [bar, this.y]
 ])
 */
 
 import { VNode } from './vnode'
-import { isArray, isFunction, EMPTY_OBJ, makeMap } from '@vue/shared'
+import { isFunction, EMPTY_OBJ, makeMap } from '@vue/shared'
 import { warn } from './warning'
 import { ComponentInternalInstance } from './component'
 import { currentRenderingInstance } from './componentRenderUtils'
@@ -129,7 +129,7 @@ export function withDirectives(vnode: VNode, directives: DirectiveArguments) {
       applyDirective(vnode.props, instance, dir, value, arg, modifiers)
     }
   } else if (__DEV__) {
-    warn(`applyDirectives can only be used inside render functions.`)
+    warn(`withDirectives can only be used inside render functions.`)
   }
   return vnode
 }
@@ -140,17 +140,8 @@ export function invokeDirectiveHook(
   vnode: VNode,
   prevVNode: VNode | null = null
 ) {
-  const args = [vnode, prevVNode]
-  if (isArray(hook)) {
-    for (let i = 0; i < hook.length; i++) {
-      callWithAsyncErrorHandling(
-        hook[i],
-        instance,
-        ErrorCodes.DIRECTIVE_HOOK,
-        args
-      )
-    }
-  } else if (isFunction(hook)) {
-    callWithAsyncErrorHandling(hook, instance, ErrorCodes.DIRECTIVE_HOOK, args)
-  }
+  callWithAsyncErrorHandling(hook, instance, ErrorCodes.DIRECTIVE_HOOK, [
+    vnode,
+    prevVNode
+  ])
 }

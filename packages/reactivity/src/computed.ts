@@ -11,23 +11,26 @@ export interface WritableComputedRef<T> extends Ref<T> {
   readonly effect: ReactiveEffect<T>
 }
 
+export type ComputedGetter<T> = () => T
+export type ComputedSetter<T> = (v: T) => void
+
 export interface WritableComputedOptions<T> {
-  get: () => T
-  set: (v: T) => void
+  get: ComputedGetter<T>
+  set: ComputedSetter<T>
 }
 
 // ! 计算属性
-export function computed<T>(getter: () => T): ComputedRef<T>
+export function computed<T>(getter: ComputedGetter<T>): ComputedRef<T>
 export function computed<T>(
   options: WritableComputedOptions<T>
 ): WritableComputedRef<T>
 export function computed<T>(
-  getterOrOptions: (() => T) | WritableComputedOptions<T>
+  getterOrOptions: ComputedGetter<T> | WritableComputedOptions<T>
 ): any {
   const isReadonly = isFunction(getterOrOptions)
   // ! 获取 getter
   const getter = isReadonly
-    ? (getterOrOptions as (() => T))
+    ? (getterOrOptions as ComputedGetter<T>)
     : (getterOrOptions as WritableComputedOptions<T>).get
 
   // ! 获取 setter

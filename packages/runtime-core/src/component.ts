@@ -20,7 +20,6 @@ import {
   isFunction,
   capitalize,
   NOOP,
-  isArray,
   isObject,
   NO,
   makeMap,
@@ -64,7 +63,7 @@ export const enum LifecycleHooks {
   ERROR_CAPTURED = 'ec'
 }
 
-type Emit = ((event: string, ...args: unknown[]) => void)
+export type Emit = ((event: string, ...args: unknown[]) => void)
 
 export interface SetupContext {
   attrs: Data
@@ -201,23 +200,12 @@ export function createComponentInstance(
       const props = instance.vnode.props || EMPTY_OBJ
       const handler = props[`on${event}`] || props[`on${capitalize(event)}`]
       if (handler) {
-        if (isArray(handler)) {
-          for (let i = 0; i < handler.length; i++) {
-            callWithAsyncErrorHandling(
-              handler[i],
-              instance,
-              ErrorCodes.COMPONENT_EVENT_HANDLER,
-              args
-            )
-          }
-        } else {
-          callWithAsyncErrorHandling(
-            handler,
-            instance,
-            ErrorCodes.COMPONENT_EVENT_HANDLER,
-            args
-          )
-        }
+        callWithAsyncErrorHandling(
+          handler,
+          instance,
+          ErrorCodes.COMPONENT_EVENT_HANDLER,
+          args
+        )
       }
     }
   }
@@ -421,7 +409,7 @@ function finishComponentSetup(
 export const SetupProxySymbol = Symbol()
 
 const SetupProxyHandlers: { [key: string]: ProxyHandler<any> } = {}
-;['attrs', 'slots', 'refs'].forEach((type: string) => {
+;['attrs', 'slots'].forEach((type: string) => {
   SetupProxyHandlers[type] = {
     get: (instance, key) => instance[type][key],
     has: (instance, key) => key === SetupProxySymbol || key in instance[type],
@@ -437,12 +425,11 @@ const SetupProxyHandlers: { [key: string]: ProxyHandler<any> } = {}
 // ! 创建启动上下文参数
 function createSetupContext(instance: ComponentInternalInstance): SetupContext {
   const context = {
-    // attrs, slots & refs are non-reactive, but they need to always expose
+    // attrs & slots are non-reactive, but they need to always expose
     // the latest values (instance.xxx may get replaced during updates) so we
     // need to expose them through a proxy
     attrs: new Proxy(instance, SetupProxyHandlers.attrs),
     slots: new Proxy(instance, SetupProxyHandlers.slots),
-    refs: new Proxy(instance, SetupProxyHandlers.refs),
     emit: instance.emit
   }
   return __DEV__ ? Object.freeze(context) : context

@@ -89,6 +89,7 @@ export interface VNode<HostNode = any, HostElement = any> {
 // structure would be stable. This allows us to skip most children diffing
 // and only worry about the dynamic nodes (indicated by patch flags).
 const blockStack: (VNode[] | null)[] = []
+let currentBlock: VNode[] | null = null
 
 // Open a block.
 // This must be called before `createBlock`. It cannot be part of `createBlock`
@@ -102,7 +103,7 @@ const blockStack: (VNode[] | null)[] = []
 // disableTracking is true when creating a fragment block, since a fragment
 // always diffs its children.
 export function openBlock(disableTracking?: boolean) {
-  blockStack.push(disableTracking ? null : [])
+  blockStack.push((currentBlock = disableTracking ? null : []))
 }
 
 let shouldTrack = true
@@ -117,15 +118,20 @@ export function createBlock(
   patchFlag?: number,
   dynamicProps?: string[]
 ): VNode {
-  // avoid a block with optFlag tracking itself
+  // avoid a block with patchFlag tracking itself
   shouldTrack = false
   const vnode = createVNode(type, props, children, patchFlag, dynamicProps)
   shouldTrack = true
-  const trackedNodes = blockStack.pop()
-  vnode.dynamicChildren =
-    trackedNodes && trackedNodes.length ? trackedNodes : EMPTY_ARR
-  // a block is always going to be patched
-  trackDynamicNode(vnode)
+  // save current block children on the block vnode
+  vnode.dynamicChildren = currentBlock || EMPTY_ARR
+  // close block
+  blockStack.pop()
+  currentBlock = blockStack[blockStack.length - 1] || null
+  // a block is always going to be patched, so track it as a child of its
+  // parent block
+  if (currentBlock !== null) {
+    currentBlock.push(vnode)
+  }
   return vnode
 }
 
@@ -147,10 +153,10 @@ export function createVNode(
     if (isReactive(props) || SetupProxySymbol in props) {
       props = extend({}, props)
     }
-    if (props.class != null) {
-      props.class = normalizeClass(props.class) // ! 规范化 class
+    let { class: klass, style } = props
+    if (klass != null && !isString(klass)) {
+      props.class = normalizeClass(klass) // ! 规范化 class
     }
-    let { style } = props
     if (style != null) {
       // reactive state objects need to be cloned since they are likely to be
       // mutated
@@ -175,8 +181,8 @@ export function createVNode(
     _isVNode: true,
     type,
     props,
-    key: (props && props.key) || null,
-    ref: (props && props.ref) || null,
+    key: (props !== null && props.key) || null,
+    ref: (props !== null && props.ref) || null,
     children: null,
     component: null,
     suspense: null,
@@ -198,21 +204,15 @@ export function createVNode(
   // the next vnode so that it can be properly unmounted later.
   if (
     shouldTrack &&
-    (patchFlag ||
+    currentBlock !== null &&
+    (patchFlag > 0 ||
       shapeFlag & ShapeFlags.STATEFUL_COMPONENT ||
       shapeFlag & ShapeFlags.FUNCTIONAL_COMPONENT)
   ) {
-    trackDynamicNode(vnode)
+    currentBlock.push(vnode)
   }
 
   return vnode
-}
-
-function trackDynamicNode(vnode: VNode) {
-  const currentBlockDynamicNodes = blockStack[blockStack.length - 1]
-  if (currentBlockDynamicNodes != null) {
-    currentBlockDynamicNodes.push(vnode)
-  }
 }
 
 export function cloneVNode(vnode: VNode): VNode {
