@@ -2,7 +2,7 @@ import { reactive, readonly, toRaw } from './reactive'
 import { OperationTypes } from './operations'
 import { track, trigger } from './effect'
 import { LOCKED } from './lock'
-import { isObject, hasOwn, isSymbol } from '@vue/shared'
+import { isObject, hasOwn, isSymbol, hasChanged } from '@vue/shared'
 import { isRef } from './ref'
 
 const builtInSymbols = new Set(
@@ -13,7 +13,7 @@ const builtInSymbols = new Set(
 
 // ! 生成 getter，根据参数是否生成只读的 getter
 function createGetter(isReadonly: boolean) {
-  return function get(target: any, key: string | symbol, receiver: any) {
+  return function get(target: object, key: string | symbol, receiver: object) {
     const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
 
     // ! 是内置的 Symbol 直接返回原始数据值
@@ -41,13 +41,13 @@ function createGetter(isReadonly: boolean) {
 
 // ! 拦截属性的修改或者新值
 function set(
-  target: any,
+  target: object,
   key: string | symbol,
-  value: any,
-  receiver: any
+  value: unknown,
+  receiver: object
 ): boolean {
   value = toRaw(value)
-  const oldValue = target[key]
+  const oldValue = (target as any)[key]
   if (isRef(oldValue) && !isRef(value)) {
     oldValue.value = value
     return true
@@ -61,13 +61,13 @@ function set(
       const extraInfo = { oldValue, newValue: value }
       if (!hadKey) {
         trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行
-      } else if (value !== oldValue) {
+      } else if (hasChanged(value, oldValue)) {
         trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖执行
       }
     } else {
       if (!hadKey) {
         trigger(target, OperationTypes.ADD, key)
-      } else if (value !== oldValue) {
+      } else if (hasChanged(value, oldValue)) {
         trigger(target, OperationTypes.SET, key)
       }
     }
@@ -76,9 +76,9 @@ function set(
 }
 
 // ! 拦截 delete 操作
-function deleteProperty(target: any, key: string | symbol): boolean {
+function deleteProperty(target: object, key: string | symbol): boolean {
   const hadKey = hasOwn(target, key)
-  const oldValue = target[key]
+  const oldValue = (target as any)[key]
   const result = Reflect.deleteProperty(target, key)
   if (result && hadKey) {
     /* istanbul ignore else */
@@ -92,20 +92,20 @@ function deleteProperty(target: any, key: string | symbol): boolean {
 }
 
 // ! 拦截 HasProperty 操作，比如使用 in 运算符
-function has(target: any, key: string | symbol): boolean {
+function has(target: object, key: string | symbol): boolean {
   const result = Reflect.has(target, key)
   track(target, OperationTypes.HAS, key) // ! 收集依赖
   return result
 }
 
 // ! 拦截自身属性的读取操作
-function ownKeys(target: any): (string | number | symbol)[] {
+function ownKeys(target: object): (string | number | symbol)[] {
   track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
   return Reflect.ownKeys(target)
 }
 
 // ! 修改操作的 handlers
-export const mutableHandlers: ProxyHandler<any> = {
+export const mutableHandlers: ProxyHandler<object> = {
   get: createGetter(false),
   set,
   deleteProperty,
@@ -114,10 +114,15 @@ export const mutableHandlers: ProxyHandler<any> = {
 }
 
 // ! 只读的 handlers，在拦截修改、新增、删除时特殊处理下
-export const readonlyHandlers: ProxyHandler<any> = {
+export const readonlyHandlers: ProxyHandler<object> = {
   get: createGetter(true),
 
-  set(target: any, key: string | symbol, value: any, receiver: any): boolean {
+  set(
+    target: object,
+    key: string | symbol,
+    value: unknown,
+    receiver: object
+  ): boolean {
     // ! 判断是否 LOCK
     if (LOCKED) {
       if (__DEV__) {
@@ -132,7 +137,7 @@ export const readonlyHandlers: ProxyHandler<any> = {
     }
   },
 
-  deleteProperty(target: any, key: string | symbol): boolean {
+  deleteProperty(target: object, key: string | symbol): boolean {
     // ! 判断是否 LOCK
     if (LOCKED) {
       if (__DEV__) {

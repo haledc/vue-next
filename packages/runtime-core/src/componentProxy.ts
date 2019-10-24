@@ -2,9 +2,15 @@ import { ComponentInternalInstance, Data, Emit } from './component'
 import { nextTick } from './scheduler'
 import { instanceWatch } from './apiWatch'
 import { EMPTY_OBJ, hasOwn, isGloballyWhitelisted } from '@vue/shared'
-import { ExtractComputedReturns } from './apiOptions'
+import {
+  ExtractComputedReturns,
+  ComponentOptionsBase,
+  ComputedOptions,
+  MethodOptions
+} from './apiOptions'
 import { UnwrapRef, ReactiveEffect } from '@vue/reactivity'
 import { warn } from './warning'
+import { Slots } from './componentSlots'
 
 // public properties exposed on the proxy, which is used as the render context
 // in templates (as `this` in the render option)
@@ -12,8 +18,8 @@ export type ComponentPublicInstance<
   P = {},
   B = {},
   D = {},
-  C = {},
-  M = {},
+  C extends ComputedOptions = {},
+  M extends MethodOptions = {},
   PublicProps = P
 > = {
   [key: string]: any
@@ -21,12 +27,12 @@ export type ComponentPublicInstance<
   $props: PublicProps
   $attrs: Data
   $refs: Data
-  $slots: Data
+  $slots: Slots
   $root: ComponentInternalInstance | null
   $parent: ComponentInternalInstance | null
   $emit: Emit
   $el: any
-  $options: any
+  $options: ComponentOptionsBase<P, B, D, C, M>
   $forceUpdate: ReactiveEffect
   $nextTick: typeof nextTick
   $watch: typeof instanceWatch
@@ -134,7 +140,10 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
 if (__RUNTIME_COMPILE__) {
   // this trap is only called in browser-compiled render functions that use
   // `with (this) {}`
-  PublicInstanceProxyHandlers.has = (_: any, key: string): boolean => {
+  PublicInstanceProxyHandlers.has = (
+    _: ComponentInternalInstance,
+    key: string
+  ): boolean => {
     return key[0] !== '_' && !isGloballyWhitelisted(key)
   }
 }

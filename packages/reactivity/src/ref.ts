@@ -3,6 +3,7 @@ import { OperationTypes } from './operations'
 import { isObject } from '@vue/shared'
 import { reactive } from './reactive'
 import { ComputedRef } from './computed'
+import { CollectionTypes } from './collectionHandlers'
 
 export interface Ref<T = any> {
   _isRef: true // ! Ref 类型标识
@@ -10,12 +11,13 @@ export interface Ref<T = any> {
 }
 
 // ! 转换，对象类型创建响应性对象，原始类型直接返回本身
-const convert = (val: any): any => (isObject(val) ? reactive(val) : val)
+const convert = <T extends unknown>(val: T): T =>
+  isObject(val) ? reactive(val) : val
 
 // ! 创建 Ref 类型的对象
 export function ref<T extends Ref>(raw: T): T
 export function ref<T>(raw: T): Ref<T>
-export function ref(raw: any) {
+export function ref(raw: unknown) {
   // ! 已经是 Ref 类型直接返回，不会重复创建
   if (isRef(raw)) {
     return raw
@@ -24,23 +26,23 @@ export function ref(raw: any) {
   // ! 转换
   raw = convert(raw)
   // ! 包装成对象，为了 Proxy
-  const v = {
+  const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
-      track(v, OperationTypes.GET, '') // ! 收集依赖
+      track(r, OperationTypes.GET, '') // ! 收集依赖
       return raw
     },
     set value(newVal) {
-      raw = convert(newVal) // ! 新增转换
-      trigger(v, OperationTypes.SET, '') // ! 触发依赖执行
+      raw = convert(newVal)
+      trigger(r, OperationTypes.SET, '') // ! 触发依赖执行
     }
   }
-  return v as Ref
+  return r as Ref
 }
 
 // ! 判断是否是 Ref 类型
-export function isRef(v: any): v is Ref {
-  return v ? v._isRef === true : false
+export function isRef(r: any): r is Ref {
+  return r ? r._isRef === true : false
 }
 
 // ! 把普通对象的 key 值转换成 Ref 类型
@@ -70,14 +72,6 @@ function toProxyRef<T extends object, K extends keyof T>(
   }
 }
 
-// ! 不应该继续递归的引用类型
-type BailTypes =
-  | Function
-  | Map<any, any>
-  | Set<any>
-  | WeakMap<any, any>
-  | WeakSet<any>
-
 // Recursively unwraps nested value bindings.
 // ! 递归获取嵌套数据的类型
 export type UnwrapRef<T> = {
@@ -98,6 +92,6 @@ export type UnwrapRef<T> = {
     ? 'ref'
     : T extends Array<any>
       ? 'array'
-      : T extends BailTypes
+      : T extends Function | CollectionTypes
         ? 'ref' // bail out on types that shouldn't be unwrapped
         : T extends object ? 'object' : 'ref']

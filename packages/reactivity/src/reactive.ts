@@ -13,7 +13,7 @@ import { makeMap } from '@vue/shared'
 // which maintains a Set of subscribers, but we simply store them as
 // raw Sets to reduce memory overhead.
 export type Dep = Set<ReactiveEffect>
-export type KeyToDepMap = Map<string | symbol, Dep>
+export type KeyToDepMap = Map<any, Dep>
 export const targetMap = new WeakMap<any, KeyToDepMap>()
 
 // WeakMaps that store {raw <-> observed} pairs.
@@ -88,7 +88,7 @@ export function readonly<T extends object>(
 
 // ! 创建响应式对象
 function createReactiveObject(
-  target: any,
+  target: unknown,
   toProxy: WeakMap<any, any>,
   toRaw: WeakMap<any, any>,
   baseHandlers: ProxyHandler<any>,
@@ -131,12 +131,12 @@ function createReactiveObject(
 }
 
 // ! 判断是否是响应式对象
-export function isReactive(value: any): boolean {
+export function isReactive(value: unknown): boolean {
   return reactiveToRaw.has(value) || readonlyToRaw.has(value)
 }
 
 // ! 判断是否是只读响应式对象
-export function isReadonly(value: any): boolean {
+export function isReadonly(value: unknown): boolean {
   return readonlyToRaw.has(value)
 }
 

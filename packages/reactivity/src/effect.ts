@@ -2,11 +2,9 @@ import { OperationTypes } from './operations'
 import { Dep, targetMap } from './reactive'
 import { EMPTY_OBJ, extend } from '@vue/shared'
 
-export const effectSymbol = Symbol(__DEV__ ? 'effect' : void 0)
-
 export interface ReactiveEffect<T = any> {
   (): T
-  [effectSymbol]: true // ! effect 函数标识
+  _isEffect: true // ! effect 函数标识
   active: boolean
   raw: () => T
   deps: Array<Dep>
@@ -26,12 +24,17 @@ export interface ReactiveEffectOptions {
   onStop?: () => void // ! stop 监听器
 }
 
-// ! 事件接口
-export interface DebuggerEvent {
+export type DebuggerEvent = {
   effect: ReactiveEffect
-  target: any
+  target: object
   type: OperationTypes
-  key: string | symbol | undefined
+  key: any
+} & DebuggerEventExtraInfo
+
+export interface DebuggerEventExtraInfo {
+  newValue?: any
+  oldValue?: any
+  oldTarget?: Map<any, any> | Set<any>
 }
 
 // ! 依赖 effect 收集栈
@@ -40,7 +43,7 @@ export const effectStack: ReactiveEffect[] = []
 export const ITERATE_KEY = Symbol('iterate')
 
 export function isEffect(fn: any): fn is ReactiveEffect {
-  return fn != null && fn[effectSymbol] === true
+  return fn != null && fn._isEffect === true
 }
 
 // ! 创建并返回响应式 effect 函数
@@ -77,10 +80,10 @@ function createReactiveEffect<T = any>(
   options: ReactiveEffectOptions
 ): ReactiveEffect<T> {
   // ! 定义一个 effect 函数，返回执行 fn 的值
-  const effect = function reactiveEffect(...args: any[]): any {
+  const effect = function reactiveEffect(...args: unknown[]): unknown {
     return run(effect, fn, args)
   } as ReactiveEffect
-  effect[effectSymbol] = true
+  effect._isEffect = true
   effect.active = true
   effect.raw = fn
   effect.scheduler = options.scheduler
@@ -93,7 +96,7 @@ function createReactiveEffect<T = any>(
 }
 
 // ! 执行函数 fn 的函数
-function run(effect: ReactiveEffect, fn: Function, args: any[]): any {
+function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
   if (!effect.active) {
     return fn(...args) // ! 执行函数，触发函数里面对象的 getter，收集依赖
   }
@@ -133,11 +136,7 @@ export function resumeTracking() {
 }
 
 // ! 收集依赖
-export function track(
-  target: any,
-  type: OperationTypes,
-  key?: string | symbol
-) {
+export function track(target: object, type: OperationTypes, key?: unknown) {
   if (!shouldTrack || effectStack.length === 0) {
     return
   }
@@ -170,10 +169,10 @@ export function track(
 
 // ! 触发依赖执行
 export function trigger(
-  target: any,
+  target: object,
   type: OperationTypes,
-  key?: string | symbol,
-  extraInfo?: any
+  key?: unknown,
+  extraInfo?: DebuggerEventExtraInfo
 ) {
   const depsMap = targetMap.get(target) // ! 获取 target 的依赖
 
@@ -233,23 +232,19 @@ function addRunners(
 // ! 调度器执行依赖
 function scheduleRun(
   effect: ReactiveEffect,
-  target: any,
+  target: object,
   type: OperationTypes,
-  key: string | symbol | undefined,
-  extraInfo: any
+  key: unknown,
+  extraInfo?: DebuggerEventExtraInfo
 ) {
   if (__DEV__ && effect.onTrigger) {
-    effect.onTrigger(
-      extend(
-        {
-          effect,
-          target,
-          key,
-          type
-        },
-        extraInfo
-      )
-    )
+    const event: DebuggerEvent = {
+      effect,
+      target,
+      key,
+      type
+    }
+    effect.onTrigger(extraInfo ? extend(event, extraInfo) : event)
   }
   if (effect.scheduler !== void 0) {
     effect.scheduler(effect)

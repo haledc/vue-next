@@ -2,84 +2,96 @@ import { toRaw, reactive, readonly } from './reactive'
 import { track, trigger } from './effect'
 import { OperationTypes } from './operations'
 import { LOCKED } from './lock'
-import { isObject, capitalize, hasOwn } from '@vue/shared'
+import { isObject, capitalize, hasOwn, hasChanged } from '@vue/shared'
 
-const toReactive = (value: any) => (isObject(value) ? reactive(value) : value)
-const toReadonly = (value: any) => (isObject(value) ? readonly(value) : value)
+export type CollectionTypes = IterableCollections | WeakCollections
 
-function get(target: any, key: any, wrap: (t: any) => any): any {
+type IterableCollections = Map<any, any> | Set<any>
+type WeakCollections = WeakMap<any, any> | WeakSet<any>
+type MapTypes = Map<any, any> | WeakMap<any, any>
+type SetTypes = Set<any> | WeakSet<any>
+
+const toReactive = <T extends unknown>(value: T): T =>
+  isObject(value) ? reactive(value) : value
+
+const toReadonly = <T extends unknown>(value: T): T =>
+  isObject(value) ? readonly(value) : value
+
+// ! 使用原型方法，通过原始数据去获得该 key 的值
+const getProto = <T extends CollectionTypes>(v: T): any =>
+  Reflect.getPrototypeOf(v)
+
+function get(
+  target: MapTypes,
+  key: unknown,
+  wrap: typeof toReactive | typeof toReadonly
+) {
   target = toRaw(target) // ! 获取原始数据
   key = toRaw(key) // ! 获取原始数据
-  const proto: any = Reflect.getPrototypeOf(target) // ! 获取原始数据的原型对象
   track(target, OperationTypes.GET, key) // ! 收集依赖
-  const res = proto.get.call(target, key) // ! 使用原型方法，通过原始数据去获得该 key 的值
-  return wrap(res) // ! wrap = reactive 转换成响应式数据
+  return wrap(getProto(target).get.call(target, key)) // ! wrap = reactive 转换成响应式数据
 }
 
-function has(this: any, key: any): boolean {
+function has(this: CollectionTypes, key: unknown): boolean {
   const target = toRaw(this)
   key = toRaw(key)
-  const proto: any = Reflect.getPrototypeOf(target)
   track(target, OperationTypes.HAS, key)
-  return proto.has.call(target, key)
+  return getProto(target).has.call(target, key)
 }
 
 // ! 拦截 xxx.size 操作
-function size(target: any) {
+function size(target: IterableCollections) {
   target = toRaw(target)
-  const proto = Reflect.getPrototypeOf(target)
   track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
-  return Reflect.get(proto, 'size', target)
+  return Reflect.get(getProto(target), 'size', target)
 }
 
-function add(this: any, value: any) {
+function add(this: SetTypes, value: unknown) {
   value = toRaw(value)
   const target = toRaw(this)
-  const proto: any = Reflect.getPrototypeOf(this)
+  const proto = getProto(target)
   const hadKey = proto.has.call(target, value) // ! 判断是否已经存在 key 值
   const result = proto.add.call(target, value) // ! 增加值
   if (!hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.ADD, value, { value }) // ! 触发依赖执行
+      trigger(target, OperationTypes.ADD, value, { newValue: value })
     } else {
-      trigger(target, OperationTypes.ADD, value)
+      trigger(target, OperationTypes.ADD, value) // ! 触发依赖执行
     }
   }
   return result
 }
 
-function set(this: any, key: any, value: any) {
+function set(this: MapTypes, key: unknown, value: unknown) {
   value = toRaw(value)
   const target = toRaw(this)
-  const proto: any = Reflect.getPrototypeOf(this)
+  const proto = getProto(target)
   const hadKey = proto.has.call(target, key) // ! 判断是否已经存在 key 值
   const oldValue = proto.get.call(target, key) // ! 获取旧值
   const result = proto.set.call(target, key, value)
-  if (value !== oldValue) {
-    /* istanbul ignore else */
-    if (__DEV__) {
-      const extraInfo = { oldValue, newValue: value }
-      if (!hadKey) {
-        trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行，这里也是 ADD 类型
-      } else {
-        trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖执行
-      }
-    } else {
-      if (!hadKey) {
-        trigger(target, OperationTypes.ADD, key)
-      } else {
-        trigger(target, OperationTypes.SET, key)
-      }
+  /* istanbul ignore else */
+  if (__DEV__) {
+    const extraInfo = { oldValue, newValue: value }
+    if (!hadKey) {
+      trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行，这里也是 ADD 类型
+    } else if (hasChanged(value, oldValue)) {
+      trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖执行
+    }
+  } else {
+    if (!hadKey) {
+      trigger(target, OperationTypes.ADD, key)
+    } else if (hasChanged(value, oldValue)) {
+      trigger(target, OperationTypes.SET, key)
     }
   }
   return result
 }
 
 // ! 拦截 delete 操作
-function deleteEntry(this: any, key: any) {
+function deleteEntry(this: CollectionTypes, key: unknown) {
   const target = toRaw(this)
-  const proto: any = Reflect.getPrototypeOf(this)
+  const proto = getProto(target)
   const hadKey = proto.has.call(target, key)
   const oldValue = proto.get ? proto.get.call(target, key) : undefined // ! 获取旧值，没有则为 undefined
   // forward the operation before queueing reactions
@@ -95,13 +107,16 @@ function deleteEntry(this: any, key: any) {
   return result
 }
 
-function clear(this: any) {
+function clear(this: IterableCollections) {
   const target = toRaw(this)
-  const proto: any = Reflect.getPrototypeOf(this)
   const hadItems = target.size !== 0 // ! 判断是否有元素
-  const oldTarget = target instanceof Map ? new Map(target) : new Set(target)
+  const oldTarget = __DEV__
+    ? target instanceof Map
+      ? new Map(target)
+      : new Set(target)
+    : undefined
   // forward the operation before queueing reactions
-  const result = proto.clear.call(target)
+  const result = getProto(target).clear.call(target)
   if (hadItems) {
     /* istanbul ignore else */
     if (__DEV__) {
@@ -115,32 +130,34 @@ function clear(this: any) {
 
 // ! 创建 ForEach 方法
 function createForEach(isReadonly: boolean) {
-  return function forEach(this: any, callback: Function, thisArg?: any) {
+  return function forEach(
+    this: IterableCollections,
+    callback: Function,
+    thisArg?: unknown
+  ) {
     const observed = this
     const target = toRaw(observed)
-    const proto: any = Reflect.getPrototypeOf(target)
     const wrap = isReadonly ? toReadonly : toReactive
     track(target, OperationTypes.ITERATE)
     // important: create sure the callback is
     // 1. invoked with the reactive map as `this` and 3rd arg
     // 2. the value received should be a corresponding reactive/readonly.
-    function wrappedCallback(value: any, key: any) {
+    function wrappedCallback(value: unknown, key: unknown) {
       return callback.call(observed, wrap(value), wrap(key), observed) // ! key 和 value 转换成响应式数据
     }
-    return proto.forEach.call(target, wrappedCallback, thisArg)
+    return getProto(target).forEach.call(target, wrappedCallback, thisArg)
   }
 }
 
 // ! 创建迭代器方法
 function createIterableMethod(method: string | symbol, isReadonly: boolean) {
-  return function(this: any, ...args: any[]) {
+  return function(this: IterableCollections, ...args: unknown[]) {
     const target = toRaw(this)
-    const proto: any = Reflect.getPrototypeOf(target)
     // ! [key, value] 成对结构
     const isPair =
       method === 'entries' ||
       (method === Symbol.iterator && target instanceof Map)
-    const innerIterator = proto[method].apply(target, args) // ! 调用对应的迭代方法，生成迭代器
+    const innerIterator = getProto(target)[method].apply(target, args) // ! 调用对应的迭代方法，生成迭代器
     const wrap = isReadonly ? toReadonly : toReactive // ! 转换成响应式的方法
     track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
     // return a wrapped iterator which returns observed versions of the
@@ -169,8 +186,7 @@ function createReadonlyMethod(
   method: Function,
   type: OperationTypes
 ): Function {
-  return function(this: any, ...args: any[]) {
-    // ! 判断是否 LOCK
+  return function(this: CollectionTypes, ...args: unknown[]) {
     if (LOCKED) {
       if (__DEV__) {
         const key = args[0] ? `on key "${args[0]}" ` : ``
@@ -186,11 +202,11 @@ function createReadonlyMethod(
   }
 }
 
-const mutableInstrumentations: any = {
-  get(key: any) {
+const mutableInstrumentations: Record<string, Function> = {
+  get(this: MapTypes, key: unknown) {
     return get(this, key, toReactive) // ! 传入 target 参数 this，this 为代理的原始数据
   },
-  get size() {
+  get size(this: IterableCollections) {
     return size(this)
   },
   has,
@@ -201,11 +217,11 @@ const mutableInstrumentations: any = {
   forEach: createForEach(false)
 }
 
-const readonlyInstrumentations: any = {
-  get(key: any) {
+const readonlyInstrumentations: Record<string, Function> = {
+  get(this: MapTypes, key: unknown) {
     return get(this, key, toReadonly)
   },
-  get size() {
+  get size(this: IterableCollections) {
     return size(this)
   },
   has,
@@ -218,26 +234,38 @@ const readonlyInstrumentations: any = {
 
 const iteratorMethods = ['keys', 'values', 'entries', Symbol.iterator]
 iteratorMethods.forEach(method => {
-  mutableInstrumentations[method] = createIterableMethod(method, false)
-  readonlyInstrumentations[method] = createIterableMethod(method, true)
+  mutableInstrumentations[method as string] = createIterableMethod(
+    method,
+    false
+  )
+  readonlyInstrumentations[method as string] = createIterableMethod(
+    method,
+    true
+  )
 })
 
-function createInstrumentationGetter(instrumentations: any) {
-  return function getInstrumented(
-    target: any,
+function createInstrumentationGetter(
+  instrumentations: Record<string, Function>
+) {
+  return (
+    target: CollectionTypes,
     key: string | symbol,
-    receiver: any
-  ) {
-    target =
-      hasOwn(instrumentations, key) && key in target ? instrumentations : target // ! 改变反射的 target
-    return Reflect.get(target, key, receiver)
-  }
+    receiver: CollectionTypes
+  ) =>
+    // ! 改变反射的 target
+    Reflect.get(
+      hasOwn(instrumentations, key) && key in target
+        ? instrumentations
+        : target,
+      key,
+      receiver
+    )
 }
 
-export const mutableCollectionHandlers: ProxyHandler<any> = {
+export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: createInstrumentationGetter(mutableInstrumentations)
 }
 
-export const readonlyCollectionHandlers: ProxyHandler<any> = {
+export const readonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: createInstrumentationGetter(readonlyInstrumentations)
 }

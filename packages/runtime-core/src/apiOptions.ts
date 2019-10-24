@@ -15,7 +15,7 @@ import {
   NOOP
 } from '@vue/shared'
 import { computed } from './apiReactivity'
-import { watch, WatchOptions, CleanupRegistrator } from './apiWatch'
+import { watch, WatchOptions, WatchHandler } from './apiWatch'
 import { provide, inject } from './apiInject'
 import {
   onBeforeMount,
@@ -40,7 +40,7 @@ import { Directive } from './directives'
 import { ComponentPublicInstance } from './componentProxy'
 import { warn } from './warning'
 
-interface ComponentOptionsBase<
+export interface ComponentOptionsBase<
   Props,
   RawBindings,
   D,
@@ -119,12 +119,6 @@ export type ExtractComputedReturns<T extends any> = {
     : ReturnType<T[key]>
 }
 
-export type WatchHandler<T = any> = (
-  val: T,
-  oldVal: T,
-  onCleanup: CleanupRegistrator
-) => any
-
 type ComponentWatchOptions = Record<
   string,
   string | WatchHandler | { handler: WatchHandler } & WatchOptions
@@ -134,7 +128,7 @@ type ComponentInjectOptions =
   | string[]
   | Record<
       string | symbol,
-      string | symbol | { from: string | symbol; default?: any }
+      string | symbol | { from: string | symbol; default?: unknown }
     >
 
 // TODO type inference for these options
@@ -179,6 +173,25 @@ export interface LegacyOptions<
   errorCaptured?: ErrorCapturedHook
 }
 
+const enum OptionTypes {
+  PROPS = 'Props',
+  DATA = 'Data',
+  COMPUTED = 'Computed',
+  METHODS = 'Methods',
+  INJECT = 'Inject'
+}
+
+function createDuplicateChecker() {
+  const cache = Object.create(null)
+  return (type: OptionTypes, key: string) => {
+    if (cache[key]) {
+      warn(`${type} property "${key}" is already defined in ${cache[key]}.`)
+    } else {
+      cache[key] = type
+    }
+  }
+}
+
 export function applyOptions(
   instance: ComponentInternalInstance,
   options: ComponentOptions,
@@ -194,6 +207,7 @@ export function applyOptions(
     mixins,
     extends: extendsOptions,
     // state
+    props: propsOptions,
     data: dataOptions,
     computed: computedOptions,
     methods,
@@ -218,6 +232,8 @@ export function applyOptions(
   } = options
 
   const globalMixins = instance.appContext.mixins
+  // call it only during dev
+  const checkDuplicateProperties = __DEV__ ? createDuplicateChecker() : null
   // applyOptions is called non-as-mixin once per instance
   if (!asMixin) {
     callSyncHook('beforeCreate', options, ctx, globalMixins)
@@ -233,12 +249,23 @@ export function applyOptions(
     applyMixins(instance, mixins)
   }
 
+  if (__DEV__ && propsOptions) {
+    for (const key in propsOptions) {
+      checkDuplicateProperties!(OptionTypes.PROPS, key)
+    }
+  }
+
   // state options
   if (dataOptions) {
     const data = isFunction(dataOptions) ? dataOptions.call(ctx) : dataOptions
     if (!isObject(data)) {
       __DEV__ && warn(`data() should return an object.`)
     } else if (instance.data === EMPTY_OBJ) {
+      if (__DEV__) {
+        for (const key in data) {
+          checkDuplicateProperties!(OptionTypes.DATA, key)
+        }
+      }
       instance.data = reactive(data)
     } else {
       // existing data: this is a mixin or extends.
@@ -248,6 +275,8 @@ export function applyOptions(
   if (computedOptions) {
     for (const key in computedOptions) {
       const opt = (computedOptions as ComputedOptions)[key]
+
+      __DEV__ && checkDuplicateProperties!(OptionTypes.COMPUTED, key)
 
       if (isFunction(opt)) {
         renderContext[key] = computed(opt.bind(ctx))
@@ -272,9 +301,19 @@ export function applyOptions(
       }
     }
   }
+
   if (methods) {
     for (const key in methods) {
-      renderContext[key] = (methods as MethodOptions)[key].bind(ctx)
+      const methodHandler = (methods as MethodOptions)[key]
+      if (isFunction(methodHandler)) {
+        __DEV__ && checkDuplicateProperties!(OptionTypes.METHODS, key)
+        renderContext[key] = methodHandler.bind(ctx)
+      } else if (__DEV__) {
+        warn(
+          `Method "${key}" has type "${typeof methodHandler}" in the component definition. ` +
+            `Did you reference the function correctly?`
+        )
+      }
     }
   }
   if (watchOptions) {
@@ -310,10 +349,12 @@ export function applyOptions(
     if (isArray(injectOptions)) {
       for (let i = 0; i < injectOptions.length; i++) {
         const key = injectOptions[i]
+        __DEV__ && checkDuplicateProperties!(OptionTypes.INJECT, key)
         renderContext[key] = inject(key)
       }
     } else {
       for (const key in injectOptions) {
+        __DEV__ && checkDuplicateProperties!(OptionTypes.INJECT, key)
         const opt = injectOptions[key]
         if (isObject(opt)) {
           renderContext[key] = inject(opt.from, opt.default)
@@ -368,7 +409,7 @@ export function applyOptions(
 function callSyncHook(
   name: 'beforeCreate' | 'created',
   options: ComponentOptions,
-  ctx: any,
+  ctx: ComponentPublicInstance,
   globalMixins: ComponentOptions[]
 ) {
   callHookFromMixins(name, globalMixins, ctx)
@@ -389,7 +430,7 @@ function callSyncHook(
 function callHookFromMixins(
   name: 'beforeCreate' | 'created',
   mixins: ComponentOptions[],
-  ctx: any
+  ctx: ComponentPublicInstance
 ) {
   for (let i = 0; i < mixins.length; i++) {
     const fn = mixins[i][name]
