@@ -10,15 +10,15 @@ export interface Ref<T = any> {
   value: UnwrapRef<T> // ! 值的类型
 }
 
-// ! 转换，对象类型创建响应性对象，原始类型直接返回本身
+// ! 转换：对象类型转换成响应性对象，原始类型直接返回自身
 const convert = <T extends unknown>(val: T): T =>
   isObject(val) ? reactive(val) : val
 
-// ! 创建 Ref 类型的对象
+// ! 生成 Ref 类型的对象
 export function ref<T extends Ref>(raw: T): T
 export function ref<T>(raw: T): Ref<T>
 export function ref(raw: unknown) {
-  // ! 已经是 Ref 类型直接返回，不会重复创建
+  // ! 已经是 Ref 类型直接返回，不会重复生成
   if (isRef(raw)) {
     return raw
   }
@@ -40,7 +40,7 @@ export function ref(raw: unknown) {
   return r as Ref
 }
 
-// ! 判断是否是 Ref 类型
+// ! 判断是不是 Ref 类型
 export function isRef(r: any): r is Ref {
   return r ? r._isRef === true : false
 }

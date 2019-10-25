@@ -11,13 +11,15 @@ type WeakCollections = WeakMap<any, any> | WeakSet<any>
 type MapTypes = Map<any, any> | WeakMap<any, any>
 type SetTypes = Set<any> | WeakSet<any>
 
+// ! 生成响应式对象，原始值直接返回它
 const toReactive = <T extends unknown>(value: T): T =>
   isObject(value) ? reactive(value) : value
 
+// ! 生成只读响应式对象，原始值直接返回它
 const toReadonly = <T extends unknown>(value: T): T =>
   isObject(value) ? readonly(value) : value
 
-// ! 使用原型方法，通过原始数据去获得该 key 的值
+// ! 获取原型对象
 const getProto = <T extends CollectionTypes>(v: T): any =>
   Reflect.getPrototypeOf(v)
 
@@ -26,10 +28,10 @@ function get(
   key: unknown,
   wrap: typeof toReactive | typeof toReadonly
 ) {
-  target = toRaw(target) // ! 获取原始数据
-  key = toRaw(key) // ! 获取原始数据
+  target = toRaw(target) // ! 获取原始对象
+  key = toRaw(key) // ! 获取原始的 key 值
   track(target, OperationTypes.GET, key) // ! 收集依赖
-  return wrap(getProto(target).get.call(target, key)) // ! wrap = reactive 转换成响应式数据
+  return wrap(getProto(target).get.call(target, key)) // ! wrap = reactive 时转换成响应式对象
 }
 
 function has(this: CollectionTypes, key: unknown): boolean {
@@ -55,7 +57,7 @@ function add(this: SetTypes, value: unknown) {
   if (!hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.ADD, value, { newValue: value })
+      trigger(target, OperationTypes.ADD, value, { newValue: value }) // ! 触发依赖执行，这里是 ADD 类型
     } else {
       trigger(target, OperationTypes.ADD, value) // ! 触发依赖执行
     }
@@ -143,7 +145,7 @@ function createForEach(isReadonly: boolean) {
     // 1. invoked with the reactive map as `this` and 3rd arg
     // 2. the value received should be a corresponding reactive/readonly.
     function wrappedCallback(value: unknown, key: unknown) {
-      return callback.call(observed, wrap(value), wrap(key), observed) // ! key 和 value 转换成响应式数据
+      return callback.call(observed, wrap(value), wrap(key), observed) // ! key 和 value 转换成响应式对象
     }
     return getProto(target).forEach.call(target, wrappedCallback, thisArg)
   }
@@ -169,7 +171,7 @@ function createIterableMethod(method: string | symbol, isReadonly: boolean) {
         return done
           ? { value, done } // ! { value: undefined, done: true }
           : {
-              value: isPair ? [wrap(value[0]), wrap(value[1])] : wrap(value), // ! 转换成响应式数据
+              value: isPair ? [wrap(value[0]), wrap(value[1])] : wrap(value), // ! 转换成响应式对象
               done // ! false
             }
       },
@@ -252,9 +254,8 @@ function createInstrumentationGetter(
     key: string | symbol,
     receiver: CollectionTypes
   ) =>
-    // ! 改变反射的 target
     Reflect.get(
-      hasOwn(instrumentations, key) && key in target
+      hasOwn(instrumentations, key) && key in target // ! 改变反射的 target
         ? instrumentations
         : target,
       key,

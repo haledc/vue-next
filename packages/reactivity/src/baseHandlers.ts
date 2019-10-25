@@ -28,13 +28,13 @@ function createGetter(isReadonly: boolean) {
 
     track(target, OperationTypes.GET, key) // ! 收集依赖
 
-    // ! 返回值，对象类型进行深度监听
+    // ! 返回值，对象类型转换成响应式对象
     return isObject(res)
       ? isReadonly
         ? // need to lazy access readonly and reactive here to avoid
           // circular dependency
-          readonly(res) // ! 深度监听
-        : reactive(res) // ! 深度监听
+          readonly(res)
+        : reactive(res)
       : res
   }
 }
@@ -60,7 +60,7 @@ function set(
     if (__DEV__) {
       const extraInfo = { oldValue, newValue: value }
       if (!hadKey) {
-        trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行
+        trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行， 这里是 ADD 类型
       } else if (hasChanged(value, oldValue)) {
         trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖执行
       }

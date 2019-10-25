@@ -2,11 +2,12 @@ import { effect, ReactiveEffect, effectStack } from './effect'
 import { Ref, UnwrapRef } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
 
-// ! 新增 ComputedRef 接口
+// ! ComputedRef 类型
 export interface ComputedRef<T> extends WritableComputedRef<T> {
   readonly value: UnwrapRef<T>
 }
 
+// ! WritableComputedRef 类型，设置了 setter
 export interface WritableComputedRef<T> extends Ref<T> {
   readonly effect: ReactiveEffect<T>
 }
@@ -45,11 +46,11 @@ export function computed<T>(
   let dirty = true // ! 设置 dirty 为 true
   let value: T
 
-  // ! 执行副作用
+  // ! effect 返回值
   const runner = effect(getter, {
-    lazy: true, // ! 延迟计算
+    lazy: true, // ! 延迟计算，不用立即执行
     // mark effect as computed so that it gets priority during trigger
-    computed: true, // ! 计算属性
+    computed: true, // ! 计算属性依赖的标识
     scheduler: () => {
       dirty = true
     }
@@ -61,13 +62,13 @@ export function computed<T>(
     effect: runner,
     get value() {
       if (dirty) {
-        value = runner()
-        dirty = false // ! 获取值后重置为 false
+        value = runner() // ! 执行一次获取值
+        dirty = false // ! 获取值后重置为 false，不用每次都执行
       }
       // When computed effects are accessed in a parent effect, the parent
       // should track all the dependencies the computed property has tracked.
       // This should also apply for chained computed properties.
-      trackChildRun(runner)
+      trackChildRun(runner) // ! track 子级，用于在 effect 中又引用了计算属性
       return value
     },
     set value(newValue: T) {
@@ -80,9 +81,14 @@ function trackChildRun(childRunner: ReactiveEffect) {
   if (effectStack.length === 0) {
     return
   }
+  // ! 获取计算属性的父级 effect
   const parentRunner = effectStack[effectStack.length - 1]
+
+  // ! 遍历子级，即本 effect
   for (let i = 0; i < childRunner.deps.length; i++) {
     const dep = childRunner.deps[i]
+    // ! 如果子级的某个 dep 没有父级的 effect，把父级添加进去该 dep 中
+    // ! 然后父级 effect 的 deps 也把该 dep 添加进去
     if (!dep.has(parentRunner)) {
       dep.add(parentRunner)
       parentRunner.deps.push(dep)
