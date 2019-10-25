@@ -27,20 +27,20 @@ export function computed<T>(
 export function computed<T>(
   getterOrOptions: ComputedGetter<T> | WritableComputedOptions<T>
 ) {
-  const isReadonly = isFunction(getterOrOptions)
-  // ! 获取 getter
-  const getter = isReadonly
-    ? (getterOrOptions as ComputedGetter<T>)
-    : (getterOrOptions as WritableComputedOptions<T>).get
+  let getter: ComputedGetter<T>
+  let setter: ComputedSetter<T>
 
-  // ! 获取 setter
-  const setter = isReadonly
-    ? __DEV__
+  if (isFunction(getterOrOptions)) {
+    getter = getterOrOptions
+    setter = __DEV__
       ? () => {
           console.warn('Write operation failed: computed value is readonly')
         }
       : NOOP
-    : (getterOrOptions as WritableComputedOptions<T>).set
+  } else {
+    getter = getterOrOptions.get
+    setter = getterOrOptions.set
+  }
 
   let dirty = true // ! 设置 dirty 为 true
   let value: T

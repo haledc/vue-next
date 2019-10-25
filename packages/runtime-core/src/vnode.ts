@@ -19,10 +19,10 @@ import { AppContext } from './apiApp'
 import { SuspenseBoundary } from './suspense'
 
 export const Fragment = __DEV__ ? Symbol('Fragment') : Symbol()
-export const Text = __DEV__ ? Symbol('Text') : Symbol()
-export const Comment = __DEV__ ? Symbol('Comment') : Symbol()
 export const Portal = __DEV__ ? Symbol('Portal') : Symbol()
 export const Suspense = __DEV__ ? Symbol('Suspense') : Symbol()
+export const Text = __DEV__ ? Symbol('Text') : Symbol()
+export const Comment = __DEV__ ? Symbol('Comment') : Symbol()
 
 export type VNodeTypes =
   | string
@@ -255,6 +255,21 @@ export function cloneVNode(vnode: VNode): VNode {
     el: null,
     anchor: null
   }
+}
+
+export function createTextVNode(text: string = ' ', flag: number = 0): VNode {
+  return createVNode(Text, null, text, flag)
+}
+
+export function createCommentVNode(
+  text: string = '',
+  // when used as the v-else branch, the comment node must be created as a
+  // block to ensure correct updates.
+  asBlock: boolean = false
+): VNode {
+  return asBlock
+    ? createBlock(Comment, null, text)
+    : createVNode(Comment, null, text)
 }
 
 export function normalizeVNode(child: VNodeChild): VNode {

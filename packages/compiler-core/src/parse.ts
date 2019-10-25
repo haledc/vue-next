@@ -32,11 +32,11 @@ import { extend } from '@vue/shared'
 export interface ParserOptions {
   isVoidTag?: (tag: string) => boolean // e.g. img, br, hr
   isNativeTag?: (tag: string) => boolean // e.g. loading-indicator in weex
+  isPreTag?: (tag: string) => boolean // e.g. <pre> where whitespace is intact
   isCustomElement?: (tag: string) => boolean
   getNamespace?: (tag: string, parent: ElementNode | undefined) => Namespace
   getTextMode?: (tag: string, ns: Namespace) => TextModes
   delimiters?: [string, string] // ['{{', '}}']
-  ignoreSpaces?: boolean
 
   // Map to HTML entities. E.g., `{ "amp;": "&" }`
   // The full set is https://html.spec.whatwg.org/multipage/named-characters.html#named-character-references
@@ -51,10 +51,10 @@ type MergedParserOptions = Omit<Required<ParserOptions>, 'isNativeTag'> &
 
 export const defaultParserOptions: MergedParserOptions = {
   delimiters: [`{{`, `}}`],
-  ignoreSpaces: true,
   getNamespace: () => Namespaces.HTML,
   getTextMode: () => TextModes.DATA,
   isVoidTag: NO,
+  isPreTag: NO,
   isCustomElement: NO,
   namedCharacterReferences: {
     'gt;': '>',
@@ -199,50 +199,78 @@ function parseChildren(
 
     if (Array.isArray(node)) {
       for (let i = 0; i < node.length; i++) {
-        pushNode(context, nodes, node[i])
+        pushNode(nodes, node[i])
       }
     } else {
-      pushNode(context, nodes, node)
+      pushNode(nodes, node)
     }
   }
 
-  return nodes
+  // Whitespace management for more efficient output
+  // (same as v2 whitespance: 'condense')
+  let removedWhitespace = false
+  if (!parent || !context.options.isPreTag(parent.tag)) {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i]
+      if (node.type === NodeTypes.TEXT) {
+        if (!node.content.trim()) {
+          const prev = nodes[i - 1]
+          const next = nodes[i + 1]
+          // If:
+          // - the whitespace is the first or last node, or:
+          // - the whitespace is adjacent to a comment, or:
+          // - the whitespace is between two elements AND contains newline
+          // Then the whitespace is ignored.
+          if (
+            !prev ||
+            !next ||
+            prev.type === NodeTypes.COMMENT ||
+            next.type === NodeTypes.COMMENT ||
+            (prev.type === NodeTypes.ELEMENT &&
+              next.type === NodeTypes.ELEMENT &&
+              /[\r\n]/.test(node.content))
+          ) {
+            removedWhitespace = true
+            nodes[i] = null as any
+          } else {
+            // Otherwise, condensed consecutive whitespace inside the text down to
+            // a single space
+            node.content = ' '
+          }
+        } else {
+          node.content = node.content.replace(/\s+/g, ' ')
+        }
+      }
+    }
+  }
+
+  return removedWhitespace ? nodes.filter(node => node !== null) : nodes
 }
 
-function pushNode(
-  context: ParserContext,
-  nodes: TemplateChildNode[],
-  node: TemplateChildNode
-): void {
+function pushNode(nodes: TemplateChildNode[], node: TemplateChildNode): void {
   // ignore comments in production
   /* istanbul ignore next */
   if (!__DEV__ && node.type === NodeTypes.COMMENT) {
     return
   }
-  if (
-    context.options.ignoreSpaces &&
-    node.type === NodeTypes.TEXT &&
-    node.isEmpty
-  ) {
-    return
+
+  if (node.type === NodeTypes.TEXT) {
+    const prev = last(nodes)
+    // Merge if both this and the previous node are text and those are
+    // consecutive. This happens for cases like "a < b".
+    if (
+      prev &&
+      prev.type === NodeTypes.TEXT &&
+      prev.loc.end.offset === node.loc.start.offset
+    ) {
+      prev.content += node.content
+      prev.loc.end = node.loc.end
+      prev.loc.source += node.loc.source
+      return
+    }
   }
 
-  // Merge if both this and the previous node are text and those are consecutive.
-  // This happens on "a < b" or something like.
-  const prev = last(nodes)
-  if (
-    prev &&
-    prev.type === NodeTypes.TEXT &&
-    node.type === NodeTypes.TEXT &&
-    prev.loc.end.offset === node.loc.start.offset
-  ) {
-    prev.content += node.content
-    prev.isEmpty = prev.content.trim().length === 0
-    prev.loc.end = node.loc.end
-    prev.loc.source += node.loc.source
-  } else {
-    nodes.push(node)
-  }
+  nodes.push(node)
 }
 
 function parseCDATA(
@@ -627,7 +655,6 @@ function parseAttribute(
     value: value && {
       type: NodeTypes.TEXT,
       content: value.content,
-      isEmpty: value.content.trim().length === 0,
       loc: value.loc
     },
     loc
@@ -732,6 +759,7 @@ function parseText(context: ParserContext, mode: TextModes): TextNode {
   __DEV__ && assert(context.source.length > 0)
 
   const [open] = context.options.delimiters
+  // TODO could probably use some perf optimization
   const endIndex = Math.min(
     ...[
       context.source.indexOf('<', 1),
@@ -748,8 +776,7 @@ function parseText(context: ParserContext, mode: TextModes): TextNode {
   return {
     type: NodeTypes.TEXT,
     content,
-    loc: getSelection(context, start),
-    isEmpty: !content.trim()
+    loc: getSelection(context, start)
   }
 }
 
