@@ -1,4 +1,4 @@
-import { isObject, toTypeString } from '@vue/shared'
+import { isObject, toRawType } from '@vue/shared'
 import { mutableHandlers, readonlyHandlers } from './baseHandlers'
 import {
   mutableCollectionHandlers,
@@ -29,9 +29,7 @@ const nonReactiveValues = new WeakSet<any>() // ! 非响应式对象集合
 
 const collectionTypes = new Set<Function>([Set, Map, WeakMap, WeakSet])
 const isObservableType = /*#__PURE__*/ makeMap(
-  ['Object', 'Array', 'Map', 'Set', 'WeakMap', 'WeakSet'] // ! 可以设置响应式的六种引用类型
-    .map(t => `[object ${t}]`)
-    .join(',')
+  'Object,Array,Map,Set,WeakMap,WeakSet' // ! 可以设置响应式的六种引用类型
 )
 
 // ! 判断能否观察
@@ -39,7 +37,7 @@ const canObserve = (value: any): boolean => {
   return (
     !value._isVue && // ! 不能是 Vue 组件
     !value._isVNode && // ! 不能是 VNode
-    isObservableType(toTypeString(value)) && // ! 必须符合设置的六种引用类型
+    isObservableType(toRawType(value)) && // ! 必须符合设置的六种引用类型
     !nonReactiveValues.has(value) // ! 不能是非响应式集合中的值
   )
 }

@@ -10,7 +10,7 @@ import {
   isObject,
   isReservedProp,
   hasOwn,
-  toTypeString,
+  toRawType,
   PatchFlags,
   makeMap
 } from '@vue/shared'
@@ -204,7 +204,7 @@ export function resolveProps(
   instance.attrs = options
     ? __DEV__ && attrs != null
       ? readonly(attrs)
-      : attrs!
+      : attrs || EMPTY_OBJ
     : instance.props
 }
 
@@ -392,10 +392,6 @@ function styleValue(value: unknown, type: string): string {
   } else {
     return `${value}`
   }
-}
-
-function toRawType(value: unknown): string {
-  return toTypeString(value).slice(8, -1)
 }
 
 function isExplicable(type: string): boolean {

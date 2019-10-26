@@ -62,6 +62,7 @@ export interface ComponentOptionsBase<
   render?: Function
   components?: Record<string, Component>
   directives?: Record<string, Directive>
+  inheritAttrs?: boolean
 }
 
 export type ComponentOptionsWithoutProps<
@@ -80,7 +81,7 @@ export type ComponentOptionsWithArrayProps<
   D = {},
   C extends ComputedOptions = {},
   M extends MethodOptions = {},
-  Props = { [key in PropNames]?: unknown }
+  Props = { [key in PropNames]?: any }
 > = ComponentOptionsBase<Props, RawBindings, D, C, M> & {
   props: PropNames[]
 } & ThisType<ComponentPublicInstance<Props, RawBindings, D, C, M>>
@@ -119,10 +120,14 @@ export type ExtractComputedReturns<T extends any> = {
     : ReturnType<T[key]>
 }
 
-type ComponentWatchOptions = Record<
-  string,
-  string | WatchHandler | { handler: WatchHandler } & WatchOptions
->
+type WatchOptionItem =
+  | string
+  | WatchHandler
+  | { handler: WatchHandler } & WatchOptions
+
+type ComponentWatchOptionItem = WatchOptionItem | WatchOptionItem[]
+
+type ComponentWatchOptions = Record<string, ComponentWatchOptionItem>
 
 type ComponentInjectOptions =
   | string[]
@@ -148,7 +153,6 @@ export interface LegacyOptions<
   data?: D | ((this: ComponentPublicInstance<Props>) => D)
   computed?: C
   methods?: M
-  // TODO watch array
   watch?: ComponentWatchOptions
   provide?: Data | Function
   inject?: ComponentInjectOptions
@@ -318,23 +322,7 @@ export function applyOptions(
   }
   if (watchOptions) {
     for (const key in watchOptions) {
-      const raw = watchOptions[key]
-      const getter = () => ctx[key]
-      if (isString(raw)) {
-        const handler = renderContext[raw]
-        if (isFunction(handler)) {
-          watch(getter, handler as WatchHandler)
-        } else if (__DEV__) {
-          warn(`Invalid watch handler specified by key "${raw}"`, handler)
-        }
-      } else if (isFunction(raw)) {
-        watch(getter, raw.bind(ctx))
-      } else if (isObject(raw)) {
-        // TODO 2.x compat
-        watch(getter, raw.handler.bind(ctx), raw)
-      } else if (__DEV__) {
-        warn(`Invalid watch option: "${key}"`)
-      }
+      createWatcher(watchOptions[key], renderContext, ctx, key)
     }
   }
   if (provideOptions) {
@@ -446,5 +434,32 @@ function applyMixins(
 ) {
   for (let i = 0; i < mixins.length; i++) {
     applyOptions(instance, mixins[i], true)
+  }
+}
+
+function createWatcher(
+  raw: ComponentWatchOptionItem,
+  renderContext: Data,
+  ctx: ComponentPublicInstance,
+  key: string
+) {
+  const getter = () => ctx[key]
+  if (isString(raw)) {
+    const handler = renderContext[raw]
+    if (isFunction(handler)) {
+      watch(getter, handler as WatchHandler)
+    } else if (__DEV__) {
+      warn(`Invalid watch handler specified by key "${raw}"`, handler)
+    }
+  } else if (isFunction(raw)) {
+    watch(getter, raw.bind(ctx))
+  } else if (isObject(raw)) {
+    if (isArray(raw)) {
+      raw.forEach(r => createWatcher(r, renderContext, ctx, key))
+    } else {
+      watch(getter, raw.handler.bind(ctx), raw)
+    }
+  } else if (__DEV__) {
+    warn(`Invalid watch option: "${key}"`)
   }
 }
