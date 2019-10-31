@@ -115,18 +115,19 @@ export function advancePositionWithMutation(
   let linesCount = 0
   let lastNewLinePos = -1
   for (let i = 0; i < numberOfCharacters; i++) {
+    // ！匹配到 \ 符号时，加一行，并记录索引
     if (source.charCodeAt(i) === 10 /* newline char code */) {
       linesCount++
       lastNewLinePos = i
     }
   }
 
-  pos.offset += numberOfCharacters
+  pos.offset += numberOfCharacters // ! 偏移直接加 numberOfCharacters
   pos.line += linesCount
   pos.column =
     lastNewLinePos === -1
-      ? pos.column + numberOfCharacters
-      : Math.max(1, numberOfCharacters - lastNewLinePos)
+      ? pos.column + numberOfCharacters // ! 没换行，直接加 numberOfCharacters
+      : Math.max(1, numberOfCharacters - lastNewLinePos) // ! 换行后为从换行索引开始算起到前进的位置，再和 1 比较
 
   return pos
 }

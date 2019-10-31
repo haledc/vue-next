@@ -49,6 +49,7 @@ export interface ParserOptions {
 type MergedParserOptions = Omit<Required<ParserOptions>, 'isNativeTag'> &
   Pick<ParserOptions, 'isNativeTag'>
 
+// ！默认解析选项
 export const defaultParserOptions: MergedParserOptions = {
   delimiters: [`{{`, `}}`],
   getNamespace: () => Namespaces.HTML,
@@ -66,6 +67,7 @@ export const defaultParserOptions: MergedParserOptions = {
   onError: defaultOnError
 }
 
+// ! 文本模式
 export const enum TextModes {
   //          | Elements | Entities | End sign              | Inside of
   DATA, //    | ✔       | ✔       | End tags of ancestors |
@@ -75,6 +77,7 @@ export const enum TextModes {
   ATTRIBUTE_VALUE
 }
 
+// ! 解析上下文接口
 interface ParserContext {
   options: MergedParserOptions
   readonly originalSource: string
@@ -86,13 +89,14 @@ interface ParserContext {
   inPre: boolean
 }
 
+// ！ 解析方法 -> 生成 AST 根节点
 export function parse(content: string, options: ParserOptions = {}): RootNode {
   const context = createParserContext(content, options)
-  const start = getCursor(context)
+  const start = getCursor(context) // ! 开始位置
 
   return {
     type: NodeTypes.ROOT,
-    children: parseChildren(context, TextModes.DATA, []),
+    children: parseChildren(context, TextModes.DATA, []), // ! 全部放到 children 中去
     helpers: [],
     components: [],
     directives: [],
@@ -103,6 +107,7 @@ export function parse(content: string, options: ParserOptions = {}): RootNode {
   }
 }
 
+// ! 生成上下文的方法
 function createParserContext(
   content: string,
   options: ParserOptions
@@ -125,6 +130,7 @@ function createParserContext(
   }
 }
 
+// ! 解析子节点
 function parseChildren(
   context: ParserContext,
   mode: TextModes,
@@ -293,6 +299,7 @@ function parseCDATA(
   return nodes
 }
 
+// ! 解析注释节点
 function parseComment(context: ParserContext): CommentNode {
   __DEV__ && assert(startsWith(context.source, '<!--'))
 
@@ -300,9 +307,9 @@ function parseComment(context: ParserContext): CommentNode {
   let content: string
 
   // Regular comment.
-  const match = /--(\!)?>/.exec(context.source)
+  const match = /--(\!)?>/.exec(context.source) // ! 匹配注释节点的闭合部分
   if (!match) {
-    content = context.source.slice(4)
+    content = context.source.slice(4) // ! 获取后面内容
     advanceBy(context, context.source.length)
     emitError(context, ErrorCodes.EOF_IN_COMMENT)
   } else {
@@ -312,12 +319,13 @@ function parseComment(context: ParserContext): CommentNode {
     if (match[1]) {
       emitError(context, ErrorCodes.INCORRECTLY_CLOSED_COMMENT)
     }
-    content = context.source.slice(4, match.index)
+    content = context.source.slice(4, match.index) // ! 获取注释内容
 
     // Advancing with reporting nested comments.
     const s = context.source.slice(0, match.index)
     let prevIndex = 1,
       nestedIndex = 0
+    // ！查找下一个 <!-- 的索引
     while ((nestedIndex = s.indexOf('<!--', prevIndex)) !== -1) {
       advanceBy(context, nestedIndex - prevIndex + 1)
       if (nestedIndex + 4 < s.length) {
@@ -907,11 +915,13 @@ function parseTextData(
   return text
 }
 
+// ! 获取光标属性的方法
 function getCursor(context: ParserContext): Position {
   const { column, line, offset } = context
   return { column, line, offset }
 }
 
+// ! 获取位置
 function getSelection(
   context: ParserContext,
   start: Position,
@@ -925,19 +935,22 @@ function getSelection(
   }
 }
 
+// ! 获取数组的最后一个元素
 function last<T>(xs: T[]): T | undefined {
   return xs[xs.length - 1]
 }
 
+// ! 判断字符串开头 -> 判断 source 是否以 searchString 开头
 function startsWith(source: string, searchString: string): boolean {
   return source.startsWith(searchString)
 }
 
+// ! 前进
 function advanceBy(context: ParserContext, numberOfCharacters: number): void {
   const { source } = context
   __DEV__ && assert(numberOfCharacters <= source.length)
-  advancePositionWithMutation(context, source, numberOfCharacters)
-  context.source = source.slice(numberOfCharacters)
+  advancePositionWithMutation(context, source, numberOfCharacters) // ! 更新 context 的位置
+  context.source = source.slice(numberOfCharacters) // ! 更新 source
 }
 
 function advanceSpaces(context: ParserContext): void {
@@ -959,6 +972,7 @@ function getNewPosition(
   )
 }
 
+// ! 派发错误
 function emitError(
   context: ParserContext,
   code: ErrorCodes,
