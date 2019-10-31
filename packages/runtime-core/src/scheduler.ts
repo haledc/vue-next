@@ -5,7 +5,8 @@ const queue: Function[] = []
 const postFlushCbs: Function[] = []
 const p = Promise.resolve()
 
-let isFlushing = false // ! 是否正在执行函数
+let isFlushing = false
+let isFlushPending = false
 
 // ! 使用 Promise 处理函数，无兼容处理
 export function nextTick(fn?: () => void): Promise<void> {
@@ -16,9 +17,7 @@ export function nextTick(fn?: () => void): Promise<void> {
 export function queueJob(job: () => void) {
   if (!queue.includes(job)) {
     queue.push(job)
-    if (!isFlushing) {
-      nextTick(flushJobs)
-    }
+    queueFlush()
   }
 }
 
@@ -29,8 +28,12 @@ export function queuePostFlushCb(cb: Function | Function[]) {
   } else {
     postFlushCbs.push(...cb)
   }
+  queueFlush()
+}
 
-  if (!isFlushing) {
+function queueFlush() {
+  if (!isFlushing && !isFlushPending) {
+    isFlushPending = true
     nextTick(flushJobs)
   }
 }
@@ -53,6 +56,7 @@ type JobCountMap = Map<Function, number>
 
 // ! 执行 jobs
 function flushJobs(seenJobs?: JobCountMap) {
+  isFlushPending = false
   isFlushing = true
   let job
   if (__DEV__) {
@@ -82,7 +86,7 @@ function flushJobs(seenJobs?: JobCountMap) {
   isFlushing = false
   // some postFlushCb queued jobs!
   // keep flushing until it drains.
-  if (queue.length) {
+  if (queue.length || postFlushCbs.length) {
     flushJobs(seenJobs) // ! 执行 job
   }
 }
