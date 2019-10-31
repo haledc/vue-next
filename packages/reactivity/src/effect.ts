@@ -9,11 +9,7 @@ export interface ReactiveEffect<T = any> {
   active: boolean // ! 激活开关，默认是 true, stop 后变为 false
   raw: () => T // ! 原始函数
   deps: Array<Dep> // ! dep 的集合 [{ effect1, effect2 }]
-  computed?: boolean
-  scheduler?: (run: Function) => void
-  onTrack?: (event: DebuggerEvent) => void
-  onTrigger?: (event: DebuggerEvent) => void
-  onStop?: () => void
+  options: ReactiveEffectOptions
 }
 
 // ! effect 选项接口
@@ -72,8 +68,8 @@ export function effect<T = any>(
 export function stop(effect: ReactiveEffect) {
   if (effect.active) {
     cleanup(effect)
-    if (effect.onStop) {
-      effect.onStop() // ! 执行 stop 监听器
+    if (effect.options.onStop) {
+      effect.options.onStop() // ! 执行 stop 监听器
     }
     effect.active = false
   }
@@ -91,12 +87,8 @@ function createReactiveEffect<T = any>(
   effect._isEffect = true
   effect.active = true
   effect.raw = fn // ! 存储原始函数
-  effect.scheduler = options.scheduler
-  effect.onTrack = options.onTrack
-  effect.onTrigger = options.onTrigger
-  effect.onStop = options.onStop
-  effect.computed = options.computed
   effect.deps = []
+  effect.options = options
   return effect
 }
 
@@ -166,8 +158,8 @@ export function track(target: object, type: OperationTypes, key?: unknown) {
     dep.add(effect) // ! dep 添加 effect
     effect.deps.push(dep) // ! effect 的 deps 也添加 dep（循环引用）
     // ! 生产环境执行 track 监听器
-    if (__DEV__ && effect.onTrack) {
-      effect.onTrack({
+    if (__DEV__ && effect.options.onTrack) {
+      effect.options.onTrack({
         effect,
         target,
         type,
@@ -233,7 +225,7 @@ function addRunners(
 ) {
   if (effectsToAdd !== void 0) {
     effectsToAdd.forEach(effect => {
-      if (effect.computed) {
+      if (effect.options.computed) {
         computedRunners.add(effect)
       } else {
         effects.add(effect)
@@ -250,17 +242,17 @@ function scheduleRun(
   key: unknown,
   extraInfo?: DebuggerEventExtraInfo
 ) {
-  if (__DEV__ && effect.onTrigger) {
+  if (__DEV__ && effect.options.onTrigger) {
     const event: DebuggerEvent = {
       effect,
       target,
       key,
       type
     }
-    effect.onTrigger(extraInfo ? extend(event, extraInfo) : event)
+    effect.options.onTrigger(extraInfo ? extend(event, extraInfo) : event)
   }
-  if (effect.scheduler !== void 0) {
-    effect.scheduler(effect)
+  if (effect.options.scheduler !== void 0) {
+    effect.options.scheduler(effect)
   } else {
     effect() // ! 没有设置 scheduler 直接执行
   }
