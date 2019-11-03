@@ -1,20 +1,16 @@
-import { VNode, normalizeVNode, VNodeChild, VNodeTypes } from './vnode'
+import { VNode, normalizeVNode, VNodeChild } from './vnode'
 import { ShapeFlags } from './shapeFlags'
 import { isFunction, isArray } from '@vue/shared'
 import { ComponentInternalInstance, handleSetupResult } from './component'
 import { Slots } from './componentSlots'
-import { RendererInternals } from './createRenderer'
+import { RendererInternals } from './renderer'
 import { queuePostFlushCb, queueJob } from './scheduler'
 import { updateHOCHostEl } from './componentRenderUtils'
 import { handleError, ErrorCodes } from './errorHandling'
 import { pushWarningContext, popWarningContext } from './warning'
 
-export function isSuspenseType(type: VNodeTypes): type is typeof SuspenseImpl {
-  return (type as any).__isSuspenseImpl === true
-}
-
-export const SuspenseImpl = {
-  __isSuspenseImpl: true,
+export const Suspense = {
+  __isSuspense: true,
   process(
     n1: VNode | null,
     n2: VNode,

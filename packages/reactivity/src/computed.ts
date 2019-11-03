@@ -3,7 +3,7 @@ import { Ref, UnwrapRef } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
 
 // ! ComputedRef 类型
-export interface ComputedRef<T> extends WritableComputedRef<T> {
+export interface ComputedRef<T = any> extends WritableComputedRef<T> {
   readonly value: UnwrapRef<T>
 }
 

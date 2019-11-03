@@ -25,7 +25,7 @@ import {
   makeMap,
   isPromise
 } from '@vue/shared'
-import { SuspenseBoundary } from './suspense'
+import { SuspenseBoundary } from './rendererSuspense'
 import {
   CompilerError,
   CompilerOptions,
@@ -150,7 +150,7 @@ export function createComponentInstance(
     vnode,
     parent,
     appContext,
-    type: vnode.type,
+    type: vnode.type as Component,
     root: null!, // set later so it can point to itself
     next: null,
     subTree: null!, // will be set synchronously right after creation
@@ -349,7 +349,8 @@ type CompileFunction = (
 
 let compile: CompileFunction | undefined
 
-export function registerRuntimeCompiler(_compile: CompileFunction) {
+// exported method uses any to avoid d.ts relying on the compiler types.
+export function registerRuntimeCompiler(_compile: any) {
   compile = _compile
 }
 

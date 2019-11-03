@@ -17,7 +17,8 @@ const convert = <T extends unknown>(val: T): T =>
 // ! 生成 Ref 类型的对象
 export function ref<T extends Ref>(raw: T): T
 export function ref<T>(raw: T): Ref<T>
-export function ref(raw: unknown) {
+export function ref<T = any>(): Ref<T>
+export function ref(raw?: unknown) {
   // ! 已经是 Ref 类型直接返回，不会重复生成
   if (isRef(raw)) {
     return raw

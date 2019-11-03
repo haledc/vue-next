@@ -1,5 +1,3 @@
-// internally the const enum flags are used to avoid overhead of property
-// access
 export const enum ShapeFlags {
   ELEMENT = 1,
   FUNCTIONAL_COMPONENT = 1 << 1,
@@ -13,7 +11,7 @@ export const enum ShapeFlags {
   COMPONENT = ShapeFlags.STATEFUL_COMPONENT | ShapeFlags.FUNCTIONAL_COMPONENT
 }
 
-// but the flags are also exported as an actual object for external use
+// For runtime consumption
 export const PublicShapeFlags = {
   ELEMENT: ShapeFlags.ELEMENT,
   FUNCTIONAL_COMPONENT: ShapeFlags.FUNCTIONAL_COMPONENT,

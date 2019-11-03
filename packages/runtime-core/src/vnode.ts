@@ -14,20 +14,31 @@ import {
 } from './component'
 import { RawSlots } from './componentSlots'
 import { ShapeFlags } from './shapeFlags'
-import { isReactive } from '@vue/reactivity'
+import { isReactive, Ref } from '@vue/reactivity'
 import { AppContext } from './apiApp'
-import { SuspenseBoundary, isSuspenseType } from './suspense'
+import { SuspenseBoundary } from './rendererSuspense'
 import { DirectiveBinding } from './directives'
-import { SuspenseImpl } from './suspense'
+import { Suspense as SuspenseImpl } from './rendererSuspense'
 
-export const Fragment = Symbol(__DEV__ ? 'Fragment' : undefined)
-export const Portal = Symbol(__DEV__ ? 'Portal' : undefined)
+export const Fragment = (Symbol(__DEV__ ? 'Fragment' : undefined) as any) as {
+  // type differentiator for h()
+  __isFragment: true
+}
+export const Portal = (Symbol(__DEV__ ? 'Portal' : undefined) as any) as {
+  // type differentiator for h()
+  __isPortal: true
+}
 export const Text = Symbol(__DEV__ ? 'Text' : undefined)
 export const Comment = Symbol(__DEV__ ? 'Comment' : undefined)
 
-const Suspense = (__FEATURE_SUSPENSE__
-  ? SuspenseImpl
-  : null) as typeof SuspenseImpl
+// Export Suspense with casting to avoid circular type dependency between
+// `suspense.ts` and `createRenderer.ts` in exported types.
+// A circular type dependency causes tsc to generate d.ts with dynmaic import()
+// calls using realtive paths, which works for separate d.ts files, but will
+// fail after d.ts rollup with API Extractor.
+const Suspense = ((__FEATURE_SUSPENSE__ ? SuspenseImpl : null) as any) as {
+  __isSuspense: true
+}
 export { Suspense }
 
 export type VNodeTypes =
@@ -37,7 +48,13 @@ export type VNodeTypes =
   | typeof Portal
   | typeof Text
   | typeof Comment
-  | typeof SuspenseImpl
+  | typeof Suspense
+
+export interface VNodeProps {
+  [key: string]: any
+  key?: string | number
+  ref?: string | Ref | ((ref: object) => void)
+}
 
 type VNodeChildAtom<HostNode, HostElement> =
   | VNode<HostNode, HostElement>
@@ -67,7 +84,7 @@ export type NormalizedChildren<HostNode = any, HostElement = any> =
 export interface VNode<HostNode = any, HostElement = any> {
   _isVNode: true
   type: VNodeTypes
-  props: Record<any, any> | null
+  props: VNodeProps | null
   key: string | number | null
   ref: string | Function | null
   children: NormalizedChildren<HostNode, HostElement>
@@ -195,7 +212,7 @@ export function createVNode(
   // ! 确定 shapeFlag
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
-    : __FEATURE_SUSPENSE__ && isSuspenseType(type)
+    : __FEATURE_SUSPENSE__ && (type as any).__isSuspense === true
       ? ShapeFlags.SUSPENSE
       : isObject(type)
         ? ShapeFlags.STATEFUL_COMPONENT
