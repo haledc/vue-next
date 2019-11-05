@@ -20,7 +20,7 @@ const targets = (exports.targets = fs.readdirSync('packages').filter(f => {
 // ! 模糊匹配目标
 exports.fuzzyMatchTarget = (partialTargets, includeAllMatching) => {
   const matched = []
-  partialTargets.some(partialTarget => {
+  partialTargets.forEach(partialTarget => {
     for (const target of targets) {
       // ! 匹配
       if (target.match(partialTarget)) {

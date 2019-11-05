@@ -30,12 +30,18 @@ export function ref(raw?: unknown) {
   const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
-      track(r, OperationTypes.GET, '') // ! 收集依赖
+      track(r, OperationTypes.GET, 'value') // ! 收集依赖
       return raw
     },
     set value(newVal) {
       raw = convert(newVal)
-      trigger(r, OperationTypes.SET, '') // ! 触发依赖执行
+      // ! 触发依赖执行
+      trigger(
+        r,
+        OperationTypes.SET,
+        'value',
+        __DEV__ ? { newValue: newVal } : void 0
+      )
     }
   }
   return r as Ref

@@ -13,7 +13,7 @@ import { onBeforeUnmount, injectHook, onUnmounted } from '../apiLifecycle'
 import { isString, isArray } from '@vue/shared'
 import { watch } from '../apiWatch'
 import { ShapeFlags } from '../shapeFlags'
-import { SuspenseBoundary } from '../rendererSuspense'
+import { SuspenseBoundary } from './Suspense'
 import {
   RendererInternals,
   queuePostRenderEffect,
@@ -39,7 +39,7 @@ export interface KeepAliveSink {
   deactivate: (vnode: VNode) => void
 }
 
-export const KeepAlive = {
+const KeepAliveImpl = {
   name: `KeepAlive`,
 
   // Marker for special handling inside the renderer. We are not using a ===
@@ -180,7 +180,7 @@ export const KeepAlive = {
         vnode.anchor = cached.anchor
         vnode.component = cached.component
         // avoid vnode being mounted as fresh
-        vnode.shapeFlag |= ShapeFlags.STATEFUL_COMPONENT_KEPT_ALIVE
+        vnode.shapeFlag |= ShapeFlags.COMPONENT_KEPT_ALIVE
         // make this key the freshest
         keys.delete(key)
         keys.add(key)
@@ -192,7 +192,7 @@ export const KeepAlive = {
         }
       }
       // avoid vnode being unmounted
-      vnode.shapeFlag |= ShapeFlags.STATEFUL_COMPONENT_SHOULD_KEEP_ALIVE
+      vnode.shapeFlag |= ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE
 
       current = vnode
       return vnode
@@ -201,10 +201,17 @@ export const KeepAlive = {
 }
 
 if (__DEV__) {
-  ;(KeepAlive as any).props = {
+  ;(KeepAliveImpl as any).props = {
     include: [String, RegExp, Array],
     exclude: [String, RegExp, Array],
     max: [String, Number]
+  }
+}
+
+// export the public type for h/tsx inference
+export const KeepAlive = (KeepAliveImpl as any) as {
+  new (): {
+    $props: KeepAliveProps
   }
 }
 
@@ -268,7 +275,7 @@ function registerKeepAliveHook(
   if (target) {
     let current = target.parent
     while (current && current.parent) {
-      if (current.parent.type === KeepAlive) {
+      if (current.parent.type === KeepAliveImpl) {
         injectToKeepAliveRoot(wrappedHook, type, target, current)
       }
       current = current.parent
