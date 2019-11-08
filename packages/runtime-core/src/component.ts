@@ -1,5 +1,5 @@
 import { VNode, VNodeChild, isVNode } from './vnode'
-import { ReactiveEffect, reactive, readonly } from '@vue/reactivity'
+import { ReactiveEffect, reactive, readonlyProps } from '@vue/reactivity'
 import {
   PublicInstanceProxyHandlers,
   ComponentPublicInstance
@@ -23,14 +23,11 @@ import {
   isObject,
   NO,
   makeMap,
-  isPromise
+  isPromise,
+  generateCodeFrame
 } from '@vue/shared'
 import { SuspenseBoundary } from './components/Suspense'
-import {
-  CompilerError,
-  CompilerOptions,
-  generateCodeFrame
-} from '@vue/compiler-dom'
+import { CompilerError, CompilerOptions } from '@vue/compiler-core'
 
 export type Data = { [key: string]: unknown }
 
@@ -275,7 +272,7 @@ export function setupStatefulComponent(
   // 2. create props proxy
   // the propsProxy is a reactive AND readonly proxy to the actual props.
   // it will be updated in resolveProps() on updates before render
-  const propsProxy = (instance.propsProxy = readonly(instance.props)) // ! props
+  const propsProxy = (instance.propsProxy = readonlyProps(instance.props)) // ! props
   // 3. call setup()
   const { setup } = Component
   if (setup) {

@@ -1,6 +1,6 @@
 import { OperationTypes } from './operations'
 import { Dep, targetMap } from './reactive'
-import { EMPTY_OBJ, extend } from '@vue/shared'
+import { EMPTY_OBJ, extend, isArray } from '@vue/shared'
 
 // ! effect 接口
 export interface ReactiveEffect<T = any> {
@@ -201,7 +201,7 @@ export function trigger(
     // also run for iteration key on ADD | DELETE
     if (type === OperationTypes.ADD || type === OperationTypes.DELETE) {
       // ! 数组类型对应的 key 是 length，其他类型对应的 key 是 Symbol('iterate')
-      const iterationKey = Array.isArray(target) ? 'length' : ITERATE_KEY
+      const iterationKey = isArray(target) ? 'length' : ITERATE_KEY
 
       // ! 把迭代类型的 effect 添加到对应的集合中
       addRunners(effects, computedRunners, depsMap.get(iterationKey))

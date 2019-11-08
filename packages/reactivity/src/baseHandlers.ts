@@ -12,9 +12,9 @@ const builtInSymbols = new Set(
 )
 
 // ! 生成 getter，根据参数是否生成只读的 getter
-function createGetter(isReadonly: boolean) {
+function createGetter(isReadonly: boolean, unwrap: boolean = true) {
   return function get(target: object, key: string | symbol, receiver: object) {
-    const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
+    let res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
 
     // ! 是内置的 Symbol 直接返回原始数据值
     if (isSymbol(key) && builtInSymbols.has(key)) {
@@ -22,11 +22,11 @@ function createGetter(isReadonly: boolean) {
     }
 
     // ! 如果是 Ref 类型，返回它的 value
-    if (isRef(res)) {
-      return res.value
+    if (unwrap && isRef(res)) {
+      res = res.value
+    } else {
+      track(target, OperationTypes.GET, key) // ! 收集依赖
     }
-
-    track(target, OperationTypes.GET, key) // ! 收集依赖
 
     // ! 返回值，对象类型转换成响应式对象
     return isObject(res)
@@ -156,4 +156,12 @@ export const readonlyHandlers: ProxyHandler<object> = {
 
   has,
   ownKeys
+}
+
+// props handlers are special in the sense that it should not unwrap top-level
+// refs (in order to allow refs to be explicitly passed down), but should
+// retain the reactivity of the normal readonly object.
+export const readonlyPropsHandlers: ProxyHandler<object> = {
+  ...readonlyHandlers,
+  get: createGetter(true, false)
 }

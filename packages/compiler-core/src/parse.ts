@@ -1,4 +1,4 @@
-import { NO } from '@vue/shared'
+import { NO, makeMap, isArray } from '@vue/shared'
 import {
   ErrorCodes,
   createCompilerError,
@@ -28,6 +28,12 @@ import {
   InterpolationNode
 } from './ast'
 import { extend } from '@vue/shared'
+
+// Portal and Fragment are native types, not components
+const isBuiltInComponent = /*#__PURE__*/ makeMap(
+  `suspense,keep-alive,keepalive,transition`,
+  true
+)
 
 export interface ParserOptions {
   isVoidTag?: (tag: string) => boolean // e.g. img, br, hr
@@ -203,7 +209,7 @@ function parseChildren(
       node = parseText(context, mode)
     }
 
-    if (Array.isArray(node)) {
+    if (isArray(node)) {
       for (let i = 0; i < node.length; i++) {
         pushNode(nodes, node[i])
       }
@@ -215,7 +221,10 @@ function parseChildren(
   // Whitespace management for more efficient output
   // (same as v2 whitespance: 'condense')
   let removedWhitespace = false
-  if (!parent || !context.options.isPreTag(parent.tag)) {
+  if (
+    mode !== TextModes.RAWTEXT &&
+    (!parent || !context.options.isPreTag(parent.tag))
+  ) {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]
       if (node.type === NodeTypes.TEXT) {
@@ -475,15 +484,15 @@ function parseTag(
   if (!context.inPre && !context.options.isCustomElement(tag)) {
     if (context.options.isNativeTag) {
       if (!context.options.isNativeTag(tag)) tagType = ElementTypes.COMPONENT
-    } else {
-      if (/^[A-Z]/.test(tag)) tagType = ElementTypes.COMPONENT
+    } else if (isBuiltInComponent(tag) || /^[A-Z]/.test(tag)) {
+      tagType = ElementTypes.COMPONENT
     }
 
-    if (tag === 'slot') tagType = ElementTypes.SLOT
-    else if (tag === 'template') tagType = ElementTypes.TEMPLATE
-    else if (tag === 'portal' || tag === 'Portal') tagType = ElementTypes.PORTAL
-    else if (tag === 'suspense' || tag === 'Suspense')
-      tagType = ElementTypes.SUSPENSE
+    if (tag === 'slot') {
+      tagType = ElementTypes.SLOT
+    } else if (tag === 'template') {
+      tagType = ElementTypes.TEMPLATE
+    }
   }
 
   return {

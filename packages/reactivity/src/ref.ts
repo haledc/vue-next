@@ -1,18 +1,32 @@
 import { track, trigger } from './effect'
 import { OperationTypes } from './operations'
 import { isObject } from '@vue/shared'
-import { reactive } from './reactive'
+import { reactive, isReactive } from './reactive'
 import { ComputedRef } from './computed'
 import { CollectionTypes } from './collectionHandlers'
 
+const isRefSymbol = Symbol()
+
 export interface Ref<T = any> {
-  _isRef: true // ! Ref 类型标识
+  // This field is necessary to allow TS to differentiate a Ref from a plain
+  // object that happens to have a "value" field.
+  // However, checking a symbol on an arbitrary object is much slower than
+  // checking a plain property, so we use a _isRef plain property for isRef()
+  // check in the actual implementation.
+  // The reason for not just declaring _isRef in the interface is because we
+  // don't want this internal field to leak into userland autocompletion -
+  // a private symbol, on the other hand, achieves just that.
+  [isRefSymbol]: true // ! Ref 类型标识
   value: UnwrapRef<T> // ! 值的类型
 }
 
 // ! 转换：对象类型转换成响应性对象，原始类型直接返回自身
 const convert = <T extends unknown>(val: T): T =>
   isObject(val) ? reactive(val) : val
+
+export function isRef(r: any): r is Ref {
+  return r ? r._isRef === true : false
+}
 
 // ! 生成 Ref 类型的对象
 export function ref<T extends Ref>(raw: T): T
@@ -44,18 +58,16 @@ export function ref(raw?: unknown) {
       )
     }
   }
-  return r as Ref
-}
-
-// ! 判断是不是 Ref 类型
-export function isRef(r: any): r is Ref {
-  return r ? r._isRef === true : false
+  return r
 }
 
 // ! 把普通对象的 key 值转换成 Ref 类型
 export function toRefs<T extends object>(
   object: T
 ): { [K in keyof T]: Ref<T[K]> } {
+  if (__DEV__ && !isReactive(object)) {
+    console.warn(`toRefs() expects a reactive object but received a plain one.`)
+  }
   const ret: any = {}
   for (const key in object) {
     ret[key] = toProxyRef(object, key) // ! 把 key 值转换成 Ref 类型
@@ -76,8 +88,10 @@ function toProxyRef<T extends object, K extends keyof T>(
     set value(newVal) {
       object[key] = newVal
     }
-  }
+  } as any
 }
+
+type UnwrapArray<T> = { [P in keyof T]: UnwrapRef<T[P]> }
 
 // Recursively unwraps nested value bindings.
 // ! 递归获取嵌套数据的类型
@@ -89,7 +103,7 @@ export type UnwrapRef<T> = {
   ref: T extends Ref<infer V> ? UnwrapRef<V> : T
 
   // ! 如果是数组类型，循环解套
-  array: T extends Array<infer V> ? Array<UnwrapRef<V>> : T
+  array: T extends Array<infer V> ? Array<UnwrapRef<V>> & UnwrapArray<T> : T
 
   // ! 如果是对象类型，遍历解套
   object: { [K in keyof T]: UnwrapRef<T[K]> }

@@ -74,7 +74,7 @@ export function computed<T>(
     set value(newValue: T) {
       setter(newValue)
     }
-  }
+  } as any
 }
 
 function trackChildRun(childRunner: ReactiveEffect) {
