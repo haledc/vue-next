@@ -8,6 +8,9 @@ const p = Promise.resolve()
 let isFlushing = false
 let isFlushPending = false
 
+const RECURSION_LIMIT = 100
+type CountMap = Map<Function, number>
+
 // ! 使用 Promise 处理函数，无兼容处理
 export function nextTick(fn?: () => void): Promise<void> {
   return fn ? p.then(fn) : p
@@ -41,52 +44,58 @@ function queueFlush() {
 const dedupe = (cbs: Function[]): Function[] => [...new Set(cbs)]
 
 // ! 执行 cbs
-export function flushPostFlushCbs() {
+export function flushPostFlushCbs(seen?: CountMap) {
   if (postFlushCbs.length) {
     const cbs = dedupe(postFlushCbs) // ! 去重
     postFlushCbs.length = 0 // ! 清除
+    if (__DEV__) {
+      seen = seen || new Map()
+    }
     for (let i = 0; i < cbs.length; i++) {
+      if (__DEV__) {
+        checkRecursiveUpdates(seen!, cbs[i])
+      }
       cbs[i]()
     }
   }
 }
 
-const RECURSION_LIMIT = 100
-type JobCountMap = Map<Function, number>
-
 // ! 执行 jobs
-function flushJobs(seenJobs?: JobCountMap) {
+function flushJobs(seen?: CountMap) {
   isFlushPending = false
   isFlushing = true
   let job
   if (__DEV__) {
-    seenJobs = seenJobs || new Map()
+    seen = seen || new Map()
   }
   while ((job = queue.shift())) {
     if (__DEV__) {
-      const seen = seenJobs!
-      if (!seen.has(job)) {
-        seen.set(job, 1)
-      } else {
-        const count = seen.get(job)!
-        if (count > RECURSION_LIMIT) {
-          throw new Error(
-            'Maximum recursive updates exceeded. ' +
-              "You may have code that is mutating state in your component's " +
-              'render function or updated hook.'
-          )
-        } else {
-          seen.set(job, count + 1)
-        }
-      }
+      checkRecursiveUpdates(seen!, job)
     }
     callWithErrorHandling(job, null, ErrorCodes.SCHEDULER)
   }
-  flushPostFlushCbs() // ! 执行 cbs
+  flushPostFlushCbs(seen) // ! 执行 cbs
   isFlushing = false
   // some postFlushCb queued jobs!
   // keep flushing until it drains.
   if (queue.length || postFlushCbs.length) {
-    flushJobs(seenJobs) // ! 执行 job
+    flushJobs(seen) // ! 执行 job
+  }
+}
+
+function checkRecursiveUpdates(seen: CountMap, fn: Function) {
+  if (!seen.has(fn)) {
+    seen.set(fn, 1)
+  } else {
+    const count = seen.get(fn)!
+    if (count > RECURSION_LIMIT) {
+      throw new Error(
+        'Maximum recursive updates exceeded. ' +
+          "You may have code that is mutating state in your component's " +
+          'render function or updated hook or watcher source function.'
+      )
+    } else {
+      seen.set(fn, count + 1)
+    }
   }
 }

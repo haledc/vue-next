@@ -302,7 +302,6 @@ export function setupStatefulComponent(
             `does not support it yet.`
         )
       }
-      return
     } else {
       handleSetupResult(instance, setupResult, parentSuspense) // ! 处理 setup 结果
     }
