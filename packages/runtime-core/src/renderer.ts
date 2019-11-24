@@ -367,7 +367,7 @@ export function createRenderer<
         invokeDirectiveHook(props.onVnodeBeforeMount, parentComponent, vnode)
       }
     }
-    if (transition != null) {
+    if (transition != null && !transition.persisted) {
       transition.beforeEnter(el)
     }
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
@@ -385,11 +385,14 @@ export function createRenderer<
     }
     hostInsert(el, container, anchor)
     const vnodeMountedHook = props && props.onVnodeMounted
-    if (vnodeMountedHook != null || transition != null) {
+    if (
+      vnodeMountedHook != null ||
+      (transition != null && !transition.persisted)
+    ) {
       queuePostRenderEffect(() => {
         vnodeMountedHook &&
           invokeDirectiveHook(vnodeMountedHook, parentComponent, vnode)
-        transition && transition.enter(el)
+        transition && !transition.persisted && transition.enter(el)
       }, parentSuspense)
     }
   }
@@ -882,7 +885,6 @@ export function createRenderer<
 
     setupRenderEffect(
       instance,
-      parentComponent,
       parentSuspense,
       initialVNode,
       container,
@@ -897,7 +899,6 @@ export function createRenderer<
 
   function setupRenderEffect(
     instance: ComponentInternalInstance,
-    parentComponent: ComponentInternalInstance | null,
     parentSuspense: HostSuspenseBoundary | null,
     initialVNode: HostVNode,
     container: HostElement,
@@ -905,9 +906,8 @@ export function createRenderer<
     isSVG: boolean
   ) {
     // create reactive effect for rendering
-    let mounted = false
     instance.update = effect(function componentEffect() {
-      if (!mounted) {
+      if (!instance.isMounted) {
         const subTree = (instance.subTree = renderComponentRoot(instance))
         // beforeMount hook
         if (instance.bm !== null) {
@@ -926,7 +926,7 @@ export function createRenderer<
         ) {
           queuePostRenderEffect(instance.a, parentSuspense)
         }
-        mounted = true
+        instance.isMounted = true
       } else {
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
@@ -1468,11 +1468,19 @@ export function createRenderer<
       const remove = () => {
         hostRemove(vnode.el!)
         if (anchor != null) hostRemove(anchor)
-        if (transition != null && transition.afterLeave) {
+        if (
+          transition != null &&
+          !transition.persisted &&
+          transition.afterLeave
+        ) {
           transition.afterLeave()
         }
       }
-      if (vnode.shapeFlag & ShapeFlags.ELEMENT && transition != null) {
+      if (
+        vnode.shapeFlag & ShapeFlags.ELEMENT &&
+        transition != null &&
+        !transition.persisted
+      ) {
         const { leave, delayLeave } = transition
         const performLeave = () => leave(el!, remove)
         if (delayLeave) {

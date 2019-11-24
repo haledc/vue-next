@@ -12,7 +12,7 @@ const builtInSymbols = new Set(
 )
 
 // ! 生成 getter，根据参数是否生成只读的 getter
-function createGetter(isReadonly: boolean, unwrap: boolean = true) {
+function createGetter(isReadonly: boolean, unwrap = true) {
   return function get(target: object, key: string | symbol, receiver: object) {
     let res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
 
