@@ -15,7 +15,7 @@ import {
   createObjectExpression,
   Property
 } from '../ast'
-import { PatchFlags, PatchFlagNames, isSymbol } from '@vue/shared'
+import { PatchFlags, PatchFlagNames, isSymbol, hyphenate } from '@vue/shared'
 import { createCompilerError, ErrorCodes } from '../errors'
 import {
   CREATE_VNODE,
@@ -27,7 +27,8 @@ import {
   TO_HANDLERS,
   PORTAL,
   SUSPENSE,
-  KEEP_ALIVE
+  KEEP_ALIVE,
+  TRANSITION
 } from '../runtimeHelpers'
 import { getInnerRange, isVSlot, toValidAssetId, findProp } from '../utils'
 import { buildSlots } from './vSlot'
@@ -36,6 +37,9 @@ import { isStaticNode } from './hoistStatic'
 // some directive transforms (e.g. v-model) may return a symbol for runtime
 // import, which should be used instead of a resolveDirective call.
 const directiveImportMap = new WeakMap<DirectiveNode, symbol>()
+
+const isBuiltInType = (tag: string, expected: string): boolean =>
+  tag === expected || tag === hyphenate(expected)
 
 // generate a JavaScript AST for this element's codegen
 export const transformElement: NodeTransform = (node, context) => {
@@ -53,9 +57,10 @@ export const transformElement: NodeTransform = (node, context) => {
   // processed and merged.
   return function postTransformElement() {
     const { tag, tagType, props } = node
-    const isPortal = tag === 'portal' || tag === 'Portal'
-    const isSuspense = tag === 'suspense' || tag === 'Suspense'
-    const isKeepAlive = tag === 'keep-alive' || tag === 'KeepAlive'
+    const isPortal = isBuiltInType(tag, 'Portal')
+    const isSuspense = isBuiltInType(tag, 'Suspense')
+    const isKeepAlive = isBuiltInType(tag, 'KeepAlive')
+    const isTransition = isBuiltInType(tag, 'Transition')
     const isComponent = tagType === ElementTypes.COMPONENT
 
     let hasProps = props.length > 0
@@ -81,7 +86,8 @@ export const transformElement: NodeTransform = (node, context) => {
         else if (isProp.exp) {
           dynamicComponent = createCallExpression(
             context.helper(RESOLVE_DYNAMIC_COMPONENT),
-            [isProp.exp]
+            // _ctx.$ exposes the owner instance of current render function
+            [isProp.exp, context.prefixIdentifiers ? `_ctx.$` : `$`]
           )
         }
       }
@@ -96,6 +102,8 @@ export const transformElement: NodeTransform = (node, context) => {
       nodeType = context.helper(SUSPENSE)
     } else if (isKeepAlive) {
       nodeType = context.helper(KEEP_ALIVE)
+    } else if (isTransition) {
+      nodeType = context.helper(TRANSITION)
     } else if (isComponent) {
       // user component w/ resolve
       context.helper(RESOLVE_COMPONENT)
@@ -130,8 +138,11 @@ export const transformElement: NodeTransform = (node, context) => {
       if (!hasProps) {
         args.push(`null`)
       }
-      // Portal should have normal children instead of slots
-      if (isComponent && !isPortal) {
+      // Portal & KeepAlive should have normal children instead of slots
+      // Portal is not a real component has dedicated handling in the renderer
+      // KeepAlive should not track its own deps so that it can be used inside
+      // Transition
+      if (isComponent && !isPortal && !isKeepAlive) {
         const { slots, hasDynamicSlots } = buildSlots(node, context)
         args.push(slots)
         if (hasDynamicSlots) {
@@ -487,13 +498,11 @@ function buildDirectiveArgs(
       }
       dirArgs.push(`void 0`)
     }
+    const trueExpression = createSimpleExpression(`true`, false, loc)
     dirArgs.push(
       createObjectExpression(
         dir.modifiers.map(modifier =>
-          createObjectProperty(
-            modifier,
-            createSimpleExpression(`true`, false, loc)
-          )
+          createObjectProperty(modifier, trueExpression)
         ),
         loc
       )

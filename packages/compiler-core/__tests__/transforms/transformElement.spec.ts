@@ -347,12 +347,8 @@ describe('compiler: element transform', () => {
       expect(node.arguments).toMatchObject([
         KEEP_ALIVE,
         `null`,
-        createObjectMatcher({
-          default: {
-            type: NodeTypes.JS_FUNCTION_EXPRESSION
-          },
-          _compiled: `[true]`
-        })
+        // keep-alive should not compile content to slots
+        [{ type: NodeTypes.ELEMENT, tag: 'span' }]
       ])
     }
 
@@ -788,7 +784,8 @@ describe('compiler: element transform', () => {
             {
               type: NodeTypes.SIMPLE_EXPRESSION,
               content: 'foo'
-            }
+            },
+            '$'
           ]
         }
       ])
