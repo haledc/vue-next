@@ -54,6 +54,7 @@ export const ErrorTypeStrings: Record<number | string, string> = {
 
 export type ErrorTypes = LifecycleHooks | ErrorCodes
 
+// ! 带错误处理的同步执行
 export function callWithErrorHandling(
   fn: Function,
   instance: ComponentInternalInstance | null,
@@ -69,6 +70,7 @@ export function callWithErrorHandling(
   return res
 }
 
+// ! 带错误处理的异步执行 -> 返回 Promise 使用 catch 捕获错误
 export function callWithAsyncErrorHandling(
   fn: Function | Function[],
   instance: ComponentInternalInstance | null,
@@ -90,6 +92,7 @@ export function callWithAsyncErrorHandling(
   }
 }
 
+// ! 处理错误
 export function handleError(
   err: Error,
   instance: ComponentInternalInstance | null,
@@ -134,6 +137,7 @@ export function setErrorRecovery(value: boolean) {
   forceRecover = value
 }
 
+// ! 记录错误
 function logError(err: Error, type: ErrorTypes, contextVNode: VNode | null) {
   // default behavior is crash in prod & test, recover in dev.
   if (__DEV__ && (forceRecover || !__TEST__)) {

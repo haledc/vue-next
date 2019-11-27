@@ -58,7 +58,7 @@ export interface ParserOptions {
 type MergedParserOptions = Omit<Required<ParserOptions>, 'isNativeTag'> &
   Pick<ParserOptions, 'isNativeTag'>
 
-// ！默认解析选项
+// ! 默认解析选项
 export const defaultParserOptions: MergedParserOptions = {
   delimiters: [`{{`, `}}`],
   getNamespace: () => Namespaces.HTML,
@@ -98,14 +98,14 @@ interface ParserContext {
   inPre: boolean
 }
 
-// ！ 解析方法 -> 生成 AST 根节点
+// ! 解析方法 -> 生成 AST 根节点
 export function parse(content: string, options: ParserOptions = {}): RootNode {
-  const context = createParserContext(content, options)
+  const context = createParserContext(content, options) // ! 生成解析上下文
   const start = getCursor(context) // ! 开始位置
 
   return {
     type: NodeTypes.ROOT,
-    children: parseChildren(context, TextModes.DATA, []), // ! 全部放到 children 中去
+    children: parseChildren(context, TextModes.DATA, []), // ! 解析的字符串全部放到 children 中去
     helpers: [],
     components: [],
     directives: [],
@@ -150,23 +150,26 @@ function parseChildren(
     const s = context.source
     let node: TemplateChildNode | TemplateChildNode[] | undefined = undefined
 
+    // ! 没有设置 v-pre（pre tag）且以插值 {{ 开头时
     if (!context.inPre && startsWith(s, context.options.delimiters[0])) {
       // '{{'
-      node = parseInterpolation(context, mode)
+      node = parseInterpolation(context, mode) // ! 解析插值
+      // ! 文本节点并且以 < 开头时
     } else if (mode === TextModes.DATA && s[0] === '<') {
       // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
       if (s.length === 1) {
         emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 1)
+        // ! 第二是 ！时 -> <!
       } else if (s[1] === '!') {
         // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
         if (startsWith(s, '<!--')) {
-          node = parseComment(context)
+          node = parseComment(context) // ! 解析注释
         } else if (startsWith(s, '<!DOCTYPE')) {
           // Ignore DOCTYPE by a limitation.
-          node = parseBogusComment(context)
+          node = parseBogusComment(context) // ! 解析文档
         } else if (startsWith(s, '<![CDATA[')) {
           if (ns !== Namespaces.HTML) {
-            node = parseCDATA(context, ancestors)
+            node = parseCDATA(context, ancestors) // ! 解析 CDATA
           } else {
             emitError(context, ErrorCodes.CDATA_IN_HTML_CONTENT)
             node = parseBogusComment(context)
@@ -175,24 +178,29 @@ function parseChildren(
           emitError(context, ErrorCodes.INCORRECTLY_OPENED_COMMENT)
           node = parseBogusComment(context)
         }
+        // ! 第二字符是 / 时 -> </
       } else if (s[1] === '/') {
         // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
         if (s.length === 2) {
           emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 2)
+          // ! 第三个字符是 > 时 -> </>
         } else if (s[2] === '>') {
           emitError(context, ErrorCodes.MISSING_END_TAG_NAME, 2)
-          advanceBy(context, 3)
+          advanceBy(context, 3) // ! 前进
           continue
+          // ! 第三个字符是小写字母时 -> </xxx 普通的闭合标签
         } else if (/[a-z]/i.test(s[2])) {
           emitError(context, ErrorCodes.X_INVALID_END_TAG)
-          parseTag(context, TagType.End, parent)
+          parseTag(context, TagType.End, parent) // ! 解析标签
           continue
         } else {
           emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 2)
           node = parseBogusComment(context)
         }
+        // ! 第二个字符是小写字母时 -> <xxx 普通的开始标签
       } else if (/[a-z]/i.test(s[1])) {
         node = parseElement(context, ancestors)
+        // ! 第二个字符是 ? 时 -> <?
       } else if (s[1] === '?') {
         emitError(
           context,
@@ -204,10 +212,12 @@ function parseChildren(
         emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1)
       }
     }
+    // ! 没有解析出 node 时，解析文本
     if (!node) {
       node = parseText(context, mode)
     }
 
+    // ! 放入到节点数组中
     if (isArray(node)) {
       for (let i = 0; i < node.length; i++) {
         pushNode(nodes, node[i])
@@ -219,6 +229,7 @@ function parseChildren(
 
   // Whitespace management for more efficient output
   // (same as v2 whitespance: 'condense')
+  // ! 是否删除空白部分（最后一个文本节点和元素间的空白部分）
   let removedWhitespace = false
   if (
     mode !== TextModes.RAWTEXT &&
@@ -261,6 +272,7 @@ function parseChildren(
   return removedWhitespace ? nodes.filter(node => node !== null) : nodes
 }
 
+// ! push 节点
 function pushNode(nodes: TemplateChildNode[], node: TemplateChildNode): void {
   // ignore comments in production
   /* istanbul ignore next */
@@ -287,6 +299,7 @@ function pushNode(nodes: TemplateChildNode[], node: TemplateChildNode): void {
   nodes.push(node)
 }
 
+// ! 解析 CDATA
 function parseCDATA(
   context: ParserContext,
   ancestors: ElementNode[]
@@ -333,7 +346,7 @@ function parseComment(context: ParserContext): CommentNode {
     const s = context.source.slice(0, match.index)
     let prevIndex = 1,
       nestedIndex = 0
-    // ！查找下一个 <!-- 的索引
+    // ! 查找下一个 <!-- 的索引
     while ((nestedIndex = s.indexOf('<!--', prevIndex)) !== -1) {
       advanceBy(context, nestedIndex - prevIndex + 1)
       if (nestedIndex + 4 < s.length) {
@@ -351,6 +364,7 @@ function parseComment(context: ParserContext): CommentNode {
   }
 }
 
+// ! 解析 bogus 注释 -> 非注释
 function parseBogusComment(context: ParserContext): CommentNode | undefined {
   __TEST__ && assert(/^<(?:[\!\?]|\/[^a-z>])/i.test(context.source))
 
@@ -374,6 +388,7 @@ function parseBogusComment(context: ParserContext): CommentNode | undefined {
   }
 }
 
+// ! 解析元素节点
 function parseElement(
   context: ParserContext,
   ancestors: ElementNode[]
@@ -426,6 +441,7 @@ const enum TagType {
 
 /**
  * Parse a tag (E.g. `<div id=a>`) with that type (start tag or end tag).
+ * ! 解析标签
  */
 function parseTag(
   context: ParserContext,
@@ -507,6 +523,7 @@ function parseTag(
   }
 }
 
+// ! 解析所有属性
 function parseAttributes(
   context: ParserContext,
   type: TagType
@@ -541,6 +558,7 @@ function parseAttributes(
   return props
 }
 
+// ! 解析单个属性
 function parseAttribute(
   context: ParserContext,
   nameSet: Set<string>
@@ -677,6 +695,7 @@ function parseAttribute(
   }
 }
 
+// ! 解析属性值
 function parseAttributeValue(
   context: ParserContext
 ):
@@ -727,6 +746,7 @@ function parseAttributeValue(
   return { content, isQuoted, loc: getSelection(context, start) }
 }
 
+// ! 解析插值 {{ xxx }}
 function parseInterpolation(
   context: ParserContext,
   mode: TextModes
@@ -771,6 +791,7 @@ function parseInterpolation(
   }
 }
 
+// ! 解析文本
 function parseText(context: ParserContext, mode: TextModes): TextNode {
   __TEST__ && assert(context.source.length > 0)
 
@@ -802,6 +823,7 @@ function parseText(context: ParserContext, mode: TextModes): TextNode {
 /**
  * Get text data with a given length from the current location.
  * This translates HTML entities in the text data.
+ * ! 解析文本数据
  */
 function parseTextData(
   context: ParserContext,
@@ -963,7 +985,7 @@ function startsWith(source: string, searchString: string): boolean {
   return source.startsWith(searchString)
 }
 
-// ! 前进
+// ! 解析前进 -> 更新值
 function advanceBy(context: ParserContext, numberOfCharacters: number): void {
   const { source } = context
   __TEST__ && assert(numberOfCharacters <= source.length)
@@ -978,6 +1000,7 @@ function advanceSpaces(context: ParserContext): void {
   }
 }
 
+// ! 获取新的位置
 function getNewPosition(
   context: ParserContext,
   start: Position,
@@ -1010,6 +1033,7 @@ function emitError(
   )
 }
 
+// ! 判断是否是最后
 function isEnd(
   context: ParserContext,
   mode: TextModes,
@@ -1048,6 +1072,7 @@ function isEnd(
   return !s
 }
 
+// ! 判断是否是闭合标签的
 function startsWithEndTagOpen(source: string, tag: string): boolean {
   return (
     startsWith(source, '</') &&

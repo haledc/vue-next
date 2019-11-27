@@ -63,8 +63,10 @@ export const enum LifecycleHooks {
   ERROR_CAPTURED = 'ec'
 }
 
+// ! 事件派发
 export type Emit = (event: string, ...args: unknown[]) => void
 
+// ! 组件上下文接口
 export interface SetupContext {
   attrs: Data
   slots: Slots

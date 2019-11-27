@@ -42,6 +42,7 @@ import { Directive } from './directives'
 import { ComponentPublicInstance } from './componentProxy'
 import { warn } from './warning'
 
+// ! 组件选项基础接口 -> 继承 Vue2 选项接口
 export interface ComponentOptionsBase<
   Props,
   RawBindings,
@@ -147,6 +148,7 @@ type ComponentInjectOptions =
     >
 
 // TODO type inference for these options
+// ! 2.x 遗留的选项接口
 export interface LegacyOptions<
   Props,
   RawBindings,
@@ -206,6 +208,7 @@ function createDuplicateChecker() {
   }
 }
 
+// ! 处理选项 -> 兼容 2.x 选项
 export function applyOptions(
   instance: ComponentInternalInstance,
   options: ComponentOptions,

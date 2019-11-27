@@ -36,6 +36,7 @@ export type WatchHandler<T = any> = (
   onCleanup: CleanupRegistrator
 ) => any
 
+// ! 观察选项接口
 export interface WatchOptions {
   lazy?: boolean
   flush?: 'pre' | 'post' | 'sync'
@@ -44,8 +45,10 @@ export interface WatchOptions {
   onTrigger?: ReactiveEffectOptions['onTrigger']
 }
 
+// ! 停止观察
 type StopHandle = () => void
 
+// ! 观察来源
 type WatcherSource<T = any> = Ref<T> | ComputedRef<T> | (() => T)
 
 type MapSources<T> = {
@@ -94,6 +97,7 @@ export function watch<T = any>(
   }
 }
 
+// ! 执行观察的方法
 function doWatch(
   source: WatcherSource | WatcherSource[] | SimpleEffect,
   cb: WatchHandler | null,
@@ -102,6 +106,7 @@ function doWatch(
   const instance = currentInstance
   const suspense = currentSuspense
 
+  // ! 提取 getter
   let getter: () => any
   if (isArray(source)) {
     getter = () =>
@@ -135,6 +140,7 @@ function doWatch(
     }
   }
 
+  // ! 深度观察
   if (deep) {
     const baseGetter = getter
     getter = () => traverse(baseGetter())
@@ -169,6 +175,7 @@ function doWatch(
       }
     : void 0
 
+  // ! 定义调度器
   let scheduler: (job: () => any) => void
   if (flush === 'sync') {
     scheduler = invoke
@@ -188,6 +195,7 @@ function doWatch(
     }
   }
 
+  // ! 执行器 -> effect
   const runner = effect(getter, {
     lazy: true,
     // so it runs before component update effects in pre flush mode
@@ -227,6 +235,7 @@ export function instanceWatch(
   return stop
 }
 
+// ! 追踪 -> 实现深度观察的方法
 function traverse(value: unknown, seen: Set<unknown> = new Set()) {
   if (!isObject(value) || seen.has(value)) {
     return

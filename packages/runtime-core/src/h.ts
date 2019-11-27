@@ -139,6 +139,7 @@ export function h<P>(
 ): VNode
 
 // Actual implementation
+// ! h 函数 -> 为了更好创建 VNode 的函数
 export function h(type: any, propsOrChildren?: any, children?: any): VNode {
   // ! 如果只有两个参数时，判断第二个参数是 props 还是 children
   if (arguments.length === 2) {

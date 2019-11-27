@@ -323,6 +323,7 @@ const isSimpleType = /*#__PURE__*/ makeMap(
   'String,Number,Boolean,Function,Symbol'
 )
 
+// ! 校验类型
 function assertType(value: unknown, type: PropConstructor): AssertionResult {
   let valid
   const expectedType = getType(type)
@@ -346,6 +347,7 @@ function assertType(value: unknown, type: PropConstructor): AssertionResult {
   }
 }
 
+// ! 获取验证失败信息
 function getInvalidTypeMessage(
   name: string,
   value: unknown,

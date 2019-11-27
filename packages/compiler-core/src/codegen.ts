@@ -41,6 +41,7 @@ import {
 
 type CodegenNode = TemplateChildNode | JSChildNode
 
+// ! 代码生成选项
 export interface CodegenOptions {
   // - Module mode will generate ES module import statements for helpers
   //   and export the render function as the default export.
@@ -62,12 +63,14 @@ export interface CodegenOptions {
   filename?: string
 }
 
+// ! 代码生成结果
 export interface CodegenResult {
   code: string
   ast: RootNode
   map?: RawSourceMap
 }
 
+// ! 代码生成上下文
 export interface CodegenContext extends Required<CodegenOptions> {
   source: string
   code: string
@@ -84,6 +87,7 @@ export interface CodegenContext extends Required<CodegenOptions> {
   newline(): void
 }
 
+// ! 创建代码生成上下文
 function createCodegenContext(
   ast: RootNode,
   {
@@ -179,6 +183,7 @@ function createCodegenContext(
   return context
 }
 
+// ! 生成代码的方法
 export function generate(
   ast: RootNode,
   options: CodegenOptions = {}
@@ -298,6 +303,7 @@ export function generate(
   }
 }
 
+// ! 生成资源型代码 -> component directive
 function genAssets(
   assets: string[],
   type: 'component' | 'directive',
@@ -327,6 +333,7 @@ function genHoists(hoists: JSChildNode[], context: CodegenContext) {
   })
 }
 
+// ! 判断是否是文本
 function isText(n: string | CodegenNode) {
   return (
     isString(n) ||
@@ -337,6 +344,7 @@ function isText(n: string | CodegenNode) {
   )
 }
 
+// ! 单个节点生成节点列表
 function genNodeListAsArray(
   nodes: (string | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext
@@ -351,6 +359,7 @@ function genNodeListAsArray(
   context.push(`]`)
 }
 
+// ! 生成节点列表
 function genNodeList(
   nodes: (string | symbol | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext,
@@ -377,6 +386,7 @@ function genNodeList(
   }
 }
 
+// ! 生成节点
 function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
   if (isString(node)) {
     context.push(node)
@@ -448,6 +458,7 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
   }
 }
 
+// ! 生成文本
 function genText(
   node: TextNode | SimpleExpressionNode,
   context: CodegenContext
@@ -455,11 +466,13 @@ function genText(
   context.push(JSON.stringify(node.content), node)
 }
 
+// ! 生成表达式
 function genExpression(node: SimpleExpressionNode, context: CodegenContext) {
   const { content, isStatic } = node
   context.push(isStatic ? JSON.stringify(content) : content, node)
 }
 
+// ! 生成插值
 function genInterpolation(node: InterpolationNode, context: CodegenContext) {
   const { push, helper } = context
   push(`${helper(TO_STRING)}(`)
@@ -467,6 +480,7 @@ function genInterpolation(node: InterpolationNode, context: CodegenContext) {
   push(`)`)
 }
 
+// ! 生成混合表达式
 function genCompoundExpression(
   node: CompoundExpressionNode,
   context: CodegenContext
@@ -501,6 +515,7 @@ function genExpressionAsPropertyKey(
   }
 }
 
+// ! 生成注释
 function genComment(node: CommentNode, context: CodegenContext) {
   if (__DEV__) {
     const { push, helper } = context
@@ -518,6 +533,7 @@ function genCallExpression(node: CallExpression, context: CodegenContext) {
   context.push(`)`)
 }
 
+// ! 生成对象表达式
 function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   const { push, indent, deindent, newline, resetMapping } = context
   const { properties } = node
@@ -549,10 +565,12 @@ function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   push(multilines ? `}` : ` }`)
 }
 
+// ! 生成数组表达式
 function genArrayExpression(node: ArrayExpression, context: CodegenContext) {
   genNodeListAsArray(node.elements, context)
 }
 
+// ! 生成函数表达式
 function genFunctionExpression(
   node: FunctionExpression,
   context: CodegenContext
@@ -582,6 +600,7 @@ function genFunctionExpression(
   }
 }
 
+// ! 生成条件表达式
 function genConditionalExpression(
   node: ConditionalExpression,
   context: CodegenContext
@@ -616,6 +635,7 @@ function genConditionalExpression(
   deindent(true /* without newline */)
 }
 
+// ! 生成顺序表达式
 function genSequenceExpression(
   node: SequenceExpression,
   context: CodegenContext
@@ -625,6 +645,7 @@ function genSequenceExpression(
   context.push(`)`)
 }
 
+// ! 生产缓存表达式
 function genCacheExpression(node: CacheExpression, context: CodegenContext) {
   const { push, helper, indent, deindent, newline } = context
   push(`_cache[${node.index}] || (`)

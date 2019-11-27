@@ -37,6 +37,7 @@ export const Portal = (Symbol(__DEV__ ? 'Portal' : undefined) as any) as {
 export const Text = Symbol(__DEV__ ? 'Text' : undefined)
 export const Comment = Symbol(__DEV__ ? 'Comment' : undefined)
 
+// ! VNode 类型
 export type VNodeTypes =
   | string
   | Component
@@ -46,6 +47,7 @@ export type VNodeTypes =
   | typeof Comment
   | typeof SuspenseImpl
 
+// ! VNode 属性
 export interface VNodeProps {
   [key: string]: any
   key?: string | number
@@ -60,6 +62,7 @@ export interface VNodeProps {
   onVnodeUnmounted?: (vnode: VNode) => void
 }
 
+// ! VNode 子节点原子
 type VNodeChildAtom<HostNode, HostElement> =
   | VNode<HostNode, HostElement>
   | string
@@ -68,16 +71,19 @@ type VNodeChildAtom<HostNode, HostElement> =
   | null
   | void
 
+// ! VNode 子节点
 export interface VNodeChildren<HostNode = any, HostElement = any>
   extends Array<
       | VNodeChildren<HostNode, HostElement>
       | VNodeChildAtom<HostNode, HostElement>
     > {}
 
+// ! VNode 单个子节点
 export type VNodeChild<HostNode = any, HostElement = any> =
   | VNodeChildAtom<HostNode, HostElement>
   | VNodeChildren<HostNode, HostElement>
 
+// ! 规范化的子节点
 export type NormalizedChildren<HostNode = any, HostElement = any> =
   | string
   | VNodeChildren<HostNode, HostElement>
@@ -157,6 +163,7 @@ export function setBlockTracking(value: number) {
 // Create a block root vnode. Takes the same exact arguments as `createVNode`.
 // A block root keeps track of dynamic nodes within the block in the
 // `dynamicChildren` array.
+// ! 生成块
 export function createBlock(
   type: VNodeTypes,
   props?: { [key: string]: any } | null,
@@ -181,14 +188,17 @@ export function createBlock(
   return vnode
 }
 
+// ! 判断是否是 VNode
 export function isVNode(value: any): value is VNode {
   return value ? value._isVNode === true : false
 }
 
+// ! 判断是否是相同的 VNode -> type 和 key 相同
 export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
   return n1.type === n2.type && n1.key === n2.key
 }
 
+// ! 创建 VNode
 export function createVNode(
   type: VNodeTypes,
   props: (Data & VNodeProps) | null = null,
@@ -204,6 +214,7 @@ export function createVNode(
   // class & style normalization.
   if (props !== null) {
     // for reactive or proxy objects, we need to clone it to enable mutation.
+    // ! 响应式对象或者代理对象需要克隆一份属性
     if (isReactive(props) || SetupProxySymbol in props) {
       props = extend({}, props)
     }
@@ -222,7 +233,7 @@ export function createVNode(
   }
 
   // encode the vnode type information into a bitmap
-  // ! 确定 shapeFlag
+  // ! 定义 shapeFlag 类型
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
     : __FEATURE_SUSPENSE__ && (type as any).__isSuspense === true
@@ -273,6 +284,7 @@ export function createVNode(
   return vnode
 }
 
+// ! 克隆（可扩展属性） VNode
 export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
   extraProps?: Data & VNodeProps
@@ -310,10 +322,12 @@ export function cloneVNode<T, U>(
   }
 }
 
+// ! 创建文本 VNode
 export function createTextVNode(text: string = ' ', flag: number = 0): VNode {
   return createVNode(Text, null, text, flag)
 }
 
+// ! 创建注释 VNode
 export function createCommentVNode(
   text: string = '',
   // when used as the v-else branch, the comment node must be created as a
@@ -325,6 +339,7 @@ export function createCommentVNode(
     : createVNode(Comment, null, text)
 }
 
+// ! 规范化 VNode
 export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   if (child == null) {
     // empty placeholder
@@ -342,6 +357,7 @@ export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   }
 }
 
+// ! 规范化子 VNode
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
   if (children == null) {
@@ -361,6 +377,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   vnode.shapeFlag |= type
 }
 
+// ! 规范样式的方法
 function normalizeStyle(
   value: unknown
 ): Record<string, string | number> | void {
@@ -380,6 +397,7 @@ function normalizeStyle(
   }
 }
 
+// ! 规范类的方法
 export function normalizeClass(value: unknown): string {
   let res = ''
   if (isString(value)) {
@@ -400,6 +418,7 @@ export function normalizeClass(value: unknown): string {
 
 const handlersRE = /^on|^vnode/
 
+// ! 合并属性
 export function mergeProps(...args: (Data & VNodeProps)[]) {
   const ret: Data = {}
   extend(ret, args[0])
