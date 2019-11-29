@@ -108,6 +108,7 @@ function doWatch(
 
   // ! 提取 getter
   let getter: () => any
+  // ! 监听多个 source, 返回数组类型的值
   if (isArray(source)) {
     getter = () =>
       source.map(
@@ -177,6 +178,7 @@ function doWatch(
 
   // ! 定义调度器
   let scheduler: (job: () => any) => void
+  // ! 同步观察
   if (flush === 'sync') {
     scheduler = invoke
   } else if (flush === 'pre') {
@@ -212,10 +214,11 @@ function doWatch(
       scheduler(runner)
     }
   } else {
-    oldValue = runner()
+    oldValue = runner() // ! 只获取旧值
   }
 
   recordEffect(runner)
+  // ! 返回一个执行后会停止观察的函数
   return () => {
     stop(runner)
   }

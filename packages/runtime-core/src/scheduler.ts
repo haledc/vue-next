@@ -1,8 +1,8 @@
 import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { isArray } from '@vue/shared'
 
-const queue: Function[] = []
-const postFlushCbs: Function[] = []
+const queue: Function[] = [] // ! job 队列
+const postFlushCbs: Function[] = [] // ! cb 队列
 const p = Promise.resolve()
 
 let isFlushing = false
@@ -11,7 +11,7 @@ let isFlushPending = false
 const RECURSION_LIMIT = 100
 type CountMap = Map<Function, number>
 
-// ! 使用 Promise 处理函数，无兼容处理
+// ! nextTick -> 使用 Promise.then 异步执行函数，目前版本无兼容处理
 export function nextTick(fn?: () => void): Promise<void> {
   return fn ? p.then(fn) : p
 }
@@ -34,10 +34,11 @@ export function queuePostFlushCb(cb: Function | Function[]) {
   queueFlush()
 }
 
+// ! 异步执行队列函数
 function queueFlush() {
   if (!isFlushing && !isFlushPending) {
     isFlushPending = true
-    nextTick(flushJobs)
+    nextTick(flushJobs) // ! 异步执行
   }
 }
 
@@ -46,8 +47,8 @@ const dedupe = (cbs: Function[]): Function[] => [...new Set(cbs)]
 // ! 执行 cbs
 export function flushPostFlushCbs(seen?: CountMap) {
   if (postFlushCbs.length) {
-    const cbs = dedupe(postFlushCbs) // ! 去重
-    postFlushCbs.length = 0 // ! 清除
+    const cbs = dedupe(postFlushCbs) // ! cbs 去重
+    postFlushCbs.length = 0 // ! 清空值
     if (__DEV__) {
       seen = seen || new Map()
     }
@@ -72,9 +73,9 @@ function flushJobs(seen?: CountMap) {
     if (__DEV__) {
       checkRecursiveUpdates(seen!, job)
     }
-    callWithErrorHandling(job, null, ErrorCodes.SCHEDULER)
+    callWithErrorHandling(job, null, ErrorCodes.SCHEDULER) // ! 执行 job
   }
-  flushPostFlushCbs(seen) // ! 执行 cbs
+  flushPostFlushCbs(seen) // ! 执行 cbs -> 先执行 job 再执行 cb
   isFlushing = false
   // some postFlushCb queued jobs!
   // keep flushing until it drains.

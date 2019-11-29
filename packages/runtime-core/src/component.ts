@@ -311,10 +311,11 @@ export function setupStatefulComponent(
       handleSetupResult(instance, setupResult, parentSuspense) // ! 处理 setup 结果
     }
   } else {
-    finishComponentSetup(instance, parentSuspense)
+    finishComponentSetup(instance, parentSuspense) // ! 完成组件 setup
   }
 }
 
+// ! 处理 setup 结果
 export function handleSetupResult(
   instance: ComponentInternalInstance,
   setupResult: unknown,
@@ -322,7 +323,7 @@ export function handleSetupResult(
 ) {
   if (isFunction(setupResult)) {
     // setup returned an inline render function
-    instance.render = setupResult as RenderFunction // ! 函数赋值为 render
+    instance.render = setupResult as RenderFunction // ! 赋值为渲染函数
   } else if (isObject(setupResult)) {
     if (__DEV__ && isVNode(setupResult)) {
       warn(
@@ -332,7 +333,7 @@ export function handleSetupResult(
     }
     // setup returned bindings.
     // assuming a render function compiled from template is present.
-    instance.renderContext = reactive(setupResult) // ! 转换成响应式
+    instance.renderContext = reactive(setupResult) // ! 转换成响应式数据
   } else if (__DEV__ && setupResult !== undefined) {
     warn(
       `setup() should return an object. Received: ${
@@ -355,6 +356,7 @@ export function registerRuntimeCompiler(_compile: any) {
   compile = _compile
 }
 
+// ! 完成组件 setup
 function finishComponentSetup(
   instance: ComponentInternalInstance,
   parentSuspense: SuspenseBoundary | null

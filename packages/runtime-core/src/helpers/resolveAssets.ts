@@ -18,6 +18,7 @@ export function resolveComponent(name: string): Component | undefined {
   return resolveAsset('components', name)
 }
 
+// ! 解析动态组件
 export function resolveDynamicComponent(
   component: unknown,
   // Dynamic component resolution has to be called inline due to potential
@@ -51,6 +52,7 @@ function resolveAsset(
   instance?: ComponentInternalInstance
 ): Directive | undefined
 
+// ! 解析资源 -> 获取组件 or 指令
 function resolveAsset(
   type: 'components' | 'directives',
   name: string,

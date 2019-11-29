@@ -45,6 +45,7 @@ export type ComponentPublicInstance<
   ExtractComputedReturns<C> &
   M
 
+// ! 公开属性映射
 const publicPropertiesMap = {
   $data: 'data',
   $props: 'propsProxy',
@@ -63,6 +64,7 @@ const enum AccessTypes {
   PROPS
 }
 
+// ! 实例代理 handler -> 代理 2.x API
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   get(target: ComponentInternalInstance, key: string) {
     // fast path for unscopables when using `with` block

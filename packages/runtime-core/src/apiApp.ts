@@ -8,6 +8,7 @@ import { isFunction, NO } from '@vue/shared'
 import { warn } from './warning'
 import { createVNode } from './vnode'
 
+// ! App 接口
 export interface App<HostElement = any> {
   config: AppConfig
   use(plugin: Plugin, options?: any): this
@@ -24,6 +25,7 @@ export interface App<HostElement = any> {
   provide<T>(key: InjectionKey<T> | string, value: T): this
 }
 
+// ! App 配置接口
 export interface AppConfig {
   devtools: boolean
   performance: boolean
@@ -41,6 +43,7 @@ export interface AppConfig {
   ) => void
 }
 
+// ! App 上下文接口
 export interface AppContext {
   config: AppConfig
   mixins: ComponentOptions[]
@@ -51,12 +54,14 @@ export interface AppContext {
 
 type PluginInstallFunction = (app: App) => any
 
+// ! 插件
 export type Plugin =
   | PluginInstallFunction
   | {
       install: PluginInstallFunction
     }
 
+// ! 创建 App 上下文
 export function createAppContext(): AppContext {
   return {
     config: {
@@ -74,6 +79,7 @@ export function createAppContext(): AppContext {
   }
 }
 
+// ! 创建 App API
 export function createAppAPI<HostNode, HostElement>(
   render: RootRenderFunction<HostNode, HostElement>
 ): () => App<HostElement> {
@@ -96,6 +102,7 @@ export function createAppAPI<HostNode, HostElement>(
         }
       },
 
+      // ! 安装插件
       use(plugin: Plugin) {
         if (installedPlugins.has(plugin)) {
           __DEV__ && warn(`Plugin has already been applied to target app.`)
@@ -114,6 +121,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // ! 混入
       mixin(mixin: ComponentOptions) {
         if (__DEV__ && !__FEATURE_OPTIONS__) {
           warn('Mixins are only available in builds supporting Options API')
@@ -131,6 +139,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // ! 注册组件
       component(name: string, component?: Component): any {
         if (__DEV__) {
           validateComponentName(name, context.config)
@@ -145,6 +154,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // ! 注册指令
       directive(name: string, directive?: Directive) {
         if (__DEV__) {
           validateDirectiveName(name)
@@ -160,6 +170,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // ! 挂载 App
       mount(
         rootComponent: Component,
         rootContainer: HostElement,
@@ -180,6 +191,7 @@ export function createAppAPI<HostNode, HostElement>(
         }
       },
 
+      // ! App 的 provide
       provide(key, value) {
         if (__DEV__ && key in context.provides) {
           warn(

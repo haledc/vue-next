@@ -29,6 +29,7 @@ export function markAttrsAccessed() {
   accessedAttrs = true
 }
 
+// ! 渲染根组件
 export function renderComponentRoot(
   instance: ComponentInternalInstance
 ): VNode {
@@ -109,6 +110,7 @@ export function renderComponentRoot(
   return result
 }
 
+// ! 判断是否更新组件
 export function shouldUpdateComponent(
   prevVNode: VNode,
   nextVNode: VNode,
@@ -156,6 +158,7 @@ export function shouldUpdateComponent(
   return false
 }
 
+// ! 判断属性是否变化
 function hasPropsChanged(prevProps: Data, nextProps: Data): boolean {
   const nextKeys = Object.keys(nextProps)
   if (nextKeys.length !== Object.keys(prevProps).length) {

@@ -163,7 +163,7 @@ export function setBlockTracking(value: number) {
 // Create a block root vnode. Takes the same exact arguments as `createVNode`.
 // A block root keeps track of dynamic nodes within the block in the
 // `dynamicChildren` array.
-// ! 生成块
+// ! 生成块 -> VNode
 export function createBlock(
   type: VNodeTypes,
   props?: { [key: string]: any } | null,
@@ -339,21 +339,21 @@ export function createCommentVNode(
     : createVNode(Comment, null, text)
 }
 
-// ! 规范化 VNode
+// ! 规范化 VNode -> 创建适当的 VNode
 export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   if (child == null) {
     // empty placeholder
-    return createVNode(Comment)
+    return createVNode(Comment) // ! 创建注释节点
   } else if (isArray(child)) {
     // fragment
-    return createVNode(Fragment, null, child)
+    return createVNode(Fragment, null, child) // ! 创建 Fragment
   } else if (typeof child === 'object') {
     // already vnode, this should be the most common since compiled templates
     // always produce all-vnode children arrays
-    return child.el === null ? child : cloneVNode(child)
+    return child.el === null ? child : cloneVNode(child) // ! 克隆节点
   } else {
     // primitive types
-    return createVNode(Text, null, child + '')
+    return createVNode(Text, null, child + '') // ! 创建文本节点
   }
 }
 
@@ -367,20 +367,21 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   } else if (typeof children === 'object') {
     type = ShapeFlags.SLOTS_CHILDREN
   } else if (isFunction(children)) {
-    children = { default: children }
+    children = { default: children } // ! 设置为 slot
     type = ShapeFlags.SLOTS_CHILDREN
   } else {
     children = isString(children) ? children : children + ''
     type = ShapeFlags.TEXT_CHILDREN
   }
   vnode.children = children as NormalizedChildren
-  vnode.shapeFlag |= type
+  vnode.shapeFlag |= type // ! 拼接类型
 }
 
 // ! 规范样式的方法
 function normalizeStyle(
   value: unknown
 ): Record<string, string | number> | void {
+  // ! 拆数组
   if (isArray(value)) {
     const res: Record<string, string | number> = {}
     for (let i = 0; i < value.length; i++) {
@@ -426,17 +427,17 @@ export function mergeProps(...args: (Data & VNodeProps)[]) {
     const toMerge = args[i]
     for (const key in toMerge) {
       if (key === 'class') {
-        ret.class = normalizeClass([ret.class, toMerge.class])
+        ret.class = normalizeClass([ret.class, toMerge.class]) // ! 合并类
       } else if (key === 'style') {
-        ret.style = normalizeStyle([ret.style, toMerge.style])
+        ret.style = normalizeStyle([ret.style, toMerge.style]) // ! 合并样式
       } else if (handlersRE.test(key)) {
         // on*, vnode*
         const existing = ret[key]
         ret[key] = existing
-          ? [].concat(existing as any, toMerge[key] as any)
+          ? [].concat(existing as any, toMerge[key] as any) // ! 合并同类事件
           : toMerge[key]
       } else {
-        ret[key] = toMerge[key]
+        ret[key] = toMerge[key] // ! 替换
       }
     }
   }
