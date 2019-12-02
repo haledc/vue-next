@@ -29,15 +29,15 @@ function get(
   wrap: typeof toReactive | typeof toReadonly
 ) {
   target = toRaw(target) // ! 获取原始对象
-  key = toRaw(key) // ! 获取原始的 key 值
+  key = toRaw(key) // ! 获取原始 key
   track(target, OperationTypes.GET, key) // ! 收集依赖
-  return wrap(getProto(target).get.call(target, key)) // ! wrap = reactive 时转换成响应式对象
+  return wrap(getProto(target).get.call(target, key)) // ! 通过 call 绑定 this 指向原始对象
 }
 
 function has(this: CollectionTypes, key: unknown): boolean {
   const target = toRaw(this)
   key = toRaw(key)
-  track(target, OperationTypes.HAS, key)
+  track(target, OperationTypes.HAS, key) // ! 收集依赖
   return getProto(target).has.call(target, key)
 }
 
@@ -53,13 +53,13 @@ function add(this: SetTypes, value: unknown) {
   const target = toRaw(this)
   const proto = getProto(target)
   const hadKey = proto.has.call(target, value) // ! 判断是否已经存在 key 值
-  const result = proto.add.call(target, value) // ! 增加值
+  const result = proto.add.call(target, value) // ! 新增属性
   if (!hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.ADD, value, { newValue: value }) // ! 触发依赖执行，这里是 ADD 类型
+      trigger(target, OperationTypes.ADD, value, { newValue: value }) // ! 触发依赖
     } else {
-      trigger(target, OperationTypes.ADD, value) // ! 触发依赖执行
+      trigger(target, OperationTypes.ADD, value)
     }
   }
   return result
@@ -76,9 +76,9 @@ function set(this: MapTypes, key: unknown, value: unknown) {
   if (__DEV__) {
     const extraInfo = { oldValue, newValue: value }
     if (!hadKey) {
-      trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖执行，这里也是 ADD 类型
+      trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖，这里是 ADD 类型
     } else if (hasChanged(value, oldValue)) {
-      trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖执行
+      trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖
     }
   } else {
     if (!hadKey) {
@@ -101,7 +101,7 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
   if (hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.DELETE, key, { oldValue }) // ! 触发依赖执行
+      trigger(target, OperationTypes.DELETE, key, { oldValue }) // ! 触发依赖
     } else {
       trigger(target, OperationTypes.DELETE, key)
     }
@@ -122,7 +122,7 @@ function clear(this: IterableCollections) {
   if (hadItems) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.CLEAR, void 0, { oldTarget }) // ! 触发依赖执行
+      trigger(target, OperationTypes.CLEAR, void 0, { oldTarget }) // ! 触发依赖
     } else {
       trigger(target, OperationTypes.CLEAR)
     }
@@ -140,7 +140,7 @@ function createForEach(isReadonly: boolean) {
     const observed = this
     const target = toRaw(observed)
     const wrap = isReadonly ? toReadonly : toReactive
-    track(target, OperationTypes.ITERATE)
+    track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
     // important: create sure the callback is
     // 1. invoked with the reactive map as `this` and 3rd arg
     // 2. the value received should be a corresponding reactive/readonly.
@@ -183,7 +183,8 @@ function createIterableMethod(method: string | symbol, isReadonly: boolean) {
   }
 }
 
-// ! 创建只读方法，在拦截 add set delete clear 时会发出警告
+// ! 创建只读方法
+// ! 在拦截 add set delete clear 时判断是否解锁，如果没有解锁会报错，解锁后才能操作
 function createReadonlyMethod(
   method: Function,
   type: OperationTypes
@@ -204,9 +205,10 @@ function createReadonlyMethod(
   }
 }
 
+// ! 可变插桩对象
 const mutableInstrumentations: Record<string, Function> = {
   get(this: MapTypes, key: unknown) {
-    return get(this, key, toReactive) // ! 传入 target 参数 this，this 为代理的原始数据
+    return get(this, key, toReactive) // ! 传入 target 参数为 this，this 是代理的原始数据
   },
   get size(this: IterableCollections) {
     return size(this)
@@ -219,6 +221,7 @@ const mutableInstrumentations: Record<string, Function> = {
   forEach: createForEach(false)
 }
 
+// ! 只读可变插桩对象
 const readonlyInstrumentations: Record<string, Function> = {
   get(this: MapTypes, key: unknown) {
     return get(this, key, toReadonly)
@@ -255,7 +258,8 @@ function createInstrumentationGetter(
     receiver: CollectionTypes
   ) =>
     Reflect.get(
-      hasOwn(instrumentations, key) && key in target // ! 改变反射的 target
+      // ! 改变反射的 target -> 有 key 时指向插桩对象
+      hasOwn(instrumentations, key) && key in target
         ? instrumentations
         : target,
       key,

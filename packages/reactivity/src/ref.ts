@@ -20,7 +20,7 @@ export interface Ref<T = any> {
   value: UnwrapRef<T> // ! 值的类型
 }
 
-// ! 转换：对象类型转换成响应性对象，原始类型直接返回自身
+// ! 转换 -> 对象类型转换成响应性对象，原始类型直接返回自身
 const convert = <T extends unknown>(val: T): T =>
   isObject(val) ? reactive(val) : val
 
@@ -33,7 +33,6 @@ export function ref<T extends Ref>(raw: T): T
 export function ref<T>(raw: T): Ref<T>
 export function ref<T = any>(): Ref<T>
 export function ref(raw?: unknown) {
-  // ! 已经是 Ref 类型直接返回，不会重复生成
   if (isRef(raw)) {
     return raw
   }
@@ -49,7 +48,7 @@ export function ref(raw?: unknown) {
     },
     set value(newVal) {
       raw = convert(newVal)
-      // ! 触发依赖执行
+      // ! 触发依赖
       trigger(
         r,
         OperationTypes.SET,
@@ -61,7 +60,7 @@ export function ref(raw?: unknown) {
   return r
 }
 
-// ! 把普通对象的 key 值转换成 Ref 类型
+// ! 把普通对象的值转换成 Ref 类型
 export function toRefs<T extends object>(
   object: T
 ): { [K in keyof T]: Ref<T[K]> } {
@@ -75,7 +74,7 @@ export function toRefs<T extends object>(
   return ret
 }
 
-// ! 把 key 值转换成 Ref 类型的方法
+// ! 把 key 值转换成 Ref 类型的方法 -> Ref<T[K]>
 function toProxyRef<T extends object, K extends keyof T>(
   object: T,
   key: K

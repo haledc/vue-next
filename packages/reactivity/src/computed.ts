@@ -20,7 +20,7 @@ export interface WritableComputedOptions<T> {
   set: ComputedSetter<T>
 }
 
-// ! 计算属性
+// ! 生成计算属性
 export function computed<T>(getter: ComputedGetter<T>): ComputedRef<T>
 export function computed<T>(
   options: WritableComputedOptions<T>
@@ -43,27 +43,28 @@ export function computed<T>(
     setter = getterOrOptions.set
   }
 
-  let dirty = true // ! 设置 dirty 为 true
+  let dirty = true // ! 初始值为 true
   let value: T
 
-  // ! effect 返回值
+  // ! 生成 effect -> 调用生成计算属性
   const runner = effect(getter, {
     lazy: true, // ! 延迟计算，不用立即执行
     // mark effect as computed so that it gets priority during trigger
-    computed: true, // ! 计算属性依赖的标识
+    computed: true, // ! 计算属性依赖的标识，优先级比普通的 effect 更高
     scheduler: () => {
-      dirty = true
+      dirty = true // ! T 值发生变化，触发依赖，执行 scheduler，设置为 true
     }
   })
-  // ! 返回 Ref 类型的值
+
+  // ! 返回一个 Ref 类型的值
   return {
     _isRef: true,
     // expose effect so computed can be stopped
     effect: runner,
     get value() {
       if (dirty) {
-        value = runner() // ! 执行一次获取值
-        dirty = false // ! 获取值后重置为 false，不用每次都执行
+        value = runner() // ! 执行 effect 获取新的 value 值
+        dirty = false // ! 重置为 false，后面沿用 value 值，知道依赖的值发生变化
       }
       // When computed effects are accessed in a parent effect, the parent
       // should track all the dependencies the computed property has tracked.
@@ -77,6 +78,7 @@ export function computed<T>(
   } as any
 }
 
+// ! 追踪子级
 function trackChildRun(childRunner: ReactiveEffect) {
   if (effectStack.length === 0) {
     return
@@ -87,8 +89,6 @@ function trackChildRun(childRunner: ReactiveEffect) {
   // ! 遍历子级，即本 effect
   for (let i = 0; i < childRunner.deps.length; i++) {
     const dep = childRunner.deps[i]
-    // ! 如果子级的某个 dep 没有父级的 effect，把父级添加进去该 dep 中
-    // ! 然后父级 effect 的 deps 也把该 dep 添加进去
     if (!dep.has(parentRunner)) {
       dep.add(parentRunner)
       parentRunner.deps.push(dep)
