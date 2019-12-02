@@ -1,4 +1,4 @@
-import { NO, makeMap, isArray } from '@vue/shared'
+import { NO, isArray } from '@vue/shared'
 import {
   ErrorCodes,
   createCompilerError,
@@ -8,7 +8,8 @@ import {
 import {
   assert,
   advancePositionWithMutation,
-  advancePositionWithClone
+  advancePositionWithClone,
+  isCoreComponent
 } from './utils'
 import {
   Namespace,
@@ -29,17 +30,12 @@ import {
 } from './ast'
 import { extend } from '@vue/shared'
 
-// Portal and Fragment are native types, not components
-const isBuiltInComponent = /*#__PURE__*/ makeMap(
-  `suspense,keep-alive,keepalive,transition`,
-  true
-)
-
 export interface ParserOptions {
   isVoidTag?: (tag: string) => boolean // e.g. img, br, hr
   isNativeTag?: (tag: string) => boolean // e.g. loading-indicator in weex
   isPreTag?: (tag: string) => boolean // e.g. <pre> where whitespace is intact
   isCustomElement?: (tag: string) => boolean
+  isBuiltInComponent?: (tag: string) => symbol | void
   getNamespace?: (tag: string, parent: ElementNode | undefined) => Namespace
   getTextMode?: (tag: string, ns: Namespace) => TextModes
   delimiters?: [string, string] // ['{{', '}}']
@@ -55,8 +51,9 @@ export interface ParserOptions {
 }
 
 // `isNativeTag` is optional, others are required
-type MergedParserOptions = Omit<Required<ParserOptions>, 'isNativeTag'> &
-  Pick<ParserOptions, 'isNativeTag'>
+type OptionalOptions = 'isNativeTag' | 'isBuiltInComponent'
+type MergedParserOptions = Omit<Required<ParserOptions>, OptionalOptions> &
+  Pick<ParserOptions, OptionalOptions>
 
 // ! 默认解析选项
 export const defaultParserOptions: MergedParserOptions = {
@@ -110,6 +107,7 @@ export function parse(content: string, options: ParserOptions = {}): RootNode {
     components: [],
     directives: [],
     hoists: [],
+    imports: [],
     cached: 0,
     codegenNode: undefined,
     loc: getSelection(context, start)
@@ -496,10 +494,15 @@ function parseTag(
   }
 
   let tagType = ElementTypes.ELEMENT
-  if (!context.inPre && !context.options.isCustomElement(tag)) {
-    if (context.options.isNativeTag) {
-      if (!context.options.isNativeTag(tag)) tagType = ElementTypes.COMPONENT
-    } else if (isBuiltInComponent(tag) || /^[A-Z]/.test(tag)) {
+  const options = context.options
+  if (!context.inPre && !options.isCustomElement(tag)) {
+    if (options.isNativeTag) {
+      if (!options.isNativeTag(tag)) tagType = ElementTypes.COMPONENT
+    } else if (
+      isCoreComponent(tag) ||
+      (options.isBuiltInComponent && options.isBuiltInComponent(tag)) ||
+      /^[A-Z]/.test(tag)
+    ) {
       tagType = ElementTypes.COMPONENT
     }
 

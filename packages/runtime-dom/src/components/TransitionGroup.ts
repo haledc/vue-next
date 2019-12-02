@@ -4,12 +4,12 @@ import {
   removeTransitionClass,
   ElementWithTransition,
   getTransitionInfo,
-  resolveTransitionProps
+  resolveTransitionProps,
+  TransitionPropsValidators
 } from './Transition'
 import {
   Fragment,
   VNode,
-  Slots,
   warn,
   resolveTransitionHooks,
   toRaw,
@@ -17,7 +17,8 @@ import {
   getCurrentInstance,
   setTransitionHooks,
   createVNode,
-  onUpdated
+  onUpdated,
+  SetupContext
 } from '@vue/runtime-core'
 
 interface Position {
@@ -33,8 +34,8 @@ export type TransitionGroupProps = Omit<TransitionProps, 'mode'> & {
   moveClass?: string
 }
 
-export const TransitionGroup = {
-  setup(props: TransitionGroupProps, { slots }: { slots: Slots }) {
+const TransitionGroupImpl = {
+  setup(props: TransitionGroupProps, { slots }: SetupContext) {
     const instance = getCurrentInstance()!
     const state = useTransitionState()
     let prevChildren: VNode[]
@@ -95,6 +96,11 @@ export const TransitionGroup = {
       prevChildren = children
       children = slots.default ? slots.default() : []
 
+      // handle fragment children case, e.g. v-for
+      if (children.length === 1 && children[0].type === Fragment) {
+        children = children[0].children as VNode[]
+      }
+
       for (let i = 0; i < children.length; i++) {
         const child = children[i]
         if (child.key != null) {
@@ -121,6 +127,21 @@ export const TransitionGroup = {
       return createVNode(tag, null, children)
     }
   }
+}
+
+export const TransitionGroup = (TransitionGroupImpl as unknown) as {
+  new (): {
+    $props: TransitionGroupProps
+  }
+}
+
+if (__DEV__) {
+  const props = ((TransitionGroup as any).props = {
+    ...TransitionPropsValidators,
+    tag: String,
+    moveClass: String
+  })
+  delete props.mode
 }
 
 function callPendingCbs(c: VNode) {
