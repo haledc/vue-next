@@ -132,6 +132,9 @@ async function build(target) {
 
 // ! 检查所有包的最小尺寸，并打印其结果
 function checkAllSizes(targets) {
+  if (devOnly) {
+    return
+  }
   console.log()
   for (const target of targets) {
     checkSize(target)
