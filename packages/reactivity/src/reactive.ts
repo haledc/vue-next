@@ -8,17 +8,8 @@ import {
   mutableCollectionHandlers,
   readonlyCollectionHandlers
 } from './collectionHandlers'
-import { ReactiveEffect } from './effect'
 import { UnwrapRef, Ref } from './ref'
 import { makeMap } from '@vue/shared'
-
-// The main WeakMap that stores {target -> key -> dep} connections.
-// Conceptually, it's easier to think of a dependency as a Dep class
-// which maintains a Set of subscribers, but we simply store them as
-// raw Sets to reduce memory overhead.
-export type Dep = Set<ReactiveEffect>
-export type KeyToDepMap = Map<any, Dep>
-export const targetMap = new WeakMap<any, KeyToDepMap>() // ! 依赖映射表
 
 // WeakMaps that store {raw <-> observed} pairs.
 const rawToReactive = new WeakMap<any, any>()
@@ -141,12 +132,7 @@ function createReactiveObject(
   observed = new Proxy(target, handlers) // ! 生成代理对象（响应式对象）
   toProxy.set(target, observed)
   toRaw.set(observed, target)
-
-  // ! targetMap 没有 target 时创建 targetMap 映射表 -> 收集依赖
-  if (!targetMap.has(target)) {
-    targetMap.set(target, new Map())
-  }
-  return observed // ! 返回响应式对象
+  return observed
 }
 
 // ! 判断是否是响应式对象 -> 包括只读的响应式

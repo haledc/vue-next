@@ -1,5 +1,5 @@
 import { track, trigger } from './effect'
-import { OperationTypes } from './operations'
+import { TrackOpTypes, TriggerOpTypes } from './operations'
 import { isObject } from '@vue/shared'
 import { reactive, isReactive } from './reactive'
 import { ComputedRef } from './computed'
@@ -43,7 +43,7 @@ export function ref(raw?: unknown) {
   const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
-      track(r, OperationTypes.GET, 'value') // ! 收集依赖
+      track(r, TrackOpTypes.GET, 'value') // ! 收集依赖
       return raw
     },
     set value(newVal) {
@@ -51,7 +51,7 @@ export function ref(raw?: unknown) {
       // ! 触发依赖
       trigger(
         r,
-        OperationTypes.SET,
+        TriggerOpTypes.SET,
         'value',
         __DEV__ ? { newValue: newVal } : void 0
       )

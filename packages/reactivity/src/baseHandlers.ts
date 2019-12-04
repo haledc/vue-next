@@ -1,6 +1,6 @@
 import { reactive, readonly, toRaw } from './reactive'
-import { OperationTypes } from './operations'
-import { track, trigger } from './effect'
+import { TrackOpTypes, TriggerOpTypes } from './operations'
+import { track, trigger, ITERATE_KEY } from './effect'
 import { LOCKED } from './lock'
 import { isObject, hasOwn, isSymbol, hasChanged } from '@vue/shared'
 import { isRef } from './ref'
@@ -21,7 +21,7 @@ function createGetter(isReadonly: boolean, shallow = false) {
       return res
     }
     if (shallow) {
-      track(target, OperationTypes.GET, key)
+      track(target, TrackOpTypes.GET, key)
       // TODO strict mode that returns a shallow-readonly version of the value
       return res
     }
@@ -29,7 +29,7 @@ function createGetter(isReadonly: boolean, shallow = false) {
     if (isRef(res)) {
       return res.value
     }
-    track(target, OperationTypes.GET, key)
+    track(target, TrackOpTypes.GET, key) // ! 收集依赖
     // ! 返回值，对象类型转换成响应式对象
     return isObject(res)
       ? isReadonly
@@ -63,15 +63,15 @@ function set(
     if (__DEV__) {
       const extraInfo = { oldValue, newValue: value }
       if (!hadKey) {
-        trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖， 这里是 ADD 类型
+        trigger(target, TriggerOpTypes.ADD, key, extraInfo) // ! 触发依赖， 这里是 ADD 类型
       } else if (hasChanged(value, oldValue)) {
-        trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖
+        trigger(target, TriggerOpTypes.SET, key, extraInfo) // ! 触发依赖
       }
     } else {
       if (!hadKey) {
-        trigger(target, OperationTypes.ADD, key)
+        trigger(target, TriggerOpTypes.ADD, key)
       } else if (hasChanged(value, oldValue)) {
-        trigger(target, OperationTypes.SET, key)
+        trigger(target, TriggerOpTypes.SET, key)
       }
     }
   }
@@ -86,9 +86,9 @@ function deleteProperty(target: object, key: string | symbol): boolean {
   if (result && hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.DELETE, key, { oldValue }) // ! 触发依赖
+      trigger(target, TriggerOpTypes.DELETE, key, { oldValue }) // ! 触发依赖
     } else {
-      trigger(target, OperationTypes.DELETE, key)
+      trigger(target, TriggerOpTypes.DELETE, key)
     }
   }
   return result
@@ -97,13 +97,13 @@ function deleteProperty(target: object, key: string | symbol): boolean {
 // ! 拦截 HasProperty 操作 -> 比如使用 in 运算符
 function has(target: object, key: string | symbol): boolean {
   const result = Reflect.has(target, key)
-  track(target, OperationTypes.HAS, key) // ! 收集依赖
+  track(target, TrackOpTypes.HAS, key) // ! 收集依赖
   return result
 }
 
 // ! 拦截迭代的操作 -> keys for forEach
 function ownKeys(target: object): (string | number | symbol)[] {
-  track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
+  track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
   return Reflect.ownKeys(target)
 }
 

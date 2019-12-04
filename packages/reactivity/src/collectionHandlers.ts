@@ -1,6 +1,6 @@
 import { toRaw, reactive, readonly } from './reactive'
-import { track, trigger } from './effect'
-import { OperationTypes } from './operations'
+import { track, trigger, ITERATE_KEY } from './effect'
+import { TrackOpTypes, TriggerOpTypes } from './operations'
 import { LOCKED } from './lock'
 import { isObject, capitalize, hasOwn, hasChanged } from '@vue/shared'
 
@@ -30,21 +30,21 @@ function get(
 ) {
   target = toRaw(target) // ! 获取原始对象
   key = toRaw(key) // ! 获取原始 key
-  track(target, OperationTypes.GET, key) // ! 收集依赖
+  track(target, TrackOpTypes.GET, key) // ! 收集依赖
   return wrap(getProto(target).get.call(target, key)) // ! 通过 call 绑定 this 指向原始对象
 }
 
 function has(this: CollectionTypes, key: unknown): boolean {
   const target = toRaw(this)
   key = toRaw(key)
-  track(target, OperationTypes.HAS, key) // ! 收集依赖
+  track(target, TrackOpTypes.HAS, key) // ! 收集依赖
   return getProto(target).has.call(target, key)
 }
 
 // ! 拦截 xxx.size 操作
 function size(target: IterableCollections) {
   target = toRaw(target)
-  track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
+  track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
   return Reflect.get(getProto(target), 'size', target)
 }
 
@@ -57,9 +57,9 @@ function add(this: SetTypes, value: unknown) {
   if (!hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.ADD, value, { newValue: value }) // ! 触发依赖
+      trigger(target, TriggerOpTypes.ADD, value, { newValue: value }) // ! 触发依赖
     } else {
-      trigger(target, OperationTypes.ADD, value)
+      trigger(target, TriggerOpTypes.ADD, value)
     }
   }
   return result
@@ -76,15 +76,15 @@ function set(this: MapTypes, key: unknown, value: unknown) {
   if (__DEV__) {
     const extraInfo = { oldValue, newValue: value }
     if (!hadKey) {
-      trigger(target, OperationTypes.ADD, key, extraInfo) // ! 触发依赖，这里是 ADD 类型
+      trigger(target, TriggerOpTypes.ADD, key, extraInfo) // ! 触发依赖，这里是 ADD 类型
     } else if (hasChanged(value, oldValue)) {
-      trigger(target, OperationTypes.SET, key, extraInfo) // ! 触发依赖
+      trigger(target, TriggerOpTypes.SET, key, extraInfo) // ! 触发依赖
     }
   } else {
     if (!hadKey) {
-      trigger(target, OperationTypes.ADD, key)
+      trigger(target, TriggerOpTypes.ADD, key)
     } else if (hasChanged(value, oldValue)) {
-      trigger(target, OperationTypes.SET, key)
+      trigger(target, TriggerOpTypes.SET, key)
     }
   }
   return result
@@ -101,9 +101,9 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
   if (hadKey) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.DELETE, key, { oldValue }) // ! 触发依赖
+      trigger(target, TriggerOpTypes.DELETE, key, { oldValue }) // ! 触发依赖
     } else {
-      trigger(target, OperationTypes.DELETE, key)
+      trigger(target, TriggerOpTypes.DELETE, key)
     }
   }
   return result
@@ -122,9 +122,9 @@ function clear(this: IterableCollections) {
   if (hadItems) {
     /* istanbul ignore else */
     if (__DEV__) {
-      trigger(target, OperationTypes.CLEAR, void 0, { oldTarget }) // ! 触发依赖
+      trigger(target, TriggerOpTypes.CLEAR, void 0, { oldTarget }) // ! 触发依赖
     } else {
-      trigger(target, OperationTypes.CLEAR)
+      trigger(target, TriggerOpTypes.CLEAR)
     }
   }
   return result
@@ -140,7 +140,7 @@ function createForEach(isReadonly: boolean) {
     const observed = this
     const target = toRaw(observed)
     const wrap = isReadonly ? toReadonly : toReactive
-    track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
+    track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
     // important: create sure the callback is
     // 1. invoked with the reactive map as `this` and 3rd arg
     // 2. the value received should be a corresponding reactive/readonly.
@@ -161,7 +161,7 @@ function createIterableMethod(method: string | symbol, isReadonly: boolean) {
       (method === Symbol.iterator && target instanceof Map)
     const innerIterator = getProto(target)[method].apply(target, args) // ! 调用对应的迭代方法，生成迭代器
     const wrap = isReadonly ? toReadonly : toReactive // ! 转换成响应式的方法
-    track(target, OperationTypes.ITERATE) // ! 收集依赖，这里是 ITERATE 类型
+    track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
     // return a wrapped iterator which returns observed versions of the
     // values emitted from the real iterator
     return {
@@ -187,7 +187,7 @@ function createIterableMethod(method: string | symbol, isReadonly: boolean) {
 // ! 在拦截 add set delete clear 时判断是否解锁，如果没有解锁会报错，解锁后才能操作
 function createReadonlyMethod(
   method: Function,
-  type: OperationTypes
+  type: TriggerOpTypes
 ): Function {
   return function(this: CollectionTypes, ...args: unknown[]) {
     if (LOCKED) {
@@ -198,7 +198,7 @@ function createReadonlyMethod(
           toRaw(this)
         )
       }
-      return type === OperationTypes.DELETE ? false : this
+      return type === TriggerOpTypes.DELETE ? false : this
     } else {
       return method.apply(this, args)
     }
@@ -230,10 +230,10 @@ const readonlyInstrumentations: Record<string, Function> = {
     return size(this)
   },
   has,
-  add: createReadonlyMethod(add, OperationTypes.ADD),
-  set: createReadonlyMethod(set, OperationTypes.SET),
-  delete: createReadonlyMethod(deleteEntry, OperationTypes.DELETE),
-  clear: createReadonlyMethod(clear, OperationTypes.CLEAR),
+  add: createReadonlyMethod(add, TriggerOpTypes.ADD),
+  set: createReadonlyMethod(set, TriggerOpTypes.SET),
+  delete: createReadonlyMethod(deleteEntry, TriggerOpTypes.DELETE),
+  clear: createReadonlyMethod(clear, TriggerOpTypes.CLEAR),
   forEach: createForEach(true)
 }
 
