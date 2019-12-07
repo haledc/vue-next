@@ -353,7 +353,7 @@ export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
     return child.el === null ? child : cloneVNode(child) // ! 克隆节点
   } else {
     // primitive types
-    return createVNode(Text, null, child + '') // ! 创建文本节点
+    return createVNode(Text, null, String(child)) // ! 创建文本节点
   }
 }
 
@@ -370,7 +370,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
     children = { default: children } // ! 设置为 slot
     type = ShapeFlags.SLOTS_CHILDREN
   } else {
-    children = isString(children) ? children : children + ''
+    children = String(children)
     type = ShapeFlags.TEXT_CHILDREN
   }
   vnode.children = children as NormalizedChildren

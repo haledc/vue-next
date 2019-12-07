@@ -14,8 +14,7 @@ const builtInSymbols = new Set(
 function createGetter(isReadonly: boolean, shallow = false) {
   // ! 拦截读取值操作
   return function get(target: object, key: string | symbol, receiver: object) {
-    let res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
-
+    const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
     // ! 是内置的 Symbol 直接返回原始数据值
     if (isSymbol(key) && builtInSymbols.has(key)) {
       return res

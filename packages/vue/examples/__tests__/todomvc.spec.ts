@@ -1,34 +1,42 @@
 import path from 'path'
-import puppeteer from 'puppeteer'
+import { setupPuppeteer } from './e2eUtils'
 
-const puppeteerOptions = process.env.CI
-  ? { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-  : {}
+describe('e2e: todomvc', () => {
+  const {
+    page,
+    click,
+    isVisible,
+    count,
+    text,
+    value,
+    isChecked,
+    isFocused,
+    classList,
+    enterValue,
+    clearValue
+  } = setupPuppeteer()
 
-let browser: puppeteer.Browser
-let page: puppeteer.Page
+  async function removeItemAt(n: number) {
+    const item = (await page().$('.todo:nth-child(' + n + ')'))!
+    const itemBBox = (await item.boundingBox())!
+    await page().mouse.move(itemBBox.x + 10, itemBBox.y + 10)
+    await click('.todo:nth-child(' + n + ') .destroy')
+  }
 
-describe('e2e', () => {
-  beforeEach(async () => {
-    browser = await puppeteer.launch(puppeteerOptions)
-    page = await browser.newPage()
-  })
+  async function testTodomvc(apiType: 'classic' | 'composition') {
+    const baseUrl = `file://${path.resolve(
+      __dirname,
+      `../${apiType}/todomvc.html`
+    )}`
 
-  afterEach(async () => {
-    await browser.close()
-  })
-
-  test('todomvc', async () => {
-    await page.goto(
-      `file://${path.resolve(__dirname, '../classic/todomvc.html')}`
-    )
+    await page().goto(baseUrl)
     expect(await isVisible('.main')).toBe(false)
     expect(await isVisible('.footer')).toBe(false)
     expect(await count('.filters .selected')).toBe(1)
     expect(await text('.filters .selected')).toBe('All')
     expect(await count('.todo')).toBe(0)
 
-    await createNewItem('test')
+    await enterValue('.new-todo', 'test')
     expect(await count('.todo')).toBe(1)
     expect(await isVisible('.todo .edit')).toBe(false)
     expect(await text('.todo label')).toBe('test')
@@ -39,41 +47,133 @@ describe('e2e', () => {
     expect(await isVisible('.clear-completed')).toBe(false)
     expect(await value('.new-todo')).toBe('')
 
-    await createNewItem('test2')
+    await enterValue('.new-todo', 'test2')
     expect(await count('.todo')).toBe(2)
     expect(await text('.todo:nth-child(2) label')).toBe('test2')
     expect(await text('.todo-count strong')).toBe('2')
 
-    // TODO complete the test
-    // https://github.com/vuejs/vue/blob/dev/test/e2e/specs/todomvc.js
+    // toggle
+    await click('.todo .toggle')
+    expect(await count('.todo.completed')).toBe(1)
+    expect(await classList('.todo:nth-child(1)')).toContain('completed')
+    expect(await text('.todo-count strong')).toBe('1')
+    expect(await isVisible('.clear-completed')).toBe(true)
+
+    await enterValue('.new-todo', 'test3')
+    expect(await count('.todo')).toBe(3)
+    expect(await text('.todo:nth-child(3) label')).toBe('test3')
+    expect(await text('.todo-count strong')).toBe('2')
+
+    await enterValue('.new-todo', 'test4')
+    await enterValue('.new-todo', 'test5')
+    expect(await count('.todo')).toBe(5)
+    expect(await text('.todo-count strong')).toBe('4')
+
+    // toggle more
+    await click('.todo:nth-child(4) .toggle')
+    await click('.todo:nth-child(5) .toggle')
+    expect(await count('.todo.completed')).toBe(3)
+    expect(await text('.todo-count strong')).toBe('2')
+
+    // remove
+    await removeItemAt(1)
+    expect(await count('.todo')).toBe(4)
+    expect(await count('.todo.completed')).toBe(2)
+    expect(await text('.todo-count strong')).toBe('2')
+    await removeItemAt(2)
+    expect(await count('.todo')).toBe(3)
+    expect(await count('.todo.completed')).toBe(2)
+    expect(await text('.todo-count strong')).toBe('1')
+
+    // remove all
+    await click('.clear-completed')
+    expect(await count('.todo')).toBe(1)
+    expect(await text('.todo label')).toBe('test2')
+    expect(await count('.todo.completed')).toBe(0)
+    expect(await text('.todo-count strong')).toBe('1')
+    expect(await isVisible('.clear-completed')).toBe(false)
+
+    // prepare to test filters
+    await enterValue('.new-todo', 'test')
+    await enterValue('.new-todo', 'test')
+    await click('.todo:nth-child(2) .toggle')
+    await click('.todo:nth-child(3) .toggle')
+
+    // active filter
+    await click('.filters li:nth-child(2) a')
+    expect(await count('.todo')).toBe(1)
+    expect(await count('.todo.completed')).toBe(0)
+    // add item with filter active
+    await enterValue('.new-todo', 'test')
+    expect(await count('.todo')).toBe(2)
+
+    // completed filter
+    await click('.filters li:nth-child(3) a')
+    expect(await count('.todo')).toBe(2)
+    expect(await count('.todo.completed')).toBe(2)
+
+    // filter on page load
+    await page().goto(`${baseUrl}#active`)
+    expect(await count('.todo')).toBe(2)
+    expect(await count('.todo.completed')).toBe(0)
+    expect(await text('.todo-count strong')).toBe('2')
+
+    // completed on page load
+    await page().goto(`${baseUrl}#completed`)
+    expect(await count('.todo')).toBe(2)
+    expect(await count('.todo.completed')).toBe(2)
+    expect(await text('.todo-count strong')).toBe('2')
+
+    // toggling with filter active
+    await click('.todo .toggle')
+    expect(await count('.todo')).toBe(1)
+    await click('.filters li:nth-child(2) a')
+    expect(await count('.todo')).toBe(3)
+    await click('.todo .toggle')
+    expect(await count('.todo')).toBe(2)
+
+    // editing triggered by blur
+    await click('.filters li:nth-child(1) a')
+    await click('.todo:nth-child(1) label', { clickCount: 2 })
+    expect(await count('.todo.editing')).toBe(1)
+    expect(await isFocused('.todo:nth-child(1) .edit')).toBe(true)
+    await clearValue('.todo:nth-child(1) .edit')
+    await page().type('.todo:nth-child(1) .edit', 'edited!')
+    await click('.new-todo') // blur
+    expect(await count('.todo.editing')).toBe(0)
+    expect(await text('.todo:nth-child(1) label')).toBe('edited!')
+
+    // editing triggered by enter
+    await click('.todo label', { clickCount: 2 })
+    await enterValue('.todo:nth-child(1) .edit', 'edited again!')
+    expect(await count('.todo.editing')).toBe(0)
+    expect(await text('.todo:nth-child(1) label')).toBe('edited again!')
+
+    // cancel
+    await click('.todo label', { clickCount: 2 })
+    await clearValue('.todo:nth-child(1) .edit')
+    await page().type('.todo:nth-child(1) .edit', 'edited!')
+    await page().keyboard.press('Escape')
+    expect(await count('.todo.editing')).toBe(0)
+    expect(await text('.todo:nth-child(1) label')).toBe('edited again!')
+
+    // empty value should remove
+    await click('.todo label', { clickCount: 2 })
+    await enterValue('.todo:nth-child(1) .edit', ' ')
+    expect(await count('.todo')).toBe(3)
+
+    // toggle all
+    await click('.toggle-all+label')
+    expect(await count('.todo.completed')).toBe(3)
+    await click('.toggle-all+label')
+    expect(await count('.todo:not(.completed)')).toBe(3)
+  }
+
+  test('classic', async () => {
+    await testTodomvc('classic')
+  })
+
+  test('composition', async () => {
+    await testTodomvc('composition')
   })
 })
-
-async function isVisible(selector: string) {
-  const display = await page.$eval(selector, (node: HTMLElement) => {
-    return window.getComputedStyle(node).display
-  })
-  return display !== 'none'
-}
-
-async function isChecked(selector: string) {
-  return await page.$eval(selector, (node: any) => node.checked)
-}
-
-async function count(selector: string) {
-  return (await page.$$(selector)).length
-}
-
-async function text(selector: string) {
-  return await page.$eval(selector, node => node.textContent)
-}
-
-async function value(selector: string) {
-  return await page.$eval(selector, (node: any) => node.value)
-}
-
-async function createNewItem(text: string) {
-  const el = (await page.$('.new-todo'))!
-  await el.type(text)
-  await el.press('Enter')
-}
