@@ -2,12 +2,11 @@ import { effect, ReactiveEffect, effectStack } from './effect'
 import { Ref, UnwrapRef } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
 
-// ! ComputedRef 类型
 export interface ComputedRef<T = any> extends WritableComputedRef<T> {
   readonly value: UnwrapRef<T>
 }
 
-// ! WritableComputedRef 类型，设置了 setter
+// ! 设置了 setter
 export interface WritableComputedRef<T> extends Ref<T> {
   readonly effect: ReactiveEffect<T>
 }
@@ -20,7 +19,7 @@ export interface WritableComputedOptions<T> {
   set: ComputedSetter<T>
 }
 
-// ! 生成计算属性
+// ! 生成计算属性值
 export function computed<T>(getter: ComputedGetter<T>): ComputedRef<T>
 export function computed<T>(
   options: WritableComputedOptions<T>
@@ -46,13 +45,13 @@ export function computed<T>(
   let dirty = true // ! 初始值为 true
   let value: T
 
-  // ! 生成 effect -> 调用生成计算属性
+  // ! 生成 effect
   const runner = effect(getter, {
-    lazy: true, // ! 延迟计算，不用立即执行
+    lazy: true, // ! 延迟计算
     // mark effect as computed so that it gets priority during trigger
-    computed: true, // ! 计算属性依赖的标识，优先级比普通的 effect 更高
+    computed: true,
     scheduler: () => {
-      dirty = true // ! T 值发生变化，触发依赖，执行 scheduler，设置为 true
+      dirty = true // ! T 值发生变化，触发依赖，执行 scheduler 函数，重置为 true
     }
   })
 
@@ -63,8 +62,8 @@ export function computed<T>(
     effect: runner,
     get value() {
       if (dirty) {
-        value = runner() // ! 执行 effect 获取新的 value 值
-        dirty = false // ! 重置为 false，后面沿用 value 值，知道依赖的值发生变化
+        value = runner() // ! 调用 effect 获取 value 的新值
+        dirty = false // ! 设置为 false，后面沿用 value 值，直到所依赖的值发生变化
       }
       // When computed effects are accessed in a parent effect, the parent
       // should track all the dependencies the computed property has tracked.

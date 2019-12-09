@@ -12,7 +12,6 @@ const builtInSymbols = new Set(
 )
 // ! 生成 getter，根据参数是否生成只读的 getter
 function createGetter(isReadonly: boolean, shallow = false) {
-  // ! 拦截读取值操作
   return function get(target: object, key: string | symbol, receiver: object) {
     const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
     // ! 是内置的 Symbol 直接返回原始数据值
@@ -40,7 +39,6 @@ function createGetter(isReadonly: boolean, shallow = false) {
   }
 }
 
-// ! 拦截修改或新增值操作
 function set(
   target: object,
   key: string | symbol,

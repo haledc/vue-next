@@ -39,7 +39,7 @@ export function ref(raw?: unknown) {
 
   // ! 转换
   raw = convert(raw)
-  // ! 包装成对象，为了 Proxy
+  // ! 包装成对象，为了 Reactive
   const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
@@ -75,6 +75,7 @@ export function toRefs<T extends object>(
 }
 
 // ! 把 key 值转换成 Ref 类型的方法 -> Ref<T[K]>
+// ! 转换 Reactive 对象不需要再收集和触发依赖
 function toProxyRef<T extends object, K extends keyof T>(
   object: T,
   key: K

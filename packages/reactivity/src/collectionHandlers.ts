@@ -11,11 +11,11 @@ type WeakCollections = WeakMap<any, any> | WeakSet<any>
 type MapTypes = Map<any, any> | WeakMap<any, any>
 type SetTypes = Set<any> | WeakSet<any>
 
-// ! 生成响应式对象，原始值直接返回它
+// ! 生成响应式对象
 const toReactive = <T extends unknown>(value: T): T =>
   isObject(value) ? reactive(value) : value
 
-// ! 生成只读响应式对象，原始值直接返回它
+// ! 生成只读响应式对象
 const toReadonly = <T extends unknown>(value: T): T =>
   isObject(value) ? readonly(value) : value
 
@@ -41,7 +41,6 @@ function has(this: CollectionTypes, key: unknown): boolean {
   return getProto(target).has.call(target, key)
 }
 
-// ! 拦截 xxx.size 操作
 function size(target: IterableCollections) {
   target = toRaw(target)
   track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
@@ -90,7 +89,6 @@ function set(this: MapTypes, key: unknown, value: unknown) {
   return result
 }
 
-// ! 拦截 delete 操作
 function deleteEntry(this: CollectionTypes, key: unknown) {
   const target = toRaw(this)
   const proto = getProto(target)
@@ -130,7 +128,6 @@ function clear(this: IterableCollections) {
   return result
 }
 
-// ! 创建 ForEach 方法
 function createForEach(isReadonly: boolean) {
   return function forEach(
     this: IterableCollections,
@@ -151,7 +148,6 @@ function createForEach(isReadonly: boolean) {
   }
 }
 
-// ! 创建迭代器方法
 function createIterableMethod(method: string | symbol, isReadonly: boolean) {
   return function(this: IterableCollections, ...args: unknown[]) {
     const target = toRaw(this)

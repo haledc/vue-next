@@ -13,19 +13,19 @@ export interface ReactiveEffect<T = any> {
   (): T
   _isEffect: true // ! effect 标识
   active: boolean // ! 激活开关 -> 默认是 true, stop 后变为 false
-  raw: () => T // ! 原始函数
-  deps: Array<Dep> // ! dep 的集合 [{ effect1, effect2 }]
+  raw: () => T
+  deps: Array<Dep>
   options: ReactiveEffectOptions
 }
 
 // ! effect 选项接口
 export interface ReactiveEffectOptions {
   lazy?: boolean // ! 延迟计算，为 true 时 effect 不会立即执行一次
-  computed?: boolean // ! 是否是计算属性依赖的 effect
+  computed?: boolean // ! 计算属性依赖的 effect
   scheduler?: (run: Function) => void // ! 调度器函数
-  onTrack?: (event: DebuggerEvent) => void // ! track 监听器（调试使用）
-  onTrigger?: (event: DebuggerEvent) => void // ! trigger 监听器（调试使用）
-  onStop?: () => void // ! stop 事件监听器
+  onTrack?: (event: DebuggerEvent) => void
+  onTrigger?: (event: DebuggerEvent) => void
+  onStop?: () => void
 }
 
 // ! debugger 事件
@@ -70,7 +70,7 @@ export function effect<T = any>(
   return effect
 }
 
-// ! 停止 effect -> 执行 onStop 并设置 active 为 false
+// ! 停止 effect
 export function stop(effect: ReactiveEffect) {
   if (effect.active) {
     cleanup(effect)
@@ -98,9 +98,9 @@ function createReactiveEffect<T = any>(
   return effect
 }
 
-// ! 执行原始函数 fn
+// ! effect 执行函数
 function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
-  // ! 激活开关关闭时，直接执行原始函数，不被收集依赖 -> 使用 stop 后
+  // ! 激活开关关闭时 -> 使用 stop 后
   if (!effect.active) {
     return fn(...args)
   }
@@ -109,10 +109,10 @@ function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
   if (!effectStack.includes(effect)) {
     cleanup(effect) // ! 执行之前，清除 effect 的所有 dep
     try {
-      effectStack.push(effect) // ! 先把 effect 放入到栈中
-      return fn(...args) // ! 执行原始函数，触发函数里面数据的 getter, 执行 track, 收集依赖
+      effectStack.push(effect)
+      return fn(...args) // ! 执行原始函数，触发函数里面数据的 getter, 收集依赖
     } finally {
-      effectStack.pop() // ! 依赖收集完成后，在栈中删除这个 effect
+      effectStack.pop()
     }
   }
 }
@@ -202,14 +202,14 @@ export function trigger(
       addRunners(effects, computedRunners, depsMap.get(iterationKey))
     }
   }
-  // ! 执行依赖的方法 -> 可通过调度器函数执行依赖
+  // ! 执行依赖
   const run = (effect: ReactiveEffect) => {
     scheduleRun(effect, target, type, key, extraInfo)
   }
   // Important: computed effects must be run first so that computed getters
   // can be invalidated before any normal effects that depend on them are run.
-  computedRunners.forEach(run) // ! 先执行计算属性的依赖，优先级更高
-  effects.forEach(run) // ! 再执行普通依赖
+  computedRunners.forEach(run) // ! 先执行，优先级更高
+  effects.forEach(run)
 }
 
 // ! 把需要执行的依赖添加到对应集合中

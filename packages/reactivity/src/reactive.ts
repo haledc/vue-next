@@ -44,12 +44,10 @@ type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
-  // ! 已经是只读响应式对象时，不再重新生成，直接返回它
   if (readonlyToRaw.has(target)) {
     return target
   }
   // target is explicitly marked as readonly by user
-  // ! 存在只读响应式对象集合中时生成只读响应式对象
   if (readonlyValues.has(target)) {
     return readonly(target)
   }
