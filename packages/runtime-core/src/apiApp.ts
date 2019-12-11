@@ -4,7 +4,7 @@ import { ComponentPublicInstance } from './componentProxy'
 import { Directive, validateDirectiveName } from './directives'
 import { RootRenderFunction } from './renderer'
 import { InjectionKey } from './apiInject'
-import { isFunction, NO } from '@vue/shared'
+import { isFunction, NO, isObject } from '@vue/shared'
 import { warn } from './warning'
 import { createVNode } from './vnode'
 
@@ -174,16 +174,21 @@ export function createAppAPI<HostNode, HostElement>(
       mount(
         rootComponent: Component,
         rootContainer: HostElement,
-        rootProps?: Data
+        rootProps?: Data | null
       ): any {
         if (!isMounted) {
+          if (rootProps != null && !isObject(rootProps)) {
+            __DEV__ &&
+              warn(`root props passed to app.mount() must be an object.`)
+            rootProps = null
+          }
           const vnode = createVNode(rootComponent, rootProps)
           // store app context on the root VNode.
           // this will be set on the root instance on initial mount.
           vnode.appContext = context
           render(vnode, rootContainer)
           isMounted = true
-          return vnode.component!.renderProxy
+          return vnode.component!.proxy
         } else if (__DEV__) {
           warn(
             `App has already been mounted. Create a new app instance instead.`

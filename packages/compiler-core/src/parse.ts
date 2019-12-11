@@ -1,10 +1,6 @@
+import { ParserOptions } from './options'
 import { NO, isArray } from '@vue/shared'
-import {
-  ErrorCodes,
-  createCompilerError,
-  defaultOnError,
-  CompilerError
-} from './errors'
+import { ErrorCodes, createCompilerError, defaultOnError } from './errors'
 import {
   assert,
   advancePositionWithMutation,
@@ -12,7 +8,6 @@ import {
   isCoreComponent
 } from './utils'
 import {
-  Namespace,
   Namespaces,
   AttributeNode,
   CommentNode,
@@ -29,26 +24,6 @@ import {
   InterpolationNode
 } from './ast'
 import { extend } from '@vue/shared'
-
-export interface ParserOptions {
-  isVoidTag?: (tag: string) => boolean // e.g. img, br, hr
-  isNativeTag?: (tag: string) => boolean // e.g. loading-indicator in weex
-  isPreTag?: (tag: string) => boolean // e.g. <pre> where whitespace is intact
-  isCustomElement?: (tag: string) => boolean
-  isBuiltInComponent?: (tag: string) => symbol | void
-  getNamespace?: (tag: string, parent: ElementNode | undefined) => Namespace
-  getTextMode?: (tag: string, ns: Namespace) => TextModes
-  delimiters?: [string, string] // ['{{', '}}']
-
-  // Map to HTML entities. E.g., `{ "amp;": "&" }`
-  // The full set is https://html.spec.whatwg.org/multipage/named-characters.html#named-character-references
-  namedCharacterReferences?: Record<string, string>
-  // this number is based on the map above, but it should be pre-computed
-  // to avoid the cost on every parse() call.
-  maxCRNameLength?: number
-
-  onError?: (error: CompilerError) => void
-}
 
 // `isNativeTag` is optional, others are required
 type OptionalOptions = 'isNativeTag' | 'isBuiltInComponent'
@@ -148,66 +123,64 @@ function parseChildren(
     const s = context.source
     let node: TemplateChildNode | TemplateChildNode[] | undefined = undefined
 
-    // ! 没有设置 v-pre（pre tag）且以插值 {{ 开头时
-    if (!context.inPre && startsWith(s, context.options.delimiters[0])) {
-      // '{{'
-      node = parseInterpolation(context, mode) // ! 解析插值
-      // ! 文本节点并且以 < 开头时
-    } else if (mode === TextModes.DATA && s[0] === '<') {
-      // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
-      if (s.length === 1) {
-        emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 1)
-        // ! 第二是 ！时 -> <!
-      } else if (s[1] === '!') {
-        // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
-        if (startsWith(s, '<!--')) {
-          node = parseComment(context) // ! 解析注释
-        } else if (startsWith(s, '<!DOCTYPE')) {
-          // Ignore DOCTYPE by a limitation.
-          node = parseBogusComment(context) // ! 解析文档
-        } else if (startsWith(s, '<![CDATA[')) {
-          if (ns !== Namespaces.HTML) {
-            node = parseCDATA(context, ancestors) // ! 解析 CDATA
+    if (mode === TextModes.DATA) {
+      if (!context.inPre && startsWith(s, context.options.delimiters[0])) {
+        // '{{'
+        node = parseInterpolation(context, mode)
+      } else if (s[0] === '<') {
+        // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
+        if (s.length === 1) {
+          emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 1)
+        } else if (s[1] === '!') {
+          // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
+          if (startsWith(s, '<!--')) {
+            node = parseComment(context)
+          } else if (startsWith(s, '<!DOCTYPE')) {
+            // Ignore DOCTYPE by a limitation.
+            node = parseBogusComment(context)
+          } else if (startsWith(s, '<![CDATA[')) {
+            if (ns !== Namespaces.HTML) {
+              node = parseCDATA(context, ancestors)
+            } else {
+              emitError(context, ErrorCodes.CDATA_IN_HTML_CONTENT)
+              node = parseBogusComment(context)
+            }
           } else {
-            emitError(context, ErrorCodes.CDATA_IN_HTML_CONTENT)
+            emitError(context, ErrorCodes.INCORRECTLY_OPENED_COMMENT)
             node = parseBogusComment(context)
           }
-        } else {
-          emitError(context, ErrorCodes.INCORRECTLY_OPENED_COMMENT)
+        } else if (s[1] === '/') {
+          // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
+          if (s.length === 2) {
+            emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 2)
+          } else if (s[2] === '>') {
+            emitError(context, ErrorCodes.MISSING_END_TAG_NAME, 2)
+            advanceBy(context, 3)
+            continue
+          } else if (/[a-z]/i.test(s[2])) {
+            emitError(context, ErrorCodes.X_INVALID_END_TAG)
+            parseTag(context, TagType.End, parent)
+            continue
+          } else {
+            emitError(
+              context,
+              ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME,
+              2
+            )
+            node = parseBogusComment(context)
+          }
+        } else if (/[a-z]/i.test(s[1])) {
+          node = parseElement(context, ancestors)
+        } else if (s[1] === '?') {
+          emitError(
+            context,
+            ErrorCodes.UNEXPECTED_QUESTION_MARK_INSTEAD_OF_TAG_NAME,
+            1
+          )
           node = parseBogusComment(context)
-        }
-        // ! 第二字符是 / 时 -> </
-      } else if (s[1] === '/') {
-        // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
-        if (s.length === 2) {
-          emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 2)
-          // ! 第三个字符是 > 时 -> </>
-        } else if (s[2] === '>') {
-          emitError(context, ErrorCodes.MISSING_END_TAG_NAME, 2)
-          advanceBy(context, 3) // ! 前进
-          continue
-          // ! 第三个字符是小写字母时 -> </xxx 普通的闭合标签
-        } else if (/[a-z]/i.test(s[2])) {
-          emitError(context, ErrorCodes.X_INVALID_END_TAG)
-          parseTag(context, TagType.End, parent) // ! 解析标签
-          continue
         } else {
-          emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 2)
-          node = parseBogusComment(context)
+          emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1)
         }
-        // ! 第二个字符是小写字母时 -> <xxx 普通的开始标签
-      } else if (/[a-z]/i.test(s[1])) {
-        node = parseElement(context, ancestors)
-        // ! 第二个字符是 ? 时 -> <?
-      } else if (s[1] === '?') {
-        emitError(
-          context,
-          ErrorCodes.UNEXPECTED_QUESTION_MARK_INSTEAD_OF_TAG_NAME,
-          1
-        )
-        node = parseBogusComment(context)
-      } else {
-        emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1)
       }
     }
     // ! 没有解析出 node 时，解析文本

@@ -45,17 +45,25 @@ export type ComponentPublicInstance<
   ExtractComputedReturns<C> &
   M
 
-// ! 公开属性映射
-const publicPropertiesMap = {
-  $data: 'data',
-  $props: 'propsProxy',
-  $attrs: 'attrs',
-  $slots: 'slots',
-  $refs: 'refs',
-  $parent: 'parent',
-  $root: 'root',
-  $emit: 'emit',
-  $options: 'type'
+const publicPropertiesMap: Record<
+  string,
+  (i: ComponentInternalInstance) => any
+> = {
+  $: i => i,
+  $el: i => i.vnode.el,
+  $cache: i => i.renderCache,
+  $data: i => i.data,
+  $props: i => i.propsProxy,
+  $attrs: i => i.attrs,
+  $slots: i => i.slots,
+  $refs: i => i.refs,
+  $parent: i => i.parent,
+  $root: i => i.root,
+  $emit: i => i.emit,
+  $options: i => i.type,
+  $forceUpdate: i => i.update,
+  $nextTick: () => nextTick,
+  $watch: i => instanceWatch.bind(i)
 }
 
 const enum AccessTypes {
@@ -80,6 +88,8 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       type,
       sink
     } = target
+
+    // data / props / renderContext
     // This getter gets called for every property access on the render context
     // during render and is a major hotspot. The most expensive part of this
     // is the multiple hasOwn() calls. It's much faster to do a simple property
@@ -108,31 +118,16 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       }
       // return the value from propsProxy for ref unwrapping and readonly
       return propsProxy![key]
-    } else if (key === '$') {
-      // reserved backdoor to access the internal instance
-      return target
-    } else if (key === '$cache') {
-      return target.renderCache || (target.renderCache = [])
-    } else if (key === '$el') {
-      return target.vnode.el
-    } else if (hasOwn(publicPropertiesMap, key)) {
+    }
+
+    // public $xxx properties & user-attached properties (sink)
+    const publicGetter = publicPropertiesMap[key]
+    if (publicGetter !== undefined) {
       if (__DEV__ && key === '$attrs') {
         markAttrsAccessed()
       }
-      return target[publicPropertiesMap[key]]
-    }
-    // methods are only exposed when options are supported
-    if (__FEATURE_OPTIONS__) {
-      switch (key) {
-        case '$forceUpdate':
-          return target.update
-        case '$nextTick':
-          return nextTick
-        case '$watch':
-          return instanceWatch.bind(target)
-      }
-    }
-    if (hasOwn(sink, key)) {
+      return publicGetter(target)
+    } else if (hasOwn(sink, key)) {
       return sink[key]
     } else if (__DEV__ && currentRenderingInstance != null) {
       warn(
@@ -140,6 +135,18 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
           `but is not defined on instance.`
       )
     }
+  },
+
+  has(target: ComponentInternalInstance, key: string) {
+    const { data, accessCache, renderContext, type, sink } = target
+    return (
+      accessCache![key] !== undefined ||
+      (data !== EMPTY_OBJ && hasOwn(data, key)) ||
+      hasOwn(renderContext, key) ||
+      (type.props != null && hasOwn(type.props, key)) ||
+      hasOwn(publicPropertiesMap, key) ||
+      hasOwn(sink, key)
+    )
   },
 
   set(target: ComponentInternalInstance, key: string, value: any): boolean {
@@ -167,13 +174,9 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   }
 }
 
-if (__RUNTIME_COMPILE__) {
-  // this trap is only called in browser-compiled render functions that use
-  // `with (this) {}`
-  PublicInstanceProxyHandlers.has = (
-    _: ComponentInternalInstance,
-    key: string
-  ): boolean => {
+export const runtimeCompiledRenderProxyHandlers = {
+  ...PublicInstanceProxyHandlers,
+  has(_target: ComponentInternalInstance, key: string) {
     return key[0] !== '_' && !isGloballyWhitelisted(key)
   }
 }

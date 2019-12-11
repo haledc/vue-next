@@ -1,3 +1,4 @@
+import { CodegenOptions } from './options'
 import {
   RootNode,
   TemplateChildNode,
@@ -38,33 +39,10 @@ import {
   CREATE_COMMENT,
   CREATE_TEXT
 } from './runtimeHelpers'
-import { ImportsOption } from './transform'
+import { ImportItem } from './transform'
 
 type CodegenNode = TemplateChildNode | JSChildNode
 
-// ! 代码生成选项
-export interface CodegenOptions {
-  // - Module mode will generate ES module import statements for helpers
-  //   and export the render function as the default export.
-  // - Function mode will generate a single `const { helpers... } = Vue`
-  //   statement and return the render function. It is meant to be used with
-  //   `new Function(code)()` to generate a render function at runtime.
-  // Default: 'function'
-  mode?: 'module' | 'function'
-  // Prefix suitable identifiers with _ctx.
-  // If this option is false, the generated code will be wrapped in a
-  // `with (this) { ... }` block.
-  // Default: false
-  prefixIdentifiers?: boolean
-  // Generate source map?
-  // Default: false
-  sourceMap?: boolean
-  // Filename for source map generation.
-  // Default: `template.vue.html`
-  filename?: string
-}
-
-// ! 代码生成结果
 export interface CodegenResult {
   code: string
   ast: RootNode
@@ -338,7 +316,7 @@ function genHoists(hoists: JSChildNode[], context: CodegenContext) {
   })
 }
 
-function genImports(importsOptions: ImportsOption[], context: CodegenContext) {
+function genImports(importsOptions: ImportItem[], context: CodegenContext) {
   if (!importsOptions.length) {
     return
   }
