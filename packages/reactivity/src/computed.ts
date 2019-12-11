@@ -45,7 +45,7 @@ export function computed<T>(
   let dirty = true // ! 初始值为 true
   let value: T
 
-  // ! 生成 effect
+  // ! 生成 effect -> 包装 getter
   const runner = effect(getter, {
     lazy: true, // ! 延迟计算
     // mark effect as computed so that it gets priority during trigger
@@ -72,7 +72,7 @@ export function computed<T>(
       return value
     },
     set value(newValue: T) {
-      setter(newValue)
+      setter(newValue) // ! 执行 setter
     }
   } as any
 }
