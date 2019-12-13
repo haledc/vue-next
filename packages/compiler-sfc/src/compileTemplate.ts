@@ -29,7 +29,7 @@ export interface TemplateCompiler {
 export interface TemplateCompileOptions {
   source: string
   filename: string
-  compiler: TemplateCompiler
+  compiler?: TemplateCompiler
   compilerOptions?: CompilerOptions
   preprocessLang?: string
   preprocessOptions?: any
@@ -65,10 +65,19 @@ export function compileTemplate(
   const preprocessor =
     preprocessLang && consolidate[preprocessLang as keyof typeof consolidate]
   if (preprocessor) {
-    return doCompileTemplate({
-      ...options,
-      source: preprocess(options, preprocessor)
-    })
+    try {
+      return doCompileTemplate({
+        ...options,
+        source: preprocess(options, preprocessor)
+      })
+    } catch (e) {
+      return {
+        code: `export default function render() {}`,
+        source: options.source,
+        tips: [],
+        errors: [e]
+      }
+    }
   } else if (preprocessLang) {
     return {
       code: `export default function render() {}`,
@@ -92,7 +101,7 @@ export function compileTemplate(
 function doCompileTemplate({
   filename,
   source,
-  compiler,
+  compiler = require('@vue/compiler-dom'),
   compilerOptions = {},
   transformAssetUrls
 }: TemplateCompileOptions): TemplateCompileResults {

@@ -40,7 +40,10 @@ const App = {
     watch(() => {
       fetch(`${API_URL}${currentBranch.value}`)
         .then(res => res.json())
-        .then(data => { commits.value = data })
+        .then(data => {
+          console.log(data)
+          commits.value = data
+        })
     })
 
     return {

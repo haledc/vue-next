@@ -11,6 +11,12 @@ export function setupPuppeteer() {
   beforeEach(async () => {
     browser = await puppeteer.launch(puppeteerOptions)
     page = await browser.newPage()
+
+    page.on('console', e => {
+      if (e.type() === 'error') {
+        console.error(`Error from Puppeteer-loaded page:`, e)
+      }
+    })
   })
 
   afterEach(async () => {
@@ -30,7 +36,11 @@ export function setupPuppeteer() {
   }
 
   async function value(selector: string) {
-    return await page.$eval(selector, (node: any) => node.value)
+    return await page.$eval(selector, (node: HTMLInputElement) => node.value)
+  }
+
+  async function html(selector: string) {
+    return await page.$eval(selector, node => node.innerHTML)
   }
 
   async function classList(selector: string) {
@@ -49,7 +59,7 @@ export function setupPuppeteer() {
   }
 
   async function isChecked(selector: string) {
-    return await page.$eval(selector, (node: any) => node.checked)
+    return await page.$eval(selector, (node: HTMLInputElement) => node.checked)
   }
 
   async function isFocused(selector: string) {
@@ -58,13 +68,16 @@ export function setupPuppeteer() {
 
   async function enterValue(selector: string, value: string) {
     const el = (await page.$(selector))!
-    await el.evaluate((node: any) => (node.value = ''))
+    await el.evaluate((node: HTMLInputElement) => (node.value = ''))
     await el.type(value)
     await el.press('Enter')
   }
 
   async function clearValue(selector: string) {
-    return await page.$eval(selector, (node: any) => (node.value = ''))
+    return await page.$eval(
+      selector,
+      (node: HTMLInputElement) => (node.value = '')
+    )
   }
 
   return {
@@ -73,6 +86,7 @@ export function setupPuppeteer() {
     count,
     text,
     value,
+    html,
     classList,
     children,
     isVisible,

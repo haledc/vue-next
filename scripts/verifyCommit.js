@@ -8,7 +8,7 @@ const msg = require('fs')
   .trim()
 
 // ! Commit 关键词匹配正则
-const commitRE = /^(revert: )?(feat|fix|docs|dx|style|refactor|perf|test|workflow|build|ci|chore|types|wip)(\(.+\))?: .{1,50}/
+const commitRE = /^(revert: )?(feat|fix|docs|dx|style|refactor|perf|test|workflow|build|ci|chore|types|wip|release)(\(.+\))?: .{1,50}/
 
 // ! 如果关键词匹配不成功，打印错误信息和提示，并关闭进程
 if (!commitRE.test(msg)) {

@@ -3,7 +3,7 @@
 const args = require('minimist')(process.argv.slice(2)) // ! 获取命令参数
 const fs = require('fs')
 const path = require('path')
-const baseVersion = require('../lerna.json').version
+const version = require('../package.json').version
 
 const packagesDir = path.resolve(__dirname, '../packages') // ! packages 路径
 const files = fs.readdirSync(packagesDir) // ! 读取里面的全部文件
@@ -31,7 +31,7 @@ files.forEach(shortName => {
     // !  package.json 内容
     const json = {
       name,
-      version: baseVersion,
+      version,
       description: name,
       main: 'index.js',
       module: `dist/${shortName}.esm-bundler.js`,
