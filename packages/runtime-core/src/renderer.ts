@@ -53,6 +53,7 @@ import {
 } from './components/Suspense'
 import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { KeepAliveSink, isKeepAlive } from './components/KeepAlive'
+import { registerHMR, unregisterHMR } from './hmr'
 
 export interface RendererOptions<HostNode = any, HostElement = any> {
   patchProp(
@@ -653,10 +654,14 @@ export function createRenderer<
     const fragmentEndAnchor = (n2.anchor = n1
       ? n1.anchor
       : hostCreateComment(showID ? `fragment-${devFragmentID}-end` : ''))!
-    if (showID) {
-      devFragmentID++
+    const { patchFlag } = n2
+    if (patchFlag > 0) {
+      optimized = true
     }
     if (n1 == null) {
+      if (showID) {
+        devFragmentID++
+      }
       hostInsert(fragmentStartAnchor, container, anchor)
       hostInsert(fragmentEndAnchor, container, anchor)
       // a fragment can only have array children
@@ -672,16 +677,33 @@ export function createRenderer<
         optimized
       )
     } else {
-      patchChildren(
-        n1,
-        n2,
-        container,
-        fragmentEndAnchor,
-        parentComponent,
-        parentSuspense,
-        isSVG,
-        optimized
-      )
+      if (patchFlag & PatchFlags.STABLE_FRAGMENT && n2.dynamicChildren) {
+        // a stable fragment (template root or <template v-for>) doesn't need to
+        // patch children order, but it may contain dynamicChildren.
+        patchBlockChildren(
+          n1.dynamicChildren!,
+          n2.dynamicChildren,
+          container,
+          parentComponent,
+          parentSuspense,
+          isSVG
+        )
+      } else {
+        // keyed / unkeyed, or manual fragments.
+        // for keyed & unkeyed, since they are compiler generated from v-for,
+        // each child is guaranteed to be a block so the fragment will never
+        // have dynamicChildren.
+        patchChildren(
+          n1,
+          n2,
+          container,
+          fragmentEndAnchor,
+          parentComponent,
+          parentSuspense,
+          isSVG,
+          optimized
+        )
+      }
     }
   }
 
@@ -803,7 +825,7 @@ export function createRenderer<
     } else {
       const instance = (n2.component = n1.component)!
 
-      if (shouldUpdateComponent(n1, n2, optimized)) {
+      if (shouldUpdateComponent(n1, n2, parentComponent, optimized)) {
         if (
           __FEATURE_SUSPENSE__ &&
           instance.asyncDep &&
@@ -856,6 +878,11 @@ export function createRenderer<
       initialVNode,
       parentComponent
     ))
+
+    // HMR
+    if (__BUNDLER__ && __DEV__ && instance.type.__hmrId != null) {
+      registerHMR(instance)
+    }
 
     if (__DEV__) {
       pushWarningContext(initialVNode)
@@ -1208,7 +1235,7 @@ export function createRenderer<
     while (i <= e1 && i <= e2) {
       const n1 = c1[e1]
       const n2 = optimized
-        ? (c2[i] as HostVNode)
+        ? (c2[e2] as HostVNode)
         : (c2[e2] = normalizeVNode(c2[e2]))
       if (isSameVNodeType(n1, n2)) {
         patch(
@@ -1456,17 +1483,7 @@ export function createRenderer<
     parentSuspense: HostSuspenseBoundary | null,
     doRemove?: boolean
   ) {
-    const {
-      el,
-      props,
-      ref,
-      type,
-      children,
-      dynamicChildren,
-      shapeFlag,
-      anchor,
-      transition
-    } = vnode
+    const { props, ref, children, dynamicChildren, shapeFlag } = vnode
 
     // unset ref
     if (ref !== null && parentComponent !== null) {
@@ -1491,50 +1508,15 @@ export function createRenderer<
       invokeDirectiveHook(props.onVnodeBeforeUnmount, parentComponent, vnode)
     }
 
-    const shouldRemoveChildren = type === Fragment && doRemove
     if (dynamicChildren != null) {
-      unmountChildren(
-        dynamicChildren,
-        parentComponent,
-        parentSuspense,
-        shouldRemoveChildren
-      )
+      // fast path for block nodes: only need to unmount dynamic children.
+      unmountChildren(dynamicChildren, parentComponent, parentSuspense)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      unmountChildren(
-        children as HostVNode[],
-        parentComponent,
-        parentSuspense,
-        shouldRemoveChildren
-      )
+      unmountChildren(children as HostVNode[], parentComponent, parentSuspense)
     }
 
     if (doRemove) {
-      const remove = () => {
-        hostRemove(vnode.el!)
-        if (anchor != null) hostRemove(anchor)
-        if (
-          transition != null &&
-          !transition.persisted &&
-          transition.afterLeave
-        ) {
-          transition.afterLeave()
-        }
-      }
-      if (
-        vnode.shapeFlag & ShapeFlags.ELEMENT &&
-        transition != null &&
-        !transition.persisted
-      ) {
-        const { leave, delayLeave } = transition
-        const performLeave = () => leave(el!, remove)
-        if (delayLeave) {
-          delayLeave(vnode.el!, remove, performLeave)
-        } else {
-          performLeave()
-        }
-      } else {
-        remove()
-      }
+      remove(vnode)
     }
 
     if (props != null && props.onVnodeUnmounted != null) {
@@ -1544,11 +1526,57 @@ export function createRenderer<
     }
   }
 
+  function remove(vnode: HostVNode) {
+    const { type, el, anchor, children, transition } = vnode
+    const performRemove = () => {
+      hostRemove(el!)
+      if (anchor != null) hostRemove(anchor)
+      if (
+        transition != null &&
+        !transition.persisted &&
+        transition.afterLeave
+      ) {
+        transition.afterLeave()
+      }
+    }
+    if (type === Fragment) {
+      performRemove()
+      removeChildren(children as HostVNode[])
+      return
+    }
+    if (
+      vnode.shapeFlag & ShapeFlags.ELEMENT &&
+      transition != null &&
+      !transition.persisted
+    ) {
+      const { leave, delayLeave } = transition
+      const performLeave = () => leave(el!, performRemove)
+      if (delayLeave) {
+        delayLeave(vnode.el!, performRemove, performLeave)
+      } else {
+        performLeave()
+      }
+    } else {
+      performRemove()
+    }
+  }
+
+  function removeChildren(children: HostVNode[]) {
+    for (let i = 0; i < children.length; i++) {
+      remove(children[i])
+    }
+  }
+
   function unmountComponent(
     instance: ComponentInternalInstance,
     parentSuspense: HostSuspenseBoundary | null,
     doRemove?: boolean
   ) {
+    // HMR
+    if (__BUNDLER__ && __DEV__ && instance.type.__hmrId != null) {
+      unregisterHMR(instance)
+    }
+
     const { bum, effects, update, subTree, um, da, isDeactivated } = instance
     // beforeUnmount hook
     if (bum !== null) {

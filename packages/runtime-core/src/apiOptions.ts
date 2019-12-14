@@ -67,6 +67,11 @@ export interface ComponentOptionsBase<
   directives?: Record<string, Directive>
   inheritAttrs?: boolean
 
+  // SFC & dev only
+  __scopeId?: string
+  __hmrId?: string
+  __hmrUpdated?: boolean
+
   // type-only differentiator to separate OptionWithoutProps from a constructor
   // type returned by createComponent() or FunctionalComponent
   call?: never
@@ -147,7 +152,6 @@ type ComponentInjectOptions =
       string | symbol | { from: string | symbol; default?: unknown }
     >
 
-// TODO type inference for these options
 // ! 2.x 遗留的选项接口
 export interface LegacyOptions<
   Props,

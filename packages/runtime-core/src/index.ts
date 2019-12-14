@@ -44,6 +44,7 @@ export const PatchFlags = PublicPatchFlags as {
   PROPS: number
   NEED_PATCH: number
   FULL_PROPS: number
+  STABLE_FRAGMENT: number
   KEYED_FRAGMENT: number
   UNKEYED_FRAGMENT: number
   DYNAMIC_SLOTS: number
@@ -66,7 +67,9 @@ export {
   TransitionHooks
 } from './components/BaseTransition'
 
-// Internal, for compiler generated code
+// Internal API ----------------------------------------------------------------
+
+// For compiler generated code
 // should sync with '@vue/compiler-core/src/runtimeConstants.ts'
 export { withDirectives } from './directives'
 export {
@@ -87,7 +90,7 @@ import { capitalize as _capitalize, camelize as _camelize } from '@vue/shared'
 export const capitalize = _capitalize as (s: string) => string
 export const camelize = _camelize as (s: string) => string
 
-// Internal, for integration with runtime compiler
+// For integration with runtime compiler
 export { registerRuntimeCompiler } from './component'
 
 // Types -----------------------------------------------------------------------

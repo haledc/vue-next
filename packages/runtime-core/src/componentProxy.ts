@@ -1,5 +1,5 @@
 import { ComponentInternalInstance, Data, Emit } from './component'
-import { nextTick } from './scheduler'
+import { nextTick, queueJob } from './scheduler'
 import { instanceWatch } from './apiWatch'
 import { EMPTY_OBJ, hasOwn, isGloballyWhitelisted } from '@vue/shared'
 import {
@@ -51,7 +51,7 @@ const publicPropertiesMap: Record<
 > = {
   $: i => i,
   $el: i => i.vnode.el,
-  $cache: i => i.renderCache,
+  $cache: i => i.renderCache || (i.renderCache = []),
   $data: i => i.data,
   $props: i => i.propsProxy,
   $attrs: i => i.attrs,
@@ -61,7 +61,7 @@ const publicPropertiesMap: Record<
   $root: i => i.root,
   $emit: i => i.emit,
   $options: i => i.type,
-  $forceUpdate: i => i.update,
+  $forceUpdate: i => () => queueJob(i.update),
   $nextTick: () => nextTick,
   $watch: i => instanceWatch.bind(i)
 }

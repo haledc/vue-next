@@ -199,8 +199,7 @@ function parseChildren(
   }
 
   // Whitespace management for more efficient output
-  // (same as v2 whitespance: 'condense')
-  // ! 是否删除空白部分（最后一个文本节点和元素间的空白部分）
+  // (same as v2 whitespace: 'condense')
   let removedWhitespace = false
   if (
     mode !== TextModes.RAWTEXT &&
