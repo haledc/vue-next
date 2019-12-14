@@ -10,7 +10,7 @@ const builtInSymbols = new Set(
     .map(key => (Symbol as any)[key])
     .filter(isSymbol)
 )
-// ! 生成 getter，根据参数是否生成只读的 getter
+
 function createGetter(isReadonly: boolean, shallow = false) {
   return function get(target: object, key: string | symbol, receiver: object) {
     const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
@@ -75,7 +75,7 @@ function set(
   return result
 }
 
-// ! 拦截删除值 -> delete
+// ! 拦截删除 -> delete
 function deleteProperty(target: object, key: string | symbol): boolean {
   const hadKey = hasOwn(target, key)
   const oldValue = (target as any)[key]
@@ -91,14 +91,14 @@ function deleteProperty(target: object, key: string | symbol): boolean {
   return result
 }
 
-// ! 拦截 HasProperty 操作 -> 比如使用 in 运算符
+// ! 拦截查询 -> in
 function has(target: object, key: string | symbol): boolean {
   const result = Reflect.has(target, key)
   track(target, TrackOpTypes.HAS, key) // ! 收集依赖
   return result
 }
 
-// ! 拦截迭代的操作 -> keys for forEach
+// ! 拦截自身读取 -> for...in Object.keys
 function ownKeys(target: object): (string | number | symbol)[] {
   track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
   return Reflect.ownKeys(target)
@@ -113,8 +113,8 @@ export const mutableHandlers: ProxyHandler<object> = {
   ownKeys
 }
 
-// ! 代理的只读的 handlers，
-// ! 在拦截修改、新增、删除时判断是否解锁，如果没有解锁会报错，解锁后才能操作
+// ! 只读的代理的 handlers，
+// ! 在拦截修改、新增、删除时判断是否解锁，如果没有解锁会报错且无法操作，解锁后才操作
 export const readonlyHandlers: ProxyHandler<object> = {
   get: createGetter(true),
 
