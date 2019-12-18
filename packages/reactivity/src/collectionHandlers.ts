@@ -180,7 +180,7 @@ function createIterableMethod(method: string | symbol, isReadonly: boolean) {
 }
 
 // ! 创建只读方法
-// ! 在拦截 add set delete clear 时判断是否解锁，如果没有解锁会报错，解锁后才能操作
+// ! 在拦截 add set delete clear 时判断是否解锁，如果没有解锁会报错且无法操作，解锁后才操作
 function createReadonlyMethod(
   method: Function,
   type: TriggerOpTypes
@@ -204,7 +204,7 @@ function createReadonlyMethod(
 // ! 可变插桩对象
 const mutableInstrumentations: Record<string, Function> = {
   get(this: MapTypes, key: unknown) {
-    return get(this, key, toReactive) // ! 传入 target 参数为 this，this 是代理的原始数据
+    return get(this, key, toReactive) // ! 传入 target 参数为 this，this 指代理对象
   },
   get size(this: IterableCollections) {
     return size(this)
