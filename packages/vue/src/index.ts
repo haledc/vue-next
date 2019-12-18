@@ -1,4 +1,4 @@
-// This package is the "full-build" that includes both the runtime
+// This entry is the "full-build" that includes both the runtime
 // and the compiler, and supports on-the-fly compilation of the template option.
 import { compile, CompilerOptions, CompilerError } from '@vue/compiler-dom'
 import { registerRuntimeCompiler, RenderFunction, warn } from '@vue/runtime-dom'
@@ -36,7 +36,6 @@ function compileToFunction(
 
   const { code } = compile(template, {
     hoistStatic: true,
-    cacheHandlers: true,
     onError(err: CompilerError) {
       if (__DEV__) {
         const message = `Template compilation error: ${err.message}`
@@ -54,7 +53,6 @@ function compileToFunction(
   })
 
   const render = new Function('Vue', code)(runtimeDom) as RenderFunction
-  render.isRuntimeCompiled = true
   return (compileCache[key] = render)
 }
 
@@ -63,9 +61,4 @@ registerRuntimeCompiler(compileToFunction)
 export { compileToFunction as compile }
 export * from '@vue/runtime-dom'
 
-if (__BROWSER__ && __DEV__) {
-  console[console.info ? 'info' : 'log'](
-    `You are running a development build of Vue.\n` +
-      `Make sure to use the production build (*.prod.js) when deploying for production.`
-  )
-}
+import './devCheck'

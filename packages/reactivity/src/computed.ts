@@ -1,4 +1,4 @@
-import { effect, ReactiveEffect, effectStack } from './effect'
+import { effect, ReactiveEffect, activeEffect } from './effect'
 import { Ref, UnwrapRef } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
 
@@ -79,18 +79,15 @@ export function computed<T>(
 
 // ! 追踪子级
 function trackChildRun(childRunner: ReactiveEffect) {
-  if (effectStack.length === 0) {
+  if (activeEffect === undefined) {
     return
   }
-  // ! 获取计算属性的父级 effect
-  const parentRunner = effectStack[effectStack.length - 1]
-
   // ! 遍历子级，即本 effect
   for (let i = 0; i < childRunner.deps.length; i++) {
     const dep = childRunner.deps[i]
-    if (!dep.has(parentRunner)) {
-      dep.add(parentRunner)
-      parentRunner.deps.push(dep)
+    if (!dep.has(activeEffect)) {
+      dep.add(activeEffect)
+      activeEffect.deps.push(dep)
     }
   }
 }

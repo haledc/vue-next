@@ -4745,9 +4745,9 @@ rollup-pluginutils@^2.5.0, rollup-pluginutils@^2.6.0, rollup-pluginutils@^2.8.1:
     estree-walker "^0.6.1"
 
 rollup@^1.19.4:
-  version "1.27.12"
-  resolved "https://registry.yarnpkg.com/rollup/-/rollup-1.27.12.tgz#cf84db4b4edaf187eaba95232f34de7cd4d22d9c"
-  integrity sha512-51iR7n6NQfdQJlRrIktaGmkdt395A8Vue7CdnlrK6UhY9DY2GaKsTdljWeXisJuZh+w90Gz8VFNh5X+yxP20oQ==
+  version "1.27.13"
+  resolved "https://registry.yarnpkg.com/rollup/-/rollup-1.27.13.tgz#d6d3500512daacbf8de54d2800de62d893085b90"
+  integrity sha512-hDi7M07MpmNSDE8YVwGVFA8L7n8jTLJ4lG65nMAijAyqBe//rtu4JdxjUBE7JqXfdpqxqDTbCDys9WcqdpsQvw==
   dependencies:
     "@types/estree" "*"
     "@types/node" "*"
@@ -4989,11 +4989,6 @@ source-map@^0.6.0, source-map@^0.6.1, source-map@~0.6.0, source-map@~0.6.1:
   version "0.6.1"
   resolved "https://registry.yarnpkg.com/source-map/-/source-map-0.6.1.tgz#74722af32e9614e9c287a8d0bbde48b5e2f1a263"
   integrity sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==
-
-source-map@^0.7.3:
-  version "0.7.3"
-  resolved "https://registry.yarnpkg.com/source-map/-/source-map-0.7.3.tgz#5302f8169031735226544092e64981f751750383"
-  integrity sha512-CkCj6giN3S+n9qrYiBTX5gystlENnRW5jZeNLHpe6aue+SrHcG5VYwujhW9s4dY31mEGsxBDrHR6oI69fTXsaQ==
 
 sourcemap-codec@^1.4.4:
   version "1.4.6"

@@ -44,7 +44,8 @@ export interface DebuggerEventExtraInfo {
 }
 
 // ! 依赖收集栈 -> 存放 effect 的栈
-export const effectStack: ReactiveEffect[] = []
+const effectStack: ReactiveEffect[] = []
+export let activeEffect: ReactiveEffect | undefined
 
 export const ITERATE_KEY = Symbol('iterate')
 
@@ -108,11 +109,14 @@ function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
   // ! 栈中没有 effect 时，进栈并执行 fn，最后出栈
   if (!effectStack.includes(effect)) {
     cleanup(effect) // ! 执行之前，清除 effect 的所有 dep
+    // ! 执行原始函数，触发函数里面数据的 getter, 收集依赖
     try {
       effectStack.push(effect)
-      return fn(...args) // ! 执行原始函数，触发函数里面数据的 getter, 收集依赖
+      activeEffect = effect
+      return fn(...args)
     } finally {
       effectStack.pop()
+      activeEffect = effectStack[effectStack.length - 1]
     }
   }
 }
@@ -143,10 +147,9 @@ export function resumeTracking() {
 
 // ! 收集依赖
 export function track(target: object, type: TrackOpTypes, key: unknown) {
-  if (!shouldTrack || effectStack.length === 0) {
+  if (!shouldTrack || activeEffect === undefined) {
     return
   }
-  const effect = effectStack[effectStack.length - 1]
   let depsMap = targetMap.get(target)
   if (depsMap === void 0) {
     targetMap.set(target, (depsMap = new Map()))
@@ -155,12 +158,12 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
   if (dep === void 0) {
     depsMap.set(key, (dep = new Set()))
   }
-  if (!dep.has(effect)) {
-    dep.add(effect) // ! dep 添加 effect
-    effect.deps.push(dep) // ! effect 的 deps 也添加 dep（循环引用）
-    if (__DEV__ && effect.options.onTrack) {
-      effect.options.onTrack({
-        effect,
+  if (!dep.has(activeEffect)) {
+    dep.add(activeEffect) // ! dep 添加 effect
+    activeEffect.deps.push(dep) // ! effect 的 deps 也添加 dep（循环引用）
+    if (__DEV__ && activeEffect.options.onTrack) {
+      activeEffect.options.onTrack({
+        effect: activeEffect,
         target,
         type,
         key

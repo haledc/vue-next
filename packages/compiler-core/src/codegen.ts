@@ -10,7 +10,6 @@ import {
   CallExpression,
   ArrayExpression,
   ObjectExpression,
-  SourceLocation,
   Position,
   InterpolationNode,
   CompoundExpressionNode,
@@ -18,7 +17,8 @@ import {
   FunctionExpression,
   SequenceExpression,
   ConditionalExpression,
-  CacheExpression
+  CacheExpression,
+  locStub
 } from './ast'
 import { SourceMapGenerator, RawSourceMap } from 'source-map'
 import {
@@ -37,7 +37,10 @@ import {
   RESOLVE_DIRECTIVE,
   SET_BLOCK_TRACKING,
   CREATE_COMMENT,
-  CREATE_TEXT
+  CREATE_TEXT,
+  PUSH_SCOPE_ID,
+  POP_SCOPE_ID,
+  WITH_SCOPE_ID
 } from './runtimeHelpers'
 import { ImportItem } from './transform'
 
@@ -59,8 +62,7 @@ export interface CodegenContext extends Required<CodegenOptions> {
   indentLevel: number
   map?: SourceMapGenerator
   helper(key: symbol): string
-  push(code: string, node?: CodegenNode, openOnly?: boolean): void
-  resetMapping(loc: SourceLocation): void
+  push(code: string, node?: CodegenNode): void
   indent(): void
   deindent(withoutNewLine?: boolean): void
   newline(): void
@@ -73,7 +75,8 @@ function createCodegenContext(
     mode = 'function',
     prefixIdentifiers = mode === 'module',
     sourceMap = false,
-    filename = `template.vue.html`
+    filename = `template.vue.html`,
+    scopeId = null
   }: CodegenOptions
 ): CodegenContext {
   const context: CodegenContext = {
@@ -81,24 +84,19 @@ function createCodegenContext(
     prefixIdentifiers,
     sourceMap,
     filename,
+    scopeId,
     source: ast.loc.source,
     code: ``,
     column: 1,
     line: 1,
     offset: 0,
     indentLevel: 0,
-
-    // lazy require source-map implementation, only in non-browser builds!
-    map:
-      __BROWSER__ || !sourceMap
-        ? undefined
-        : new (loadDep('source-map')).SourceMapGenerator(),
-
+    map: undefined,
     helper(key) {
       const name = helperNameMap[key]
       return prefixIdentifiers ? name : `_${name}`
     },
-    push(code, node, openOnly) {
+    push(code, node) {
       context.code += code
       if (!__BROWSER__ && context.map) {
         if (node) {
@@ -112,14 +110,9 @@ function createCodegenContext(
           addMapping(node.loc.start, name)
         }
         advancePositionWithMutation(context, code)
-        if (node && !openOnly) {
+        if (node && node.loc !== locStub) {
           addMapping(node.loc.end)
         }
-      }
-    },
-    resetMapping(loc: SourceLocation) {
-      if (!__BROWSER__ && context.map) {
-        addMapping(loc.start)
       }
     },
     indent() {
@@ -156,9 +149,12 @@ function createCodegenContext(
     })
   }
 
-  if (!__BROWSER__ && context.map) {
-    context.map.setSourceContent(filename, context.source)
+  if (!__BROWSER__ && sourceMap) {
+    // lazy require source-map implementation, only in non-browser builds
+    context.map = new (loadDep('source-map')).SourceMapGenerator()
+    context.map!.setSourceContent(filename, context.source)
   }
+
   return context
 }
 
@@ -175,10 +171,12 @@ export function generate(
     prefixIdentifiers,
     indent,
     deindent,
-    newline
+    newline,
+    scopeId
   } = context
   const hasHelpers = ast.helpers.length > 0
   const useWithBlock = !prefixIdentifiers && mode !== 'module'
+  const genScopeId = !__BROWSER__ && scopeId != null && mode === 'module'
 
   // preambles
   if (mode === 'function') {
@@ -210,11 +208,21 @@ export function generate(
     push(`return `)
   } else {
     // generate import statements for helpers
+    if (genScopeId) {
+      ast.helpers.push(WITH_SCOPE_ID)
+      if (ast.hoists.length) {
+        ast.helpers.push(PUSH_SCOPE_ID, POP_SCOPE_ID)
+      }
+    }
     if (hasHelpers) {
       push(`import { ${ast.helpers.map(helper).join(', ')} } from "vue"\n`)
     }
     if (ast.imports.length) {
       genImports(ast.imports, context)
+      newline()
+    }
+    if (genScopeId) {
+      push(`const withId = ${helper(WITH_SCOPE_ID)}("${scopeId}")`)
       newline()
     }
     genHoists(ast.hoists, context)
@@ -223,6 +231,9 @@ export function generate(
   }
 
   // enter render function
+  if (genScopeId) {
+    push(`withId(`)
+  }
   push(`function render() {`)
   indent()
 
@@ -279,10 +290,16 @@ export function generate(
 
   deindent()
   push(`}`)
+
+  if (genScopeId) {
+    push(`)`)
+  }
+
   return {
     ast,
     code: context.code,
-    map: context.map ? context.map.toJSON() : undefined
+    // SourceMapGenerator does have toJSON() method but it's not in the types
+    map: context.map ? (context.map as any).toJSON() : undefined
   }
 }
 
@@ -308,12 +325,27 @@ function genHoists(hoists: JSChildNode[], context: CodegenContext) {
   if (!hoists.length) {
     return
   }
-  context.newline()
+  const { push, newline, helper, scopeId, mode } = context
+  const genScopeId = !__BROWSER__ && scopeId != null && mode === 'module'
+  newline()
+
+  // push scope Id before initilaizing hoisted vnodes so that these vnodes
+  // get the proper scopeId as well.
+  if (genScopeId) {
+    push(`${helper(PUSH_SCOPE_ID)}("${scopeId}")`)
+    newline()
+  }
+
   hoists.forEach((exp, i) => {
-    context.push(`const _hoisted_${i + 1} = `)
+    push(`const _hoisted_${i + 1} = `)
     genNode(exp, context)
-    context.newline()
+    newline()
   })
+
+  if (genScopeId) {
+    push(`${helper(POP_SCOPE_ID)}()`)
+    newline()
+  }
 }
 
 function genImports(importsOptions: ImportItem[], context: CodegenContext) {
@@ -523,14 +555,14 @@ function genCallExpression(node: CallExpression, context: CodegenContext) {
   const callee = isString(node.callee)
     ? node.callee
     : context.helper(node.callee)
-  context.push(callee + `(`, node, true)
+  context.push(callee + `(`, node)
   genNodeList(node.arguments, context)
   context.push(`)`)
 }
 
 // ! 生成对象表达式
 function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
-  const { push, indent, deindent, newline, resetMapping } = context
+  const { push, indent, deindent, newline } = context
   const { properties } = node
   if (!properties.length) {
     push(`{}`, node)
@@ -543,8 +575,7 @@ function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   push(multilines ? `{` : `{ `)
   multilines && indent()
   for (let i = 0; i < properties.length; i++) {
-    const { key, value, loc } = properties[i]
-    resetMapping(loc) // reset source mapping for every property.
+    const { key, value } = properties[i]
     // key
     genExpressionAsPropertyKey(key, context)
     push(`: `)
@@ -570,8 +601,15 @@ function genFunctionExpression(
   node: FunctionExpression,
   context: CodegenContext
 ) {
-  const { push, indent, deindent } = context
-  const { params, returns, newline } = node
+  const { push, indent, deindent, scopeId, mode } = context
+  const { params, returns, newline, isSlot } = node
+  // slot functions also need to push scopeId before rendering its content
+  const genScopeId =
+    !__BROWSER__ && isSlot && scopeId != null && mode === 'module'
+
+  if (genScopeId) {
+    push(`withId(`)
+  }
   push(`(`, node)
   if (isArray(params)) {
     genNodeList(params, context)
@@ -592,6 +630,9 @@ function genFunctionExpression(
   if (newline) {
     deindent()
     push(`}`)
+  }
+  if (genScopeId) {
+    push(`)`)
   }
 }
 

@@ -55,13 +55,15 @@ import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { KeepAliveSink, isKeepAlive } from './components/KeepAlive'
 import { registerHMR, unregisterHMR } from './hmr'
 
+const __HMR__ = __BUNDLER__ && __DEV__
+
 export interface RendererOptions<HostNode = any, HostElement = any> {
   patchProp(
     el: HostElement,
     key: string,
     value: any,
     oldValue: any,
-    isSVG: boolean,
+    isSVG?: boolean,
     prevChildren?: VNode<HostNode, HostElement>[],
     parentComponent?: ComponentInternalInstance | null,
     parentSuspense?: SuspenseBoundary<HostNode, HostElement> | null,
@@ -81,6 +83,7 @@ export interface RendererOptions<HostNode = any, HostElement = any> {
   parentNode(node: HostNode): HostElement | null
   nextSibling(node: HostNode): HostNode | null
   querySelector(selector: string): HostElement | null
+  setScopeId(el: HostNode, id: string): void
 }
 
 export type RootRenderFunction<HostNode, HostElement> = (
@@ -187,7 +190,8 @@ export function createRenderer<
     setElementText: hostSetElementText,
     parentNode: hostParentNode,
     nextSibling: hostNextSibling,
-    querySelector: hostQuerySelector
+    querySelector: hostQuerySelector,
+    setScopeId: hostSetScopeId
   } = options
 
   const internals: RendererInternals<HostNode, HostElement> = {
@@ -366,7 +370,9 @@ export function createRenderer<
     const tag = vnode.type as string
     isSVG = isSVG || tag === 'svg'
     const el = (vnode.el = hostCreateElement(tag, isSVG))
-    const { props, shapeFlag, transition } = vnode
+    const { props, shapeFlag, transition, scopeId } = vnode
+
+    // props
     if (props != null) {
       for (const key in props) {
         if (isReservedProp(key)) continue
@@ -376,6 +382,21 @@ export function createRenderer<
         invokeDirectiveHook(props.onVnodeBeforeMount, parentComponent, vnode)
       }
     }
+
+    // scopeId
+    if (__BUNDLER__) {
+      if (scopeId !== null) {
+        hostSetScopeId(el, scopeId)
+      }
+      const treeOwnerId = parentComponent && parentComponent.type.__scopeId
+      // vnode's own scopeId and the current patched component's scopeId is
+      // different - this is a slot content node.
+      if (treeOwnerId != null && treeOwnerId !== scopeId) {
+        hostSetScopeId(el, treeOwnerId + '-s')
+      }
+    }
+
+    // children
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, vnode.children as string)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
@@ -442,12 +463,19 @@ export function createRenderer<
     optimized: boolean
   ) {
     const el = (n2.el = n1.el) as HostElement
-    const { patchFlag, dynamicChildren } = n2
+    let { patchFlag, dynamicChildren } = n2
     const oldProps = (n1 && n1.props) || EMPTY_OBJ
     const newProps = n2.props || EMPTY_OBJ
 
     if (newProps.onVnodeBeforeUpdate != null) {
       invokeDirectiveHook(newProps.onVnodeBeforeUpdate, parentComponent, n2, n1)
+    }
+
+    if (__HMR__ && parentComponent && parentComponent.renderUpdated) {
+      // HMR updated, force full diff
+      patchFlag = 0
+      optimized = false
+      dynamicChildren = null
     }
 
     if (patchFlag > 0) {
@@ -566,6 +594,9 @@ export function createRenderer<
   ) {
     for (let i = 0; i < newChildren.length; i++) {
       const oldVNode = oldChildren[i]
+      if (!oldVNode) {
+        debugger
+      }
       patch(
         oldVNode,
         newChildren[i],
@@ -654,10 +685,19 @@ export function createRenderer<
     const fragmentEndAnchor = (n2.anchor = n1
       ? n1.anchor
       : hostCreateComment(showID ? `fragment-${devFragmentID}-end` : ''))!
-    const { patchFlag } = n2
+
+    let { patchFlag, dynamicChildren } = n2
     if (patchFlag > 0) {
       optimized = true
     }
+
+    if (__HMR__ && parentComponent && parentComponent.renderUpdated) {
+      // HMR updated, force full diff
+      patchFlag = 0
+      optimized = false
+      dynamicChildren = null
+    }
+
     if (n1 == null) {
       if (showID) {
         devFragmentID++
@@ -677,12 +717,12 @@ export function createRenderer<
         optimized
       )
     } else {
-      if (patchFlag & PatchFlags.STABLE_FRAGMENT && n2.dynamicChildren) {
+      if (patchFlag & PatchFlags.STABLE_FRAGMENT && dynamicChildren != null) {
         // a stable fragment (template root or <template v-for>) doesn't need to
         // patch children order, but it may contain dynamicChildren.
         patchBlockChildren(
           n1.dynamicChildren!,
-          n2.dynamicChildren,
+          dynamicChildren,
           container,
           parentComponent,
           parentSuspense,
@@ -879,8 +919,7 @@ export function createRenderer<
       parentComponent
     ))
 
-    // HMR
-    if (__BUNDLER__ && __DEV__ && instance.type.__hmrId != null) {
+    if (__HMR__ && instance.type.__hmrId != null) {
       registerHMR(instance)
     }
 
@@ -1572,8 +1611,7 @@ export function createRenderer<
     parentSuspense: HostSuspenseBoundary | null,
     doRemove?: boolean
   ) {
-    // HMR
-    if (__BUNDLER__ && __DEV__ && instance.type.__hmrId != null) {
+    if (__HMR__ && instance.type.__hmrId != null) {
       unregisterHMR(instance)
     }
 

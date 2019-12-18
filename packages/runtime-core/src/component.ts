@@ -32,16 +32,17 @@ import { currentRenderingInstance } from './componentRenderUtils'
 
 export type Data = { [key: string]: unknown }
 
-// ! 函数组件接口
-export interface FunctionalComponent<P = {}> {
+export interface SFCInternalOptions {
+  __scopeId?: string
+  __hmrId?: string
+  __hmrUpdated?: boolean
+}
+
+export interface FunctionalComponent<P = {}> extends SFCInternalOptions {
   (props: P, ctx: SetupContext): VNodeChild
   props?: ComponentPropsOptions<P>
   inheritAttrs?: boolean
   displayName?: string
-
-  // internal HMR related flags
-  __hmrId?: string
-  __hmrUpdated?: boolean
 }
 
 // ! 组件类型
@@ -382,6 +383,8 @@ function finishComponentSetup(
       Component.render = compile!(Component.template, {
         isCustomElement: instance.appContext.config.isCustomElement || NO
       })
+      // mark the function as runtime compiled
+      ;(Component.render as RenderFunction).isRuntimeCompiled = true
     }
 
     if (__DEV__ && !Component.render) {
