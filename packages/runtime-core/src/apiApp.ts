@@ -61,7 +61,7 @@ export type Plugin =
       install: PluginInstallFunction
     }
 
-// ! 创建 App 上下文
+// ! 创建 App 上下文 -> 生成初始配置
 export function createAppContext(): AppContext {
   return {
     config: {
@@ -121,7 +121,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
-      // ! 混入
+      // ! 混入 -> 添加 mixin
       mixin(mixin: ComponentOptions) {
         if (__DEV__ && !__FEATURE_OPTIONS__) {
           warn('Mixins are only available in builds supporting Options API')
@@ -196,7 +196,7 @@ export function createAppAPI<HostNode, HostElement>(
         }
       },
 
-      // ! App 的 provide
+      // ! 设置根 provide
       provide(key, value) {
         if (__DEV__ && key in context.provides) {
           warn(

@@ -30,6 +30,7 @@ import {
 import { onBeforeUnmount } from './apiLifecycle'
 import { queuePostRenderEffect } from './renderer'
 
+// ! 观察处理器接口
 export type WatchHandler<T = any> = (
   value: T,
   oldValue: T,
@@ -45,10 +46,8 @@ export interface WatchOptions {
   onTrigger?: ReactiveEffectOptions['onTrigger']
 }
 
-// ! 停止观察
 type StopHandle = () => void
 
-// ! 观察来源
 type WatcherSource<T = any> = Ref<T> | ComputedRef<T> | (() => T)
 
 type MapSources<T> = {
@@ -108,7 +107,7 @@ function doWatch(
 
   // ! 提取 getter
   let getter: () => any
-  // ! 监听多个 source, 返回数组类型的值
+  // ! 监听数组类型的 source, 返回数组类型的值
   if (isArray(source)) {
     getter = () =>
       source.map(
@@ -154,13 +153,13 @@ function doWatch(
     }
   }
 
-  let oldValue = isArray(source) ? [] : undefined
+  let oldValue = isArray(source) ? [] : undefined // ! 初始旧值
   const applyCb = cb
     ? () => {
         if (instance && instance.isUnmounted) {
           return
         }
-        const newValue = runner()
+        const newValue = runner() // ! 执行 effect 获取新值
         if (deep || hasChanged(newValue, oldValue)) {
           // cleanup before running cb again
           if (cleanup) {
@@ -171,14 +170,13 @@ function doWatch(
             oldValue,
             registerCleanup
           ])
-          oldValue = newValue
+          oldValue = newValue // ! 执行后更新旧值
         }
       }
     : void 0
 
-  // ! 定义调度器
   let scheduler: (job: () => any) => void
-  // ! 同步观察
+
   if (flush === 'sync') {
     scheduler = invoke
   } else if (flush === 'pre') {
@@ -214,10 +212,11 @@ function doWatch(
       scheduler(runner)
     }
   } else {
-    oldValue = runner() // ! 只获取旧值
+    oldValue = runner() // ! 获取旧值
   }
 
   recordEffect(runner)
+
   // ! 返回一个执行后会停止观察的函数
   return () => {
     stop(runner)
@@ -238,7 +237,7 @@ export function instanceWatch(
   return stop
 }
 
-// ! 追踪 -> 实现深度观察的方法
+// ! 追踪子级 -> 实现深度观察的方法
 function traverse(value: unknown, seen: Set<unknown> = new Set()) {
   if (!isObject(value) || seen.has(value)) {
     return

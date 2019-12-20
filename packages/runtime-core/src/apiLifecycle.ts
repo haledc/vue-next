@@ -12,7 +12,7 @@ import { pauseTracking, resumeTracking, DebuggerEvent } from '@vue/reactivity'
 
 export { onActivated, onDeactivated } from './components/KeepAlive'
 
-// ! 注入生命周期钩子
+// ! 注入生命周期钩子 -> 注入到实例组件中
 export function injectHook(
   type: LifecycleHooks,
   hook: Function & { __weh?: Function },
@@ -63,12 +63,13 @@ export function injectHook(
   }
 }
 
-// ! 创建生命周期钩子
+// ! 创建生命周期钩子函数
 export const createHook = <T extends Function = () => any>(
   lifecycle: LifecycleHooks
 ) => (hook: T, target: ComponentInternalInstance | null = currentInstance) =>
   injectHook(lifecycle, hook, target)
 
+// ! 以下九个生命周期钩子
 export const onBeforeMount = createHook(LifecycleHooks.BEFORE_MOUNT)
 export const onMounted = createHook(LifecycleHooks.MOUNTED)
 export const onBeforeUpdate = createHook(LifecycleHooks.BEFORE_UPDATE)

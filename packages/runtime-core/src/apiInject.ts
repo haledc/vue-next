@@ -20,7 +20,7 @@ export function provide<T>(key: InjectionKey<T> | string, value: T) {
     const parentProvides =
       currentInstance.parent && currentInstance.parent.provides
     if (parentProvides === provides) {
-      provides = currentInstance.provides = Object.create(parentProvides) // ! 以父级原型生成
+      provides = currentInstance.provides = Object.create(parentProvides) // ! 以父级原型生成自身 provides
     }
     // TS doesn't allow symbol as index type
     provides[key as string] = value
@@ -38,14 +38,13 @@ export function inject(
   const instance = currentInstance || currentRenderingInstance
   if (instance) {
     const provides = instance.provides
-    // ! 从 provides 中获取值
+    // ! 从自身 provides 属性中获取值
     if (key in provides) {
       // TS doesn't allow symbol as index type
       return provides[key as string]
       // ! 获取不到使用默认值
     } else if (defaultValue !== undefined) {
       return defaultValue
-      // ! 开发环境报错
     } else if (__DEV__) {
       warn(`injection "${String(key)}" not found.`)
     }
