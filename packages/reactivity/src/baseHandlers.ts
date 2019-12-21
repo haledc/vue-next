@@ -11,7 +11,11 @@ const builtInSymbols = new Set(
     .filter(isSymbol)
 )
 
-function createGetter(isReadonly: boolean, shallow = false) {
+const get = /*#__PURE__*/ createGetter()
+const readonlyGet = /*#__PURE__*/ createGetter(true)
+const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)
+
+function createGetter(isReadonly = false, shallow = false) {
   return function get(target: object, key: string | symbol, receiver: object) {
     const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
     // ! 是内置的 Symbol 直接返回原始数据值
@@ -39,40 +43,60 @@ function createGetter(isReadonly: boolean, shallow = false) {
   }
 }
 
-function set(
-  target: object,
-  key: string | symbol,
-  value: unknown,
-  receiver: object
-): boolean {
-  value = toRaw(value)
-  const oldValue = (target as any)[key]
-  // ! 更新 Ref 旧值 -> Ref 类型自己会触发依赖
-  if (isRef(oldValue) && !isRef(value)) {
-    oldValue.value = value
-    return true
-  }
-  const hadKey = hasOwn(target, key)
-  const result = Reflect.set(target, key, value, receiver) // ! 获取原始数据返回值
-  // don't trigger if target is something up in the prototype chain of original
-  if (target === toRaw(receiver)) {
-    /* istanbul ignore else */
-    if (__DEV__) {
-      const extraInfo = { oldValue, newValue: value }
-      if (!hadKey) {
-        trigger(target, TriggerOpTypes.ADD, key, extraInfo) // ! 触发依赖， 这里是 ADD 类型
-      } else if (hasChanged(value, oldValue)) {
-        trigger(target, TriggerOpTypes.SET, key, extraInfo) // ! 触发依赖
+const set = /*#__PURE__*/ createSetter()
+const readonlySet = /*#__PURE__*/ createSetter(true)
+const shallowReadonlySet = /*#__PURE__*/ createSetter(true, true)
+
+function createSetter(isReadonly = false, shallow = false) {
+  return function set(
+    target: object,
+    key: string | symbol,
+    value: unknown,
+    receiver: object
+  ): boolean {
+    if (isReadonly && LOCKED) {
+      if (__DEV__) {
+        console.warn(
+          `Set operation on key "${String(key)}" failed: target is readonly.`,
+          target
+        )
+      }
+      return true
+    }
+
+    const oldValue = (target as any)[key]
+    if (!shallow) {
+      value = toRaw(value)
+      if (isRef(oldValue) && !isRef(value)) {
+        oldValue.value = value
+        return true
       }
     } else {
-      if (!hadKey) {
-        trigger(target, TriggerOpTypes.ADD, key)
-      } else if (hasChanged(value, oldValue)) {
-        trigger(target, TriggerOpTypes.SET, key)
+      // in shallow mode, objects are set as-is regardless of reactive or not
+    }
+
+    const hadKey = hasOwn(target, key)
+    const result = Reflect.set(target, key, value, receiver)
+    // don't trigger if target is something up in the prototype chain of original
+    if (target === toRaw(receiver)) {
+      /* istanbul ignore else */
+      if (__DEV__) {
+        const extraInfo = { oldValue, newValue: value }
+        if (!hadKey) {
+          trigger(target, TriggerOpTypes.ADD, key, extraInfo)
+        } else if (hasChanged(value, oldValue)) {
+          trigger(target, TriggerOpTypes.SET, key, extraInfo)
+        }
+      } else {
+        if (!hadKey) {
+          trigger(target, TriggerOpTypes.ADD, key)
+        } else if (hasChanged(value, oldValue)) {
+          trigger(target, TriggerOpTypes.SET, key)
+        }
       }
     }
+    return result
   }
-  return result
 }
 
 // ! 拦截删除 -> delete
@@ -106,7 +130,7 @@ function ownKeys(target: object): (string | number | symbol)[] {
 
 // ! 代理的 handlers
 export const mutableHandlers: ProxyHandler<object> = {
-  get: createGetter(false),
+  get,
   set,
   deleteProperty,
   has,
@@ -116,28 +140,10 @@ export const mutableHandlers: ProxyHandler<object> = {
 // ! 只读的代理的 handlers，
 // ! 在拦截修改、新增、删除时判断是否解锁，如果没有解锁会报错且无法操作，解锁后才操作
 export const readonlyHandlers: ProxyHandler<object> = {
-  get: createGetter(true),
-
-  set(
-    target: object,
-    key: string | symbol,
-    value: unknown,
-    receiver: object
-  ): boolean {
-    // ! 判断是否 LOCK
-    if (LOCKED) {
-      if (__DEV__) {
-        console.warn(
-          `Set operation on key "${String(key)}" failed: target is readonly.`,
-          target
-        )
-      }
-      return true
-    } else {
-      return set(target, key, value, receiver)
-    }
-  },
-
+  get: readonlyGet,
+  set: readonlySet,
+  has,
+  ownKeys,
   deleteProperty(target: object, key: string | symbol): boolean {
     // ! 判断是否 LOCK
     if (LOCKED) {
@@ -153,10 +159,7 @@ export const readonlyHandlers: ProxyHandler<object> = {
     } else {
       return deleteProperty(target, key)
     }
-  },
-
-  has,
-  ownKeys
+  }
 }
 
 // props handlers are special in the sense that it should not unwrap top-level
@@ -164,5 +167,6 @@ export const readonlyHandlers: ProxyHandler<object> = {
 // retain the reactivity of the normal readonly object.
 export const shallowReadonlyHandlers: ProxyHandler<object> = {
   ...readonlyHandlers,
-  get: createGetter(true, true)
+  get: shallowReadonlyGet,
+  set: shallowReadonlySet
 }
