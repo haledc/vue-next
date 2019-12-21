@@ -79,7 +79,7 @@ export function createAppContext(): AppContext {
   }
 }
 
-// ! 创建 App API
+// ! 创建 App API -> 生成 createApp 函数
 export function createAppAPI<HostNode, HostElement>(
   render: RootRenderFunction<HostNode, HostElement>
 ): () => App<HostElement> {

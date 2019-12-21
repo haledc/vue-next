@@ -297,17 +297,19 @@ export function setupStatefulComponent(
   // 3. call setup()
   const { setup } = Component
   if (setup) {
-    // ! 上下文
+    // ! setup 上下文
     const setupContext = (instance.setupContext =
       setup.length > 1 ? createSetupContext(instance) : null)
 
     currentInstance = instance
     currentSuspense = parentSuspense
+
+    // ! 执行 setup 函数
     const setupResult = callWithErrorHandling(
       setup,
       instance,
       ErrorCodes.SETUP_FUNCTION,
-      [propsProxy, setupContext] // ! 传入 props 和 上下文参数
+      [propsProxy, setupContext] // ! 传入 props 和上下文参数
     )
     currentInstance = null
     currentSuspense = null
@@ -331,7 +333,7 @@ export function setupStatefulComponent(
   }
 }
 
-// ! 处理 setup 结果
+// ! 处理 setup 结果 -> 生成渲染函数和渲染上下文
 export function handleSetupResult(
   instance: ComponentInternalInstance,
   setupResult: unknown,
@@ -349,7 +351,7 @@ export function handleSetupResult(
     }
     // setup returned bindings.
     // assuming a render function compiled from template is present.
-    instance.renderContext = reactive(setupResult) // ! 转换成响应式数据
+    instance.renderContext = reactive(setupResult) // ! 赋值为渲染上下文 -> 转换成响应式数据
   } else if (__DEV__ && setupResult !== undefined) {
     warn(
       `setup() should return an object. Received: ${
@@ -357,7 +359,7 @@ export function handleSetupResult(
       }`
     )
   }
-  finishComponentSetup(instance, parentSuspense)
+  finishComponentSetup(instance, parentSuspense) // ! 完成 setup
 }
 
 type CompileFunction = (
@@ -378,6 +380,8 @@ function finishComponentSetup(
   parentSuspense: SuspenseBoundary | null
 ) {
   const Component = instance.type as ComponentOptions
+
+  // ! 生成 render
   if (!instance.render) {
     if (__RUNTIME_COMPILE__ && Component.template && !Component.render) {
       // __RUNTIME_COMPILE__ ensures `compile` is provided
@@ -449,7 +453,7 @@ const SetupProxyHandlers: { [key: string]: ProxyHandler<any> } = {}
   }
 })
 
-// ! 创建启动上下文参数
+// ! 生成启动上下文
 function createSetupContext(instance: ComponentInternalInstance): SetupContext {
   const context = {
     // attrs & slots are non-reactive, but they need to always expose

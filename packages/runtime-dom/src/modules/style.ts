@@ -31,8 +31,8 @@ function setStyle(style: CSSStyleDeclaration, name: string, val: string) {
     style.setProperty(name, val)
   } else {
     const prefixed = autoPrefix(style, name)
+    // ! 设置 !important
     if (importantRE.test(val)) {
-      // !important
       style.setProperty(
         hyphenate(prefixed),
         val.replace(importantRE, ''),

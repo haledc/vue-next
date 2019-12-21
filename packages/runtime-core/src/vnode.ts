@@ -209,7 +209,7 @@ export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
   return n1.type === n2.type && n1.key === n2.key
 }
 
-// ! 创建 VNode
+// ! 生成 VNode
 export function createVNode(
   type: VNodeTypes,
   props: (Data & VNodeProps) | null = null,
@@ -296,7 +296,7 @@ export function createVNode(
   return vnode
 }
 
-// ! 克隆（可扩展属性） VNode
+// ! 克隆 VNode -> 可扩展属性
 export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
   extraProps?: Data & VNodeProps
@@ -352,7 +352,7 @@ export function createCommentVNode(
     : createVNode(Comment, null, text)
 }
 
-// ! 规范化 VNode -> 创建适当的 VNode
+// ! 规范 VNode -> 创建合适的 VNode
 export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   if (child == null) {
     // empty placeholder
@@ -370,7 +370,7 @@ export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   }
 }
 
-// ! 规范化子 VNode
+// ! 规范子 VNode
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
   if (children == null) {
@@ -390,7 +390,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   vnode.shapeFlag |= type // ! 拼接类型
 }
 
-// ! 规范样式的方法
+// ! 规范样式
 function normalizeStyle(
   value: unknown
 ): Record<string, string | number> | void {
@@ -411,7 +411,7 @@ function normalizeStyle(
   }
 }
 
-// ! 规范类的方法
+// ! 规范类
 export function normalizeClass(value: unknown): string {
   let res = ''
   if (isString(value)) {
