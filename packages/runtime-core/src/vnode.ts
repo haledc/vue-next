@@ -15,7 +15,7 @@ import {
 import { RawSlots } from './componentSlots'
 import { ShapeFlags } from './shapeFlags'
 import { isReactive, Ref } from '@vue/reactivity'
-import { AppContext } from './apiApp'
+import { AppContext } from './apiCreateApp'
 import { SuspenseBoundary } from './components/Suspense'
 import { DirectiveBinding } from './directives'
 import { SuspenseImpl } from './components/Suspense'
@@ -368,6 +368,11 @@ export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
     // primitive types
     return createVNode(Text, null, String(child)) // ! 创建文本节点
   }
+}
+
+// optimized normalization for template-compiled render fns
+export function cloneIfMounted(child: VNode): VNode {
+  return child.el === null ? child : cloneVNode(child)
 }
 
 // ! 规范子 VNode

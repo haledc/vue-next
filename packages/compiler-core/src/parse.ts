@@ -69,8 +69,11 @@ interface ParserContext {
   inPre: boolean
 }
 
-// ! 解析方法 -> 生成 AST 根节点
-export function parse(content: string, options: ParserOptions = {}): RootNode {
+// ! 基础解析方法 -> 生成 AST 根节点
+export function baseParse(
+  content: string,
+  options: ParserOptions = {}
+): RootNode {
   const context = createParserContext(content, options) // ! 生成解析上下文
   const start = getCursor(context) // ! 开始位置
 
@@ -376,7 +379,7 @@ function parseElement(
 
   // Children.
   ancestors.push(element)
-  const mode = context.options.getTextMode(element.tag, element.ns)
+  const mode = context.options.getTextMode(element.tag, element.ns, parent)
   const children = parseChildren(context, mode, ancestors)
   ancestors.pop()
 

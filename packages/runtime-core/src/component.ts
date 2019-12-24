@@ -13,7 +13,7 @@ import {
   callWithErrorHandling,
   callWithAsyncErrorHandling
 } from './errorHandling'
-import { AppContext, createAppContext, AppConfig } from './apiApp'
+import { AppContext, createAppContext, AppConfig } from './apiCreateApp'
 import { Directive, validateDirectiveName } from './directives'
 import { applyOptions, ComponentOptions } from './apiOptions'
 import {
@@ -154,8 +154,7 @@ export interface ComponentInternalInstance {
 
 const emptyAppContext = createAppContext()
 
-// ! 创建组件实例
-export function createComponentInstance(
+export function defineComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null
 ) {
