@@ -225,7 +225,6 @@ export function createVNode(
   // class & style normalization.
   if (props !== null) {
     // for reactive or proxy objects, we need to clone it to enable mutation.
-    // ! 响应式对象或者代理对象需要克隆一份属性
     if (isReactive(props) || SetupProxySymbol in props) {
       props = extend({}, props)
     }
@@ -244,7 +243,6 @@ export function createVNode(
   }
 
   // encode the vnode type information into a bitmap
-  // ! 定义 shapeFlag 类型
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT
     : __FEATURE_SUSPENSE__ && (type as any).__isSuspense === true
@@ -356,17 +354,17 @@ export function createCommentVNode(
 export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   if (child == null) {
     // empty placeholder
-    return createVNode(Comment) // ! 创建注释节点
+    return createVNode(Comment)
   } else if (isArray(child)) {
     // fragment
-    return createVNode(Fragment, null, child) // ! 创建 Fragment
+    return createVNode(Fragment, null, child)
   } else if (typeof child === 'object') {
     // already vnode, this should be the most common since compiled templates
     // always produce all-vnode children arrays
-    return child.el === null ? child : cloneVNode(child) // ! 克隆节点
+    return child.el === null ? child : cloneVNode(child)
   } else {
     // primitive types
-    return createVNode(Text, null, String(child)) // ! 创建文本节点
+    return createVNode(Text, null, String(child))
   }
 }
 

@@ -38,7 +38,7 @@ export function queuePostFlushCb(cb: Function | Function[]) {
 function queueFlush() {
   if (!isFlushing && !isFlushPending) {
     isFlushPending = true
-    nextTick(flushJobs) // ! 异步执行
+    nextTick(flushJobs)
   }
 }
 
