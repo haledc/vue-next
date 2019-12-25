@@ -11,14 +11,17 @@ import { createVNode, cloneVNode } from './vnode'
 // ! App 接口
 export interface App<HostElement = any> {
   config: AppConfig
-  use(plugin: Plugin, options?: any): this
+  use(plugin: Plugin, ...options: any[]): this
   mixin(mixin: ComponentOptions): this
   component(name: string): Component | undefined
   component(name: string, component: Component): this
   directive(name: string): Directive | undefined
   directive(name: string, directive: Directive): this
   mount(
-    rootComponent: Component,
+    rootComponent:
+      | Component
+      // for compatibility with defineComponent() return types
+      | { new (): ComponentPublicInstance<any, any, any, any, any> },
     rootContainer: HostElement | string,
     rootProps?: Data
   ): ComponentPublicInstance
@@ -53,7 +56,7 @@ export interface AppContext {
   reload?: () => void // HMR only
 }
 
-type PluginInstallFunction = (app: App) => any
+type PluginInstallFunction = (app: App, ...options: any[]) => any
 
 // ! 插件
 export type Plugin =
@@ -104,15 +107,15 @@ export function createAppAPI<HostNode, HostElement>(
       },
 
       // ! 安装插件
-      use(plugin: Plugin) {
+      use(plugin: Plugin, ...options: any[]) {
         if (installedPlugins.has(plugin)) {
           __DEV__ && warn(`Plugin has already been applied to target app.`)
         } else if (isFunction(plugin)) {
           installedPlugins.add(plugin)
-          plugin(app)
+          plugin(app, ...options)
         } else if (plugin && isFunction(plugin.install)) {
           installedPlugins.add(plugin)
-          plugin.install(app)
+          plugin.install(app, ...options)
         } else if (__DEV__) {
           warn(
             `A plugin must either be a function or an object with an "install" ` +
