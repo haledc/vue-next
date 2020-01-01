@@ -35,7 +35,7 @@ const commit = execa.sync('git', ['rev-parse', 'HEAD']).stdout.slice(0, 7)
 
 run()
 
-// ! 打包
+// ! 执行打包
 async function run() {
   if (!targets.length) {
     await buildAll(allTargets)
@@ -136,7 +136,6 @@ async function build(target) {
   }
 }
 
-// ! 检查所有包的最小尺寸，并打印其结果
 function checkAllSizes(targets) {
   if (devOnly) {
     return
@@ -148,10 +147,10 @@ function checkAllSizes(targets) {
   console.log()
 }
 
-// ! 检查最小包的尺寸，并打印结果
+// ! 检测尺寸，并打印结果
 function checkSize(target) {
   const pkgDir = path.resolve(`packages/${target}`) // ! 包的路径
-  const esmProdBuild = `${pkgDir}/dist/${target}.global.prod.js` // ! 编译后最小包路径
+  const esmProdBuild = `${pkgDir}/dist/${target}.global.prod.js` // ! 编译后文件路径
   if (fs.existsSync(esmProdBuild)) {
     const file = fs.readFileSync(esmProdBuild) // ! 读取文件
     const minSize = (file.length / 1024).toFixed(2) + 'kb' // ! 原始尺寸
