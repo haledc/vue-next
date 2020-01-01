@@ -60,7 +60,7 @@ export function ref(raw?: unknown) {
   return r
 }
 
-// ! 把普通对象的值转换成 Ref 类型
+// ! 把响应式对象转换成 Ref 类型
 export function toRefs<T extends object>(
   object: T
 ): { [K in keyof T]: Ref<T[K]> } {
@@ -69,13 +69,12 @@ export function toRefs<T extends object>(
   }
   const ret: any = {}
   for (const key in object) {
-    ret[key] = toProxyRef(object, key) // ! 把 key 值转换成 Ref 类型
+    ret[key] = toProxyRef(object, key) // ! 把 value 转换成 Ref 类型
   }
   return ret
 }
 
-// ! 把 key 值转换成 Ref 类型的方法 -> Ref<T[K]>
-// ! 转换 Reactive 对象不需要再收集和触发依赖
+// ! 把 value 转换成 Ref 类型的方法
 function toProxyRef<T extends object, K extends keyof T>(
   object: T,
   key: K

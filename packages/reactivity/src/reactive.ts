@@ -27,7 +27,7 @@ const isObservableType = /*#__PURE__*/ makeMap(
   'Object,Array,Map,Set,WeakMap,WeakSet' // ! 可以设置响应式的六种引用类型
 )
 
-// ! 判断能否观察
+// ! 判断能否监听
 const canObserve = (value: any): boolean => {
   return (
     !value._isVue && // ! 不能是 Vue 组件
@@ -60,7 +60,7 @@ export function reactive(target: object) {
   )
 }
 
-// ! 生成只读响应性对象 -> 存储的映射和代理的 handler 不一样
+// ! 生成只读响应性对象 -> 存储对象的映射和代理的 handlers 不一样
 // ! 解锁前不能修改值，触发依赖，解锁后可以
 export function readonly<T extends object>(
   target: T

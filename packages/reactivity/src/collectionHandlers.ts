@@ -256,7 +256,7 @@ function createInstrumentationGetter(
     Reflect.get(
       // ! 改变反射的 target -> 有 key 时指向插桩对象
       hasOwn(instrumentations, key) && key in target
-        ? instrumentations
+        ? instrumentations // ! 插桩对象
         : target,
       key,
       receiver

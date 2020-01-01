@@ -54,7 +54,7 @@ export function isEffect(fn: any): fn is ReactiveEffect {
   return fn != null && fn._isEffect === true
 }
 
-// ! 创建并返回 effect
+// ! 生成 effect
 export function effect<T = any>(
   fn: () => T,
   options: ReactiveEffectOptions = EMPTY_OBJ
@@ -64,7 +64,7 @@ export function effect<T = any>(
   }
   const effect = createReactiveEffect(fn, options)
 
-  // ! 如果不是延迟执行（计算属性中设置），先执行一次
+  // ! 如果不是延迟执行，先执行一次
   if (!options.lazy) {
     effect()
   }
@@ -82,7 +82,7 @@ export function stop(effect: ReactiveEffect) {
   }
 }
 
-// ! 创建 effect 的方法
+// ! 生成 effect 的方法
 function createReactiveEffect<T = any>(
   fn: () => T,
   options: ReactiveEffectOptions
@@ -205,7 +205,7 @@ export function trigger(
       addRunners(effects, computedRunners, depsMap.get(iterationKey))
     }
   }
-  // ! 执行依赖
+  // ! 执行集合里面的依赖
   const run = (effect: ReactiveEffect) => {
     scheduleRun(effect, target, type, key, extraInfo)
   }
