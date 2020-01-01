@@ -112,7 +112,7 @@ The `--types` flag will generate type declarations during the build and in addit
 
 - Roll the declarations into a single `.dts` file for each package;
 - Generate an API report in `<projectRoot>/temp/<packageName>.api.md`. This report contains potential warnings emitted by [api-extractor](https://api-extractor.com/).
-- Generate an API model json in `<projectRoot>/temp/<packageName>.api.md`. This file can be used to generate a Markdown version of the exported APIs.
+- Generate an API model json in `<projectRoot>/temp/<packageName>.api.json`. This file can be used to generate a Markdown version of the exported APIs.
 
 ### `yarn dev`
 
@@ -187,7 +187,7 @@ import { h } from '@vue/runtime-core'
 This is made possible via several configurations:
 
 - For TypeScript, `compilerOptions.path` in `tsconfig.json`
-- For Jest, `moduleNameMapping` in `jest.config.js`
+- For Jest, `moduleNameMapper` in `jest.config.js`
 - For plain Node.js, they are linked using [Yarn Workspaces](https://yarnpkg.com/blog/2017/08/02/introducing-workspaces/).
 
 ### Package Dependencies

@@ -16,7 +16,7 @@ import {
   NOOP
 } from '@vue/shared'
 import { computed } from './apiReactivity'
-import { watch, WatchOptions, WatchHandler } from './apiWatch'
+import { watch, WatchOptions, WatchCallback } from './apiWatch'
 import { provide, inject } from './apiInject'
 import {
   onBeforeMount,
@@ -134,8 +134,8 @@ export type ExtractComputedReturns<T extends any> = {
 
 type WatchOptionItem =
   | string
-  | WatchHandler
-  | { handler: WatchHandler } & WatchOptions
+  | WatchCallback
+  | { handler: WatchCallback } & WatchOptions
 
 type ComponentWatchOptionItem = WatchOptionItem | WatchOptionItem[]
 
@@ -466,7 +466,7 @@ function createWatcher(
   if (isString(raw)) {
     const handler = renderContext[raw]
     if (isFunction(handler)) {
-      watch(getter, handler as WatchHandler)
+      watch(getter, handler as WatchCallback)
     } else if (__DEV__) {
       warn(`Invalid watch handler specified by key "${raw}"`, handler)
     }

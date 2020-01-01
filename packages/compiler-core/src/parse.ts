@@ -241,7 +241,7 @@ function parseChildren(
     }
   }
 
-  return removedWhitespace ? nodes.filter(node => node !== null) : nodes
+  return removedWhitespace ? nodes.filter(Boolean) : nodes
 }
 
 // ! push 节点
