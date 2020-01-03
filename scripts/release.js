@@ -99,6 +99,9 @@ async function main() {
     console.log(`(skipped)`)
   }
 
+  // generate changelog
+  await run(`yarn`, ['changelog'])
+
   const { stdout } = await run('git', ['diff'], { stdio: 'pipe' })
   if (stdout) {
     step('\nCommitting changes...')
@@ -112,7 +115,6 @@ async function main() {
   step('\nPublishing packages...')
   const releaseTag = semver.prerelease(targetVersion)[0] || 'latest'
   for (const pkg of packages) {
-    step(`Publishing ${pkg}...`)
     await publishPackage(pkg, targetVersion, releaseTag, runIfNotDry)
   }
 
@@ -171,7 +173,7 @@ function updateDeps(pkg, depType, version) {
 }
 
 async function publishPackage(pkgName, version, releaseTag, runIfNotDry) {
-  if (skippedPackages.includes[pkgName]) {
+  if (skippedPackages.includes(pkgName)) {
     return
   }
   const pkgRoot = getPkgRoot(pkgName)
@@ -180,6 +182,8 @@ async function publishPackage(pkgName, version, releaseTag, runIfNotDry) {
   if (pkg.private) {
     return
   }
+
+  step(`Publishing ${pkg}...`)
   try {
     await runIfNotDry(
       'yarn',
