@@ -352,7 +352,7 @@ export function createCommentVNode(
 
 // ! 规范 VNode -> 创建合适的 VNode
 export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
-  if (child == null) {
+  if (child == null || typeof child === 'boolean') {
     // empty placeholder
     return createVNode(Comment)
   } else if (isArray(child)) {
@@ -363,7 +363,7 @@ export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
     // always produce all-vnode children arrays
     return child.el === null ? child : cloneVNode(child)
   } else {
-    // primitive types
+    // strings and numbers
     return createVNode(Text, null, String(child))
   }
 }
