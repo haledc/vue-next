@@ -66,6 +66,7 @@ function add(this: SetTypes, value: unknown) {
 
 function set(this: MapTypes, key: unknown, value: unknown) {
   value = toRaw(value)
+  key = toRaw(key)
   const target = toRaw(this)
   const proto = getProto(target)
   const hadKey = proto.has.call(target, key) // ! 判断是否已经存在 key 值
@@ -90,6 +91,7 @@ function set(this: MapTypes, key: unknown, value: unknown) {
 }
 
 function deleteEntry(this: CollectionTypes, key: unknown) {
+  key = toRaw(key)
   const target = toRaw(this)
   const proto = getProto(target)
   const hadKey = proto.has.call(target, key)

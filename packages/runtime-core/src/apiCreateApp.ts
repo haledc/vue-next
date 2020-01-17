@@ -25,6 +25,7 @@ export interface App<HostElement = any> {
     rootContainer: HostElement | string,
     rootProps?: Data
   ): ComponentPublicInstance
+  unmount(rootContainer: HostElement | string): void
   provide<T>(key: InjectionKey<T> | string, value: T): this
 }
 
@@ -208,7 +209,10 @@ export function createAppAPI<HostNode, HostElement>(
         }
       },
 
-      // ! 设置根 provide
+      unmount(rootContainer: HostElement) {
+        render(null, rootContainer)
+      },
+
       provide(key, value) {
         if (__DEV__ && key in context.provides) {
           warn(
