@@ -1,11 +1,12 @@
 import { watch, reactive, computed, nextTick, ref, h } from '../src/index'
-import { render, nodeOps, serializeInner, mockWarn } from '@vue/runtime-test'
+import { render, nodeOps, serializeInner } from '@vue/runtime-test'
 import {
   ITERATE_KEY,
   DebuggerEvent,
   TrackOpTypes,
   TriggerOpTypes
 } from '@vue/reactivity'
+import { mockWarn } from '@vue/shared'
 
 // reference: https://vue-composition-api-rfc.netlify.com/api.html#watch
 
@@ -119,9 +120,9 @@ describe('api: watch', () => {
     expect(dummy).toMatchObject([[1, false], []])
 
     state.count++
-    status.value = false
+    status.value = true
     await nextTick()
-    expect(dummy).toMatchObject([[2, false], [1, false]])
+    expect(dummy).toMatchObject([[2, true], [1, false]])
   })
 
   it('stopping the watcher', async () => {

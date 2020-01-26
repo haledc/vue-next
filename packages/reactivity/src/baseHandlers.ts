@@ -2,7 +2,7 @@ import { reactive, readonly, toRaw } from './reactive'
 import { TrackOpTypes, TriggerOpTypes } from './operations'
 import { track, trigger, ITERATE_KEY } from './effect'
 import { LOCKED } from './lock'
-import { isObject, hasOwn, isSymbol, hasChanged } from '@vue/shared'
+import { isObject, hasOwn, isSymbol, hasChanged, isArray } from '@vue/shared'
 import { isRef } from './ref'
 
 const builtInSymbols = new Set(
@@ -15,10 +15,22 @@ const get = /*#__PURE__*/ createGetter()
 const readonlyGet = /*#__PURE__*/ createGetter(true)
 const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)
 
+const arrayIdentityInstrumentations: Record<string, Function> = {}
+;['includes', 'indexOf', 'lastIndexOf'].forEach(key => {
+  arrayIdentityInstrumentations[key] = function(
+    value: unknown,
+    ...args: any[]
+  ): any {
+    return toRaw(this)[key](toRaw(value), ...args)
+  }
+})
+
 function createGetter(isReadonly = false, shallow = false) {
   return function get(target: object, key: string | symbol, receiver: object) {
-    const res = Reflect.get(target, key, receiver) // ! 获取原始数据返回值
-    // ! 是内置的 Symbol 直接返回原始数据值
+    if (isArray(target) && hasOwn(arrayIdentityInstrumentations, key)) {
+      return Reflect.get(arrayIdentityInstrumentations, key, receiver)
+    }
+    const res = Reflect.get(target, key, receiver)
     if (isSymbol(key) && builtInSymbols.has(key)) {
       return res
     }

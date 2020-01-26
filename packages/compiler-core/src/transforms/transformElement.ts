@@ -13,7 +13,8 @@ import {
   createObjectProperty,
   createSimpleExpression,
   createObjectExpression,
-  Property
+  Property,
+  createSequenceExpression
 } from '../ast'
 import { PatchFlags, PatchFlagNames, isSymbol } from '@vue/shared'
 import { createCompilerError, ErrorCodes } from '../errors'
@@ -26,7 +27,9 @@ import {
   MERGE_PROPS,
   TO_HANDLERS,
   PORTAL,
-  KEEP_ALIVE
+  KEEP_ALIVE,
+  OPEN_BLOCK,
+  CREATE_BLOCK
 } from '../runtimeHelpers'
 import {
   getInnerRange,
@@ -67,6 +70,7 @@ export const transformElement: NodeTransform = (node, context) => {
     let runtimeDirectives: DirectiveNode[] | undefined
     let dynamicPropNames: string[] | undefined
     let dynamicComponent: string | CallExpression | undefined
+    let shouldUseBlock = false
 
     // handle dynamic component
     const isProp = findProp(node, 'is')
@@ -104,7 +108,12 @@ export const transformElement: NodeTransform = (node, context) => {
       nodeType = toValidAssetId(tag, `component`)
     } else {
       // plain element
-      nodeType = `"${node.tag}"`
+      nodeType = `"${tag}"`
+      // <svg> and <foreignObject> must be forced into blocks so that block
+      // updates inside get proper isSVG flag at runtime. (#639, #643)
+      // This is technically web-specific, but splitting the logic out of core
+      // leads to too much unnecessary complexity.
+      shouldUseBlock = tag === 'svg' || tag === 'foreignObject'
     }
 
     const args: CallExpression['arguments'] = [nodeType]
@@ -190,8 +199,12 @@ export const transformElement: NodeTransform = (node, context) => {
     }
 
     const { loc } = node
-    const vnode = createCallExpression(context.helper(CREATE_VNODE), args, loc)
-
+    const vnode = shouldUseBlock
+      ? createSequenceExpression([
+          createCallExpression(context.helper(OPEN_BLOCK)),
+          createCallExpression(context.helper(CREATE_BLOCK), args, loc)
+        ])
+      : createCallExpression(context.helper(CREATE_VNODE), args, loc)
     if (runtimeDirectives && runtimeDirectives.length) {
       node.codegenNode = createCallExpression(
         context.helper(WITH_DIRECTIVES),

@@ -53,7 +53,7 @@ describe('reactivity/ref', () => {
       dummy3 = obj.b.d[0]
     })
 
-    const assertDummiesEqualTo = (val: any) =>
+    const assertDummiesEqualTo = (val: number) =>
       [dummy1, dummy2, dummy3].forEach(dummy => expect(dummy).toBe(val))
 
     assertDummiesEqualTo(1)

@@ -341,6 +341,7 @@ export function createRenderer<
     isSVG: boolean,
     optimized: boolean
   ) {
+    isSVG = isSVG || (n2.type as string) === 'svg'
     if (n1 == null) {
       mountElement(
         n2,
@@ -368,10 +369,8 @@ export function createRenderer<
     isSVG: boolean,
     optimized: boolean
   ) {
-    const tag = vnode.type as string
-    isSVG = isSVG || tag === 'svg'
-    const el = (vnode.el = hostCreateElement(tag, isSVG))
-    const { props, shapeFlag, transition, scopeId } = vnode
+    const el = (vnode.el = hostCreateElement(vnode.type as string, isSVG))
+    const { type, props, shapeFlag, transition, scopeId } = vnode
 
     // props
     if (props != null) {
@@ -407,7 +406,7 @@ export function createRenderer<
         null,
         parentComponent,
         parentSuspense,
-        isSVG,
+        isSVG && type !== 'foreignObject',
         optimized || vnode.dynamicChildren !== null
       )
     }
@@ -563,6 +562,7 @@ export function createRenderer<
       )
     }
 
+    const areChildrenSVG = isSVG && n2.type !== 'foreignObject'
     if (dynamicChildren != null) {
       patchBlockChildren(
         n1.dynamicChildren!,
@@ -570,11 +570,19 @@ export function createRenderer<
         el,
         parentComponent,
         parentSuspense,
-        isSVG
+        areChildrenSVG
       )
     } else if (!optimized) {
       // full diff
-      patchChildren(n1, n2, el, null, parentComponent, parentSuspense, isSVG)
+      patchChildren(
+        n1,
+        n2,
+        el,
+        null,
+        parentComponent,
+        parentSuspense,
+        areChildrenSVG
+      )
     }
 
     if (newProps.onVnodeUpdated != null) {
