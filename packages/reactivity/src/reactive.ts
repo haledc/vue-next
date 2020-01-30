@@ -81,7 +81,8 @@ export function readonly<T extends object>(
 
 // @internal
 // Return a reactive-copy of the original object, where only the root level
-// properties are readonly, and does not recursively convert returned properties.
+// properties are readonly, and does NOT unwrap refs nor recursively convert
+// returned properties.
 // This is used for creating the props proxy object for stateful components.
 export function shallowReadonly<T extends object>(
   target: T

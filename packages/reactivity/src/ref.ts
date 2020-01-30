@@ -29,27 +29,22 @@ export function isRef(r: any): r is Ref {
   return r ? r._isRef === true : false
 }
 
-// ! 生成 Ref 类型的对象
-export function ref<T extends Ref>(raw: T): T
-export function ref<T>(raw: T): Ref<T>
+export function ref<T extends Ref>(value: T): T
+export function ref<T>(value: T): Ref<T>
 export function ref<T = any>(): Ref<T>
-export function ref(raw?: unknown) {
-  if (isRef(raw)) {
-    return raw
+export function ref(value?: unknown) {
+  if (isRef(value)) {
+    return value
   }
-
-  // ! 转换
-  raw = convert(raw)
-  // ! 包装成对象，为了 Reactive
+  value = convert(value)
   const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
-      track(r, TrackOpTypes.GET, 'value') // ! 收集依赖
-      return raw
+      track(r, TrackOpTypes.GET, 'value')
+      return value
     },
     set value(newVal) {
-      raw = convert(newVal)
-      // ! 触发依赖
+      value = convert(newVal)
       trigger(
         r,
         TriggerOpTypes.SET,

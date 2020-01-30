@@ -81,7 +81,6 @@ export {
   resolveDynamicComponent
 } from './helpers/resolveAssets'
 export { renderList } from './helpers/renderList'
-export { toString } from './helpers/toString'
 export { toHandlers } from './helpers/toHandlers'
 export { renderSlot } from './helpers/renderSlot'
 export { createSlots } from './helpers/createSlots'
@@ -90,17 +89,50 @@ export { setBlockTracking, createTextVNode, createCommentVNode } from './vnode'
 // Since @vue/shared is inlined into final builds,
 // when re-exporting from @vue/shared we need to avoid relying on their original
 // types so that the bundled d.ts does not attempt to import from it.
-import { capitalize as _capitalize, camelize as _camelize } from '@vue/shared'
+import {
+  toDisplayString as _toDisplayString,
+  capitalize as _capitalize,
+  camelize as _camelize
+} from '@vue/shared'
+export const toDisplayString = _toDisplayString as (s: unknown) => string
 export const capitalize = _capitalize as (s: string) => string
 export const camelize = _camelize as (s: string) => string
 
 // For integration with runtime compiler
 export { registerRuntimeCompiler } from './component'
 
+// SSR -------------------------------------------------------------------------
+import { createComponentInstance, setupComponent } from './component'
+import { renderComponentRoot } from './componentRenderUtils'
+import { isVNode, normalizeVNode } from './vnode'
+
+// SSR utils are only exposed in cjs builds.
+const _ssrUtils = {
+  createComponentInstance,
+  setupComponent,
+  renderComponentRoot,
+  isVNode,
+  normalizeVNode
+}
+
+export const ssrUtils = (__NODE_JS__ ? _ssrUtils : null) as typeof _ssrUtils
+
 // Types -----------------------------------------------------------------------
 
-export { App, AppConfig, AppContext, Plugin } from './apiCreateApp'
-export { VNode, VNodeTypes, VNodeProps } from './vnode'
+export {
+  App,
+  AppConfig,
+  AppContext,
+  Plugin,
+  CreateAppFunction
+} from './apiCreateApp'
+export {
+  VNode,
+  VNodeTypes,
+  VNodeProps,
+  VNodeArrayChildren,
+  VNodeNormalizedChildren
+} from './vnode'
 export {
   Component,
   FunctionalComponent,

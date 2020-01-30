@@ -6,16 +6,16 @@ import {
   cloneIfMounted,
   normalizeVNode,
   VNode,
-  VNodeChildren,
+  VNodeArrayChildren,
   createVNode,
   isSameVNodeType
 } from './vnode'
 import {
   ComponentInternalInstance,
-  defineComponentInstance,
-  setupStatefulComponent,
+  createComponentInstance,
   Component,
-  Data
+  Data,
+  setupComponent
 } from './component'
 import {
   renderComponentRoot,
@@ -46,7 +46,7 @@ import { ShapeFlags } from './shapeFlags'
 import { pushWarningContext, popWarningContext, warn } from './warning'
 import { invokeDirectiveHook } from './directives'
 import { ComponentPublicInstance } from './componentProxy'
-import { App, createAppAPI } from './apiCreateApp'
+import { createAppAPI, CreateAppFunction } from './apiCreateApp'
 import {
   SuspenseBoundary,
   queueEffectWithSuspense,
@@ -174,10 +174,10 @@ export function createRenderer<
   options: RendererOptions<HostNode, HostElement>
 ): {
   render: RootRenderFunction<HostNode, HostElement>
-  createApp: () => App<HostElement>
+  createApp: CreateAppFunction<HostElement>
 } {
   type HostVNode = VNode<HostNode, HostElement>
-  type HostVNodeChildren = VNodeChildren<HostNode, HostElement>
+  type HostVNodeChildren = VNodeArrayChildren<HostNode, HostElement>
   type HostSuspenseBoundary = SuspenseBoundary<HostNode, HostElement>
 
   const {
@@ -288,7 +288,7 @@ export function createRenderer<
             internals
           )
         } else if (__DEV__) {
-          warn('Invalid HostVNode type:', n2.type, `(${typeof n2.type})`)
+          warn('Invalid HostVNode type:', type, `(${typeof type})`)
         }
     }
   }
@@ -927,7 +927,7 @@ export function createRenderer<
     parentSuspense: HostSuspenseBoundary | null,
     isSVG: boolean
   ) {
-    const instance: ComponentInternalInstance = (initialVNode.component = defineComponentInstance(
+    const instance: ComponentInternalInstance = (initialVNode.component = createComponentInstance(
       initialVNode,
       parentComponent
     ))
@@ -940,8 +940,6 @@ export function createRenderer<
       pushWarningContext(initialVNode)
     }
 
-    const Comp = initialVNode.type as Component
-
     // inject renderer internals for keepAlive
     if (isKeepAlive(initialVNode)) {
       const sink = instance.sink as KeepAliveSink
@@ -950,14 +948,7 @@ export function createRenderer<
     }
 
     // resolve props and slots for setup context
-    const propsOptions = Comp.props
-    resolveProps(instance, initialVNode.props, propsOptions)
-    resolveSlots(instance, initialVNode.children)
-
-    // setup stateful logic
-    if (initialVNode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-      setupStatefulComponent(instance, parentSuspense)
-    }
+    setupComponent(instance, parentSuspense)
 
     // setup() is async. This component relies on async logic to be resolved
     // before proceeding

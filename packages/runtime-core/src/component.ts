@@ -1,12 +1,12 @@
 import { VNode, VNodeChild, isVNode } from './vnode'
-import { ReactiveEffect, reactive, shallowReadonly } from '@vue/reactivity'
+import { ReactiveEffect, shallowReadonly } from '@vue/reactivity'
 import {
   PublicInstanceProxyHandlers,
   ComponentPublicInstance,
   runtimeCompiledRenderProxyHandlers
 } from './componentProxy'
-import { ComponentPropsOptions } from './componentProps'
-import { Slots } from './componentSlots'
+import { ComponentPropsOptions, resolveProps } from './componentProps'
+import { Slots, resolveSlots } from './componentSlots'
 import { warn } from './warning'
 import {
   ErrorCodes,
@@ -25,7 +25,8 @@ import {
   NO,
   makeMap,
   isPromise,
-  isArray
+  isArray,
+  hyphenate
 } from '@vue/shared'
 import { SuspenseBoundary } from './components/Suspense'
 import { CompilerOptions } from '@vue/compiler-core'
@@ -33,6 +34,7 @@ import {
   currentRenderingInstance,
   markAttrsAccessed
 } from './componentRenderUtils'
+import { ShapeFlags } from '.'
 
 export type Data = { [key: string]: unknown }
 
@@ -157,7 +159,7 @@ export interface ComponentInternalInstance {
 
 const emptyAppContext = createAppContext()
 
-export function defineComponentInstance(
+export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null
 ) {
@@ -225,7 +227,11 @@ export function defineComponentInstance(
 
     emit: (event, ...args): any[] => {
       const props = instance.vnode.props || EMPTY_OBJ
-      const handler = props[`on${event}`] || props[`on${capitalize(event)}`]
+      let handler = props[`on${event}`] || props[`on${capitalize(event)}`]
+      if (!handler && event.indexOf('update:') === 0) {
+        event = hyphenate(event)
+        handler = props[`on${event}`] || props[`on${capitalize(event)}`]
+      }
       if (handler) {
         const res = callWithAsyncErrorHandling(
           handler,
@@ -267,8 +273,29 @@ export function validateComponentName(name: string, config: AppConfig) {
   }
 }
 
-// ! 启动状态组件
-export function setupStatefulComponent(
+export let isInSSRComponentSetup = false
+
+export function setupComponent(
+  instance: ComponentInternalInstance,
+  parentSuspense: SuspenseBoundary | null,
+  isSSR = false
+) {
+  isInSSRComponentSetup = isSSR
+  const propsOptions = instance.type.props
+  const { props, children, shapeFlag } = instance.vnode
+  resolveProps(instance, props, propsOptions)
+  resolveSlots(instance, children)
+
+  // setup stateful logic
+  let setupResult
+  if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+    setupResult = setupStatefulComponent(instance, parentSuspense)
+  }
+  isInSSRComponentSetup = false
+  return setupResult
+}
+
+function setupStatefulComponent(
   instance: ComponentInternalInstance,
   parentSuspense: SuspenseBoundary | null
 ) {
@@ -298,7 +325,9 @@ export function setupStatefulComponent(
   // 2. create props proxy
   // the propsProxy is a reactive AND readonly proxy to the actual props.
   // it will be updated in resolveProps() on updates before render
-  const propsProxy = (instance.propsProxy = shallowReadonly(instance.props))
+  const propsProxy = (instance.propsProxy = isInSSRComponentSetup
+    ? instance.props
+    : shallowReadonly(instance.props))
   // 3. call setup()
   const { setup } = Component
   if (setup) {
@@ -320,7 +349,12 @@ export function setupStatefulComponent(
     currentSuspense = null
 
     if (isPromise(setupResult)) {
-      if (__FEATURE_SUSPENSE__) {
+      if (isInSSRComponentSetup) {
+        // return the promise so server-renderer can wait on it
+        return setupResult.then(resolvedResult => {
+          handleSetupResult(instance, resolvedResult, parentSuspense)
+        })
+      } else if (__FEATURE_SUSPENSE__) {
         // async setup returned Promise.
         // bail here and wait for re-entry.
         instance.asyncDep = setupResult
@@ -356,7 +390,7 @@ export function handleSetupResult(
     }
     // setup returned bindings.
     // assuming a render function compiled from template is present.
-    instance.renderContext = reactive(setupResult) // ! 赋值为渲染上下文 -> 转换成响应式数据
+    instance.renderContext = setupResult
   } else if (__DEV__ && setupResult !== undefined) {
     warn(
       `setup() should return an object. Received: ${
@@ -397,7 +431,7 @@ function finishComponentSetup(
       ;(Component.render as RenderFunction).isRuntimeCompiled = true
     }
 
-    if (__DEV__ && !Component.render) {
+    if (__DEV__ && !Component.render && !Component.ssrRender) {
       /* istanbul ignore if */
       if (!__RUNTIME_COMPILE__ && Component.template) {
         warn(
@@ -437,7 +471,7 @@ function finishComponentSetup(
   }
 
   if (instance.renderContext === EMPTY_OBJ) {
-    instance.renderContext = reactive({})
+    instance.renderContext = {}
   }
 }
 

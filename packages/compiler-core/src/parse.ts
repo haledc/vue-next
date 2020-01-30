@@ -841,8 +841,8 @@ function parseTextData(
 
     if (head[0] === '&') {
       // Named character reference.
-      let name = '',
-        value: string | undefined = undefined
+      let name = ''
+      let value: string | undefined = undefined
       if (/[0-9a-z]/i.test(rawText[1])) {
         for (
           let length = context.options.maxCRNameLength;
@@ -857,7 +857,7 @@ function parseTextData(
           if (
             mode === TextModes.ATTRIBUTE_VALUE &&
             !semi &&
-            /[=a-z0-9]/i.test(rawText[1 + name.length] || '')
+            /[=a-z0-9]/i.test(rawText[name.length + 1] || '')
           ) {
             decodedText += '&' + name
             advance(1 + name.length)
@@ -872,7 +872,6 @@ function parseTextData(
             }
           }
         } else {
-          emitError(context, ErrorCodes.UNKNOWN_NAMED_CHARACTER_REFERENCE)
           decodedText += '&' + name
           advance(1 + name.length)
         }

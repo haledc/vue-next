@@ -13,14 +13,16 @@ import {
   isArray,
   isFunction,
   isString,
-  hasChanged
+  hasChanged,
+  NOOP
 } from '@vue/shared'
 import { recordEffect } from './apiReactivity'
 import {
   currentInstance,
   ComponentInternalInstance,
   currentSuspense,
-  Data
+  Data,
+  isInSSRComponentSetup
 } from './component'
 import {
   ErrorCodes,
@@ -85,7 +87,10 @@ export function watch<T = any>(
   cbOrOptions?: WatchCallback<T> | WatchOptions,
   options?: WatchOptions
 ): StopHandle {
-  if (isFunction(cbOrOptions)) {
+  if (isInSSRComponentSetup && !(options && options.flush === 'sync')) {
+    // component watchers during SSR are no-op
+    return NOOP
+  } else if (isFunction(cbOrOptions)) {
     // effect callback as 2nd argument - this is a source watcher
     return doWatch(effectOrSource, cbOrOptions, options)
   } else {

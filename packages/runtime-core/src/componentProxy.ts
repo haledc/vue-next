@@ -8,7 +8,7 @@ import {
   ComputedOptions,
   MethodOptions
 } from './apiOptions'
-import { UnwrapRef, ReactiveEffect } from '@vue/reactivity'
+import { UnwrapRef, ReactiveEffect, isRef, isReactive } from '@vue/reactivity'
 import { warn } from './warning'
 import { Slots } from './componentSlots'
 import {
@@ -69,10 +69,12 @@ const publicPropertiesMap: Record<
 const enum AccessTypes {
   DATA,
   CONTEXT,
-  PROPS
+  PROPS,
+  OTHER
 }
 
-// ! 实例代理 handler -> 代理 2.x API
+const unwrapRef = (val: unknown) => (isRef(val) ? val.value : val)
+
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   get(target: ComponentInternalInstance, key: string) {
     // fast path for unscopables when using `with` block
@@ -102,23 +104,27 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
           case AccessTypes.DATA:
             return data[key]
           case AccessTypes.CONTEXT:
-            return renderContext[key]
+            return unwrapRef(renderContext[key])
           case AccessTypes.PROPS:
             return propsProxy![key]
+          // default: just fallthrough
         }
       } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
         accessCache![key] = AccessTypes.DATA
         return data[key]
       } else if (hasOwn(renderContext, key)) {
         accessCache![key] = AccessTypes.CONTEXT
-        return renderContext[key]
-      } else if (hasOwn(props, key)) {
-        // only cache props access if component has declared (thus stable) props
-        if (type.props != null) {
+        return unwrapRef(renderContext[key])
+      } else if (type.props != null) {
+        // only cache other properties when instance has declared (this stable)
+        // props
+        if (hasOwn(props, key)) {
           accessCache![key] = AccessTypes.PROPS
+          // return the value from propsProxy for ref unwrapping and readonly
+          return propsProxy![key]
+        } else {
+          accessCache![key] = AccessTypes.OTHER
         }
-        // return the value from propsProxy for ref unwrapping and readonly
-        return propsProxy![key]
       }
     }
 
@@ -163,7 +169,19 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     if (data !== EMPTY_OBJ && hasOwn(data, key)) {
       data[key] = value
     } else if (hasOwn(renderContext, key)) {
-      renderContext[key] = value
+      // context is already reactive (user returned reactive object from setup())
+      // just set directly
+      if (isReactive(renderContext)) {
+        renderContext[key] = value
+      } else {
+        // handle potential ref set
+        const oldValue = renderContext[key]
+        if (isRef(oldValue) && !isRef(value)) {
+          oldValue.value = value
+        } else {
+          renderContext[key] = value
+        }
+      }
     } else if (key[0] === '$' && key.slice(1) in target) {
       __DEV__ &&
         warn(
