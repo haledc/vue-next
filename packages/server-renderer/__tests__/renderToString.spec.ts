@@ -1,7 +1,28 @@
-import { createApp, h, createCommentVNode, withScopeId } from 'vue'
+import {
+  createApp,
+  h,
+  createCommentVNode,
+  withScopeId,
+  resolveComponent,
+  ComponentOptions
+} from 'vue'
 import { renderToString, renderComponent, renderSlot, escapeHtml } from '../src'
 
 describe('ssr: renderToString', () => {
+  test('should apply app context', async () => {
+    const app = createApp({
+      render() {
+        const Foo = resolveComponent('foo') as ComponentOptions
+        return h(Foo)
+      }
+    })
+    app.component('foo', {
+      render: () => h('div', 'foo')
+    })
+    const html = await renderToString(app)
+    expect(html).toBe(`<div>foo</div>`)
+  })
+
   describe('components', () => {
     test('vnode components', async () => {
       expect(
@@ -125,10 +146,11 @@ describe('ssr: renderToString', () => {
                   { msg: 'hello' },
                   {
                     // optimized slot using string push
-                    default: ({ msg }: any, push: any) => {
+                    default: ({ msg }: any, push: any, p: any) => {
                       push(`<span>${msg}</span>`)
                     },
-                    _compiled: true // important to avoid slots being normalized
+                    // important to avoid slots being normalized
+                    _compiled: true as any
                   },
                   parent
                 )

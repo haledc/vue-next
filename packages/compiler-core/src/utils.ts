@@ -22,7 +22,9 @@ import {
   SlotOutletCodegenNode,
   ComponentCodegenNode,
   ExpressionNode,
-  IfBranchNode
+  IfBranchNode,
+  TextNode,
+  InterpolationNode
 } from './ast'
 import { parse } from 'acorn'
 import { walk } from 'estree-walker'
@@ -212,6 +214,12 @@ export function createBlockExpression(
     createCallExpression(context.helper(OPEN_BLOCK)),
     blockExp
   ])
+}
+
+export function isText(
+  node: TemplateChildNode
+): node is TextNode | InterpolationNode {
+  return node.type === NodeTypes.INTERPOLATION || node.type === NodeTypes.TEXT
 }
 
 export function isVSlot(p: ElementNode['props'][0]): p is DirectiveNode {

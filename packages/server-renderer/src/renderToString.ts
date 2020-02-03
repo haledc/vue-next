@@ -4,7 +4,6 @@ import {
   ComponentInternalInstance,
   VNode,
   VNodeArrayChildren,
-  VNodeNormalizedChildren,
   createVNode,
   Text,
   Comment,
@@ -13,7 +12,7 @@ import {
   ShapeFlags,
   ssrUtils,
   Slot,
-  createApp
+  Slots
 } from 'vue'
 import {
   isString,
@@ -23,7 +22,7 @@ import {
   isVoidTag
 } from '@vue/shared'
 import { renderProps } from './renderProps'
-import { escapeHtml } from './ssrUtils'
+import { escapeHtml } from '@vue/shared'
 
 const {
   isVNode,
@@ -84,22 +83,23 @@ function unrollBuffer(buffer: ResolvedSSRBuffer): string {
 }
 
 export async function renderToString(input: App | VNode): Promise<string> {
+  let buffer: ResolvedSSRBuffer
   if (isVNode(input)) {
-    return renderAppToString(createApp({ render: () => input }))
+    // raw vnode, wrap with component
+    buffer = await renderComponent({ render: () => input })
   } else {
-    return renderAppToString(input)
+    // rendering an app
+    const vnode = createVNode(input._component, input._props)
+    vnode.appContext = input._context
+    buffer = await renderComponentVNode(vnode)
   }
-}
-
-async function renderAppToString(app: App): Promise<string> {
-  const resolvedBuffer = await renderComponent(app._component, app._props, null)
-  return unrollBuffer(resolvedBuffer)
+  return unrollBuffer(buffer)
 }
 
 export function renderComponent(
   comp: Component,
-  props: Props | null,
-  children: VNodeNormalizedChildren | null,
+  props: Props | null = null,
+  children: Slots | SSRSlots | null = null,
   parentComponent: ComponentInternalInstance | null = null
 ): ResolvedSSRBuffer | Promise<ResolvedSSRBuffer> {
   return renderComponentVNode(
@@ -256,14 +256,16 @@ function renderElement(
   }
 }
 
-type OptimizedSlotFn = (
+export type SSRSlots = Record<string, SSRSlot>
+
+export type SSRSlot = (
   props: Props,
   push: PushFn,
   parentComponent: ComponentInternalInstance | null
 ) => void
 
 export function renderSlot(
-  slotFn: Slot | OptimizedSlotFn,
+  slotFn: Slot | SSRSlot,
   slotProps: Props,
   push: PushFn,
   parentComponent: ComponentInternalInstance | null = null

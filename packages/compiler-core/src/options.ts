@@ -29,7 +29,7 @@ export interface ParserOptions {
 
 export interface TransformOptions {
   nodeTransforms?: NodeTransform[]
-  directiveTransforms?: { [name: string]: DirectiveTransform }
+  directiveTransforms?: { [name: string]: DirectiveTransform | undefined }
   isBuiltInComponent?: (tag: string) => symbol | void
   // Transform expressions like {{ foo }} to `_ctx.foo`.
   // - This is force-enabled in module mode, since modules are by default strict
@@ -57,8 +57,10 @@ export interface CodegenOptions {
   // - Function mode will generate a single `const { helpers... } = Vue`
   //   statement and return the render function. It is meant to be used with
   //   `new Function(code)()` to generate a render function at runtime.
+  // - CommonJS mode is like function mode except it retrives helpers from
+  //   `require('vue')`.
   // - Default: 'function'
-  mode?: 'module' | 'function'
+  mode?: 'module' | 'function' | 'cjs'
   // Prefix suitable identifiers with _ctx.
   // If this option is false, the generated code will be wrapped in a
   // `with (this) { ... }` block.
@@ -74,6 +76,8 @@ export interface CodegenOptions {
   filename?: string
   // SFC scoped styles ID
   scopeId?: string | null
+  // generate SSR specific code?
+  ssr?: boolean
 }
 
 export type CompilerOptions = ParserOptions & TransformOptions & CodegenOptions
