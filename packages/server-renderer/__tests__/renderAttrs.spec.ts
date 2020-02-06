@@ -1,9 +1,15 @@
-import { renderProps, renderClass, renderStyle } from '../src'
+import {
+  renderAttrs,
+  renderClass,
+  renderStyle,
+  renderAttr
+} from '../src/helpers/renderAttrs'
+import { escapeHtml } from '@vue/shared'
 
-describe('ssr: renderProps', () => {
+describe('ssr: renderAttrs', () => {
   test('ignore reserved props', () => {
     expect(
-      renderProps({
+      renderAttrs({
         key: 1,
         ref: () => {},
         onClick: () => {}
@@ -13,7 +19,7 @@ describe('ssr: renderProps', () => {
 
   test('normal attrs', () => {
     expect(
-      renderProps({
+      renderAttrs({
         id: 'foo',
         title: 'bar'
       })
@@ -22,7 +28,7 @@ describe('ssr: renderProps', () => {
 
   test('escape attrs', () => {
     expect(
-      renderProps({
+      renderAttrs({
         id: '"><script'
       })
     ).toBe(` id="&quot;&gt;&lt;script"`)
@@ -30,7 +36,7 @@ describe('ssr: renderProps', () => {
 
   test('boolean attrs', () => {
     expect(
-      renderProps({
+      renderAttrs({
         checked: true,
         multiple: false
       })
@@ -39,7 +45,7 @@ describe('ssr: renderProps', () => {
 
   test('ignore falsy values', () => {
     expect(
-      renderProps({
+      renderAttrs({
         foo: false,
         title: null,
         baz: undefined
@@ -47,9 +53,19 @@ describe('ssr: renderProps', () => {
     ).toBe(` foo="false"`) // non boolean should render `false` as is
   })
 
+  test('ingore non-renderable values', () => {
+    expect(
+      renderAttrs({
+        foo: {},
+        bar: [],
+        baz: () => {}
+      })
+    ).toBe(``)
+  })
+
   test('props to attrs', () => {
     expect(
-      renderProps({
+      renderAttrs({
         readOnly: true, // simple lower case conversion
         htmlFor: 'foobar' // special cases
       })
@@ -58,7 +74,7 @@ describe('ssr: renderProps', () => {
 
   test('preserve name on custom element', () => {
     expect(
-      renderProps(
+      renderAttrs(
         {
           fooBar: 'ok'
         },
@@ -68,10 +84,27 @@ describe('ssr: renderProps', () => {
   })
 })
 
+describe('ssr: renderAttr', () => {
+  test('basic', () => {
+    expect(renderAttr('foo', 'bar')).toBe(` foo="bar"`)
+  })
+
+  test('null and undefined', () => {
+    expect(renderAttr('foo', null)).toBe(``)
+    expect(renderAttr('foo', undefined)).toBe(``)
+  })
+
+  test('escape', () => {
+    expect(renderAttr('foo', '<script>')).toBe(
+      ` foo="${escapeHtml(`<script>`)}"`
+    )
+  })
+})
+
 describe('ssr: renderClass', () => {
   test('via renderProps', () => {
     expect(
-      renderProps({
+      renderAttrs({
         class: ['foo', 'bar']
       })
     ).toBe(` class="foo bar"`)
@@ -92,7 +125,7 @@ describe('ssr: renderClass', () => {
 describe('ssr: renderStyle', () => {
   test('via renderProps', () => {
     expect(
-      renderProps({
+      renderAttrs({
         style: {
           color: 'red'
         }

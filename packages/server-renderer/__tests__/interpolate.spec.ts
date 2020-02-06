@@ -1,4 +1,5 @@
-import { escapeHtml, interpolate } from '../src'
+import { interpolate } from '../src/helpers/interpolate'
+import { escapeHtml } from '@vue/shared'
 
 test('ssr: interpolate', () => {
   expect(interpolate(0)).toBe(`0`)

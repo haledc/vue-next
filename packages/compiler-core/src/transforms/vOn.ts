@@ -87,7 +87,7 @@ export const transformOn: DirectiveTransform = (
       // wrap inline statement in a function expression
       exp = createCompoundExpression([
         `$event => ${hasMultipleStatements ? `{` : `(`}`,
-        ...(exp.type === NodeTypes.SIMPLE_EXPRESSION ? [exp] : exp.children),
+        exp,
         hasMultipleStatements ? `}` : `)`
       ])
     }
@@ -99,8 +99,7 @@ export const transformOn: DirectiveTransform = (
         eventName,
         exp || createSimpleExpression(`() => {}`, false, loc)
       )
-    ],
-    needRuntime: false
+    ]
   }
 
   // apply extended compiler augmentor

@@ -1,7 +1,6 @@
 import {
   RootNode,
   BlockStatement,
-  CallExpression,
   TemplateLiteral,
   createCallExpression,
   createTemplateLiteral,
@@ -10,10 +9,14 @@ import {
   ElementTypes,
   createBlockStatement,
   CompilerOptions,
-  isText
+  isText,
+  IfStatement,
+  CallExpression
 } from '@vue/compiler-dom'
 import { isString, escapeHtml, NO } from '@vue/shared'
-import { INTERPOLATE } from './runtimeHelpers'
+import { SSR_INTERPOLATE, ssrHelpers } from './runtimeHelpers'
+import { processIf } from './transforms/ssrVIf'
+import { processFor } from './transforms/ssrVFor'
 
 // Because SSR codegen output is completely different from client-side output
 // (e.g. multiple elements can be concatenated into a single template literal
@@ -35,24 +38,37 @@ export function ssrCodegenTransform(ast: RootNode, options: CompilerOptions) {
   }
 
   ast.codegenNode = createBlockStatement(context.body)
+
+  // Finalize helpers.
+  // We need to separate helpers imported from 'vue' vs. '@vue/server-renderer'
+  ast.ssrHelpers = [
+    ...ast.helpers.filter(h => h in ssrHelpers),
+    ...context.helpers
+  ]
+  ast.helpers = ast.helpers.filter(h => !(h in ssrHelpers))
 }
 
-type SSRTransformContext = ReturnType<typeof createSSRTransformContext>
+export type SSRTransformContext = ReturnType<typeof createSSRTransformContext>
 
-function createSSRTransformContext(options: CompilerOptions) {
+function createSSRTransformContext(
+  options: CompilerOptions,
+  helpers: Set<symbol> = new Set()
+) {
   const body: BlockStatement['body'] = []
-  let currentCall: CallExpression | null = null
   let currentString: TemplateLiteral | null = null
 
   return {
     options,
     body,
+    helpers,
+    helper<T extends symbol>(name: T): T {
+      helpers.add(name)
+      return name
+    },
     pushStringPart(part: TemplateLiteral['elements'][0]) {
-      if (!currentCall) {
-        currentCall = createCallExpression(`_push`)
-        body.push(currentCall)
-      }
       if (!currentString) {
+        const currentCall = createCallExpression(`_push`)
+        body.push(currentCall)
         currentString = createTemplateLiteral([])
         currentCall.arguments.push(currentString)
       }
@@ -63,11 +79,23 @@ function createSSRTransformContext(options: CompilerOptions) {
       } else {
         bufferedElements.push(part)
       }
+    },
+    pushStatement(statement: IfStatement | CallExpression) {
+      // close current string
+      currentString = null
+      body.push(statement)
     }
   }
 }
 
-function processChildren(
+export function createChildContext(
+  parent: SSRTransformContext
+): SSRTransformContext {
+  // ensure child inherits parent helpers
+  return createSSRTransformContext(parent.options, parent.helpers)
+}
+
+export function processChildren(
   children: TemplateChildNode[],
   context: SSRTransformContext
 ) {
@@ -96,11 +124,13 @@ function processChildren(
     } else if (child.type === NodeTypes.TEXT) {
       context.pushStringPart(escapeHtml(child.content))
     } else if (child.type === NodeTypes.INTERPOLATION) {
-      context.pushStringPart(createCallExpression(INTERPOLATE, [child.content]))
+      context.pushStringPart(
+        createCallExpression(context.helper(SSR_INTERPOLATE), [child.content])
+      )
     } else if (child.type === NodeTypes.IF) {
-      // TODO
+      processIf(child, context)
     } else if (child.type === NodeTypes.FOR) {
-      // TODO
+      processFor(child, context)
     }
   }
 }

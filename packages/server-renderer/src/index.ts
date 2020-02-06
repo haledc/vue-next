@@ -1,16 +1,25 @@
 // public
 export { renderToString } from './renderToString'
 
-// internal
-export { renderComponent, renderSlot } from './renderToString'
-export { renderClass, renderStyle, renderProps } from './renderProps'
+// internal runtime helpers
+export {
+  renderComponent as _renderComponent,
+  renderSlot as _renderSlot
+} from './renderToString'
+export {
+  renderClass as _renderClass,
+  renderStyle as _renderStyle,
+  renderAttrs as _renderAttrs,
+  renderAttr as _renderAttr,
+  renderDynamicAttr as _renderDynamicAttr
+} from './helpers/renderAttrs'
+export { interpolate as _interpolate } from './helpers/interpolate'
+export { renderList as _renderList } from './helpers/renderList'
 
-// utils
-import { escapeHtml as _escapeHtml, toDisplayString } from '@vue/shared'
-
-// cast type to avoid dts dependency on @vue/shared (which is inlined)
-export const escapeHtml = _escapeHtml as (raw: string) => string
-
-export function interpolate(value: unknown): string {
-  return escapeHtml(toDisplayString(value))
-}
+// v-model helpers
+export {
+  looseEqual as _looseEqual,
+  looseContain as _looseContain,
+  renderDynamicModel as _renderDynamicModel,
+  getDynamicModelProps as _getDynamicModelProps
+} from './helpers/vModelHelpers'

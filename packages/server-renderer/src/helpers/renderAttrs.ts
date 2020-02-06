@@ -14,7 +14,7 @@ import {
 
 const shouldIgnoreProp = makeMap(`key,ref,innerHTML,textContent`)
 
-export function renderProps(
+export function renderAttrs(
   props: Record<string, unknown>,
   tag?: string
 ): string {
@@ -32,21 +32,50 @@ export function renderProps(
       ret += ` class="${renderClass(value)}"`
     } else if (key === 'style') {
       ret += ` style="${renderStyle(value)}"`
-    } else if (value != null) {
-      const attrKey =
-        tag && tag.indexOf('-') > 0
-          ? key // preserve raw name on custom elements
-          : propsToAttrMap[key] || key.toLowerCase()
-      if (isBooleanAttr(attrKey)) {
-        if (value !== false) {
-          ret += ` ${attrKey}`
-        }
-      } else if (isSSRSafeAttrName(attrKey)) {
-        ret += ` ${attrKey}="${escapeHtml(value)}"`
-      }
+    } else {
+      ret += renderDynamicAttr(key, value, tag)
     }
   }
   return ret
+}
+
+// render an attr with dynamic (unknown) key.
+export function renderDynamicAttr(
+  key: string,
+  value: unknown,
+  tag?: string
+): string {
+  if (!isRenderableValue(value)) {
+    return ``
+  }
+  const attrKey =
+    tag && tag.indexOf('-') > 0
+      ? key // preserve raw name on custom elements
+      : propsToAttrMap[key] || key.toLowerCase()
+  if (isBooleanAttr(attrKey)) {
+    return value === false ? `` : ` ${attrKey}`
+  } else if (isSSRSafeAttrName(attrKey)) {
+    return ` ${attrKey}="${escapeHtml(value)}"`
+  } else {
+    return ``
+  }
+}
+
+// Render a v-bind attr with static key. The key is pre-processed at compile
+// time and we only need to check and escape value.
+export function renderAttr(key: string, value: unknown): string {
+  if (!isRenderableValue(value)) {
+    return ``
+  }
+  return ` ${key}="${escapeHtml(value)}"`
+}
+
+function isRenderableValue(value: unknown): boolean {
+  if (value == null) {
+    return false
+  }
+  const type = typeof value
+  return type === 'string' || type === 'number' || type === 'boolean'
 }
 
 export function renderClass(raw: unknown): string {

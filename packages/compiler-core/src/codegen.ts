@@ -21,7 +21,8 @@ import {
   locStub,
   SSRCodegenNode,
   TemplateLiteral,
-  IfStatement
+  IfStatement,
+  AssignmentExpression
 } from './ast'
 import { SourceMapGenerator, RawSourceMap } from 'source-map'
 import {
@@ -76,7 +77,7 @@ function createCodegenContext(
   ast: RootNode,
   {
     mode = 'function',
-    prefixIdentifiers = mode === 'module' || mode === 'cjs',
+    prefixIdentifiers = mode === 'module',
     sourceMap = false,
     filename = `template.vue.html`,
     scopeId = null,
@@ -172,7 +173,6 @@ export function generate(
   const {
     mode,
     push,
-    helper,
     prefixIdentifiers,
     indent,
     deindent,
@@ -185,58 +185,10 @@ export function generate(
   const genScopeId = !__BROWSER__ && scopeId != null && mode === 'module'
 
   // preambles
-  if (mode === 'function' || mode === 'cjs') {
-    const VueBinding = mode === 'function' ? `Vue` : `require("vue")`
-    // Generate const declaration for helpers
-    // In prefix mode, we place the const declaration at top so it's done
-    // only once; But if we not prefixing, we place the declaration inside the
-    // with block so it doesn't incur the `in` check cost for every helper access.
-    if (hasHelpers) {
-      if (prefixIdentifiers) {
-        push(
-          `const { ${ast.helpers.map(helper).join(', ')} } = ${VueBinding}\n`
-        )
-      } else {
-        // "with" mode.
-        // save Vue in a separate variable to avoid collision
-        push(`const _Vue = ${VueBinding}\n`)
-        // in "with" mode, helpers are declared inside the with block to avoid
-        // has check cost, but hoists are lifted out of the function - we need
-        // to provide the helper here.
-        if (ast.hoists.length) {
-          const staticHelpers = [CREATE_VNODE, CREATE_COMMENT, CREATE_TEXT]
-            .filter(helper => ast.helpers.includes(helper))
-            .map(s => `${helperNameMap[s]}: _${helperNameMap[s]}`)
-            .join(', ')
-          push(`const { ${staticHelpers} } = _Vue\n`)
-        }
-      }
-    }
-    genHoists(ast.hoists, context)
-    newline()
-    push(`return `)
+  if (mode === 'module') {
+    genModulePreamble(ast, context, genScopeId)
   } else {
-    // generate import statements for helpers
-    if (genScopeId) {
-      ast.helpers.push(WITH_SCOPE_ID)
-      if (ast.hoists.length) {
-        ast.helpers.push(PUSH_SCOPE_ID, POP_SCOPE_ID)
-      }
-    }
-    if (hasHelpers) {
-      push(`import { ${ast.helpers.map(helper).join(', ')} } from "vue"\n`)
-    }
-    if (ast.imports.length) {
-      genImports(ast.imports, context)
-      newline()
-    }
-    if (genScopeId) {
-      push(`const withId = ${helper(WITH_SCOPE_ID)}("${scopeId}")`)
-      newline()
-    }
-    genHoists(ast.hoists, context)
-    newline()
-    push(`export `)
+    genFunctionPreamble(ast, context)
   }
 
   // enter render function
@@ -284,7 +236,14 @@ export function generate(
   if (ast.directives.length) {
     genAssets(ast.directives, 'directive', context)
   }
-  if (ast.components.length || ast.directives.length) {
+  if (ast.temps > 0) {
+    push(`let `)
+    for (let i = 0; i < ast.temps; i++) {
+      push(`${i > 0 ? `, ` : ``}_temp${i}`)
+    }
+    push(`\n`)
+  }
+  if (ast.components.length || ast.directives.length || ast.temps) {
     newline()
   }
 
@@ -318,7 +277,82 @@ export function generate(
   }
 }
 
-// ! 生成资源型代码 -> component directive
+function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
+  const { ssr, helper, prefixIdentifiers, push, newline } = context
+  const VueBinding = ssr ? `require("vue")` : `Vue`
+  // Generate const declaration for helpers
+  // In prefix mode, we place the const declaration at top so it's done
+  // only once; But if we not prefixing, we place the declaration inside the
+  // with block so it doesn't incur the `in` check cost for every helper access.
+  if (ast.helpers.length > 0) {
+    if (prefixIdentifiers) {
+      push(`const { ${ast.helpers.map(helper).join(', ')} } = ${VueBinding}\n`)
+    } else {
+      // "with" mode.
+      // save Vue in a separate variable to avoid collision
+      push(`const _Vue = ${VueBinding}\n`)
+      // in "with" mode, helpers are declared inside the with block to avoid
+      // has check cost, but hoists are lifted out of the function - we need
+      // to provide the helper here.
+      if (ast.hoists.length) {
+        const staticHelpers = [CREATE_VNODE, CREATE_COMMENT, CREATE_TEXT]
+          .filter(helper => ast.helpers.includes(helper))
+          .map(s => `${helperNameMap[s]}: _${helperNameMap[s]}`)
+          .join(', ')
+        push(`const { ${staticHelpers} } = _Vue\n`)
+      }
+    }
+  }
+  // generate variables for ssr helpers
+  if (!__BROWSER__ && ast.ssrHelpers && ast.ssrHelpers.length) {
+    // ssr guaruntees prefixIdentifier: true
+    push(
+      `const { ${ast.ssrHelpers
+        .map(helper)
+        .join(', ')} } = require("@vue/server-renderer")\n`
+    )
+  }
+  genHoists(ast.hoists, context)
+  newline()
+  push(`return `)
+}
+
+function genModulePreamble(
+  ast: RootNode,
+  context: CodegenContext,
+  genScopeId: boolean
+) {
+  const { push, helper, newline, scopeId } = context
+  // generate import statements for helpers
+  if (genScopeId) {
+    ast.helpers.push(WITH_SCOPE_ID)
+    if (ast.hoists.length) {
+      ast.helpers.push(PUSH_SCOPE_ID, POP_SCOPE_ID)
+    }
+  }
+  if (ast.helpers.length) {
+    push(`import { ${ast.helpers.map(helper).join(', ')} } from "vue"\n`)
+  }
+  if (!__BROWSER__ && ast.ssrHelpers && ast.ssrHelpers.length) {
+    push(
+      `import { ${ast.ssrHelpers
+        .map(helper)
+        .join(', ')} } from "@vue/server-renderer"\n`
+    )
+  }
+  if (ast.imports.length) {
+    genImports(ast.imports, context)
+    newline()
+  }
+  if (genScopeId) {
+    push(`const withId = ${helper(WITH_SCOPE_ID)}("${scopeId}")`)
+    newline()
+  }
+  genHoists(ast.hoists, context)
+  newline()
+  push(`export `)
+}
+
 function genAssets(
   assets: string[],
   type: 'component' | 'directive',
@@ -405,7 +439,8 @@ function genNodeListAsArray(
 function genNodeList(
   nodes: (string | symbol | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext,
-  multilines: boolean = false
+  multilines: boolean = false,
+  comma: boolean = true
 ) {
   const { push, newline } = context
   for (let i = 0; i < nodes.length; i++) {
@@ -419,10 +454,10 @@ function genNodeList(
     }
     if (i < nodes.length - 1) {
       if (multilines) {
-        push(',')
+        comma && push(',')
         newline()
       } else {
-        push(', ')
+        comma && push(', ')
       }
     }
   }
@@ -492,13 +527,16 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
 
     // SSR only types
     case NodeTypes.JS_BLOCK_STATEMENT:
-      !__BROWSER__ && genNodeList(node.body, context, true)
+      !__BROWSER__ && genNodeList(node.body, context, true, false)
       break
     case NodeTypes.JS_TEMPLATE_LITERAL:
       !__BROWSER__ && genTemplateLiteral(node, context)
       break
     case NodeTypes.JS_IF_STATEMENT:
       !__BROWSER__ && genIfStatement(node, context)
+      break
+    case NodeTypes.JS_ASSIGNMENT_EXPRESSION:
+      !__BROWSER__ && genAssignmentExpression(node, context)
       break
 
     /* istanbul ignore next */
@@ -674,7 +712,7 @@ function genConditionalExpression(
   node: ConditionalExpression,
   context: CodegenContext
 ) {
-  const { test, consequent, alternate } = node
+  const { test, consequent, alternate, newline: needNewline } = node
   const { push, indent, deindent, newline } = context
   if (test.type === NodeTypes.SIMPLE_EXPRESSION) {
     const needsParens = !isSimpleIdentifier(test.content)
@@ -683,15 +721,17 @@ function genConditionalExpression(
     needsParens && push(`)`)
   } else {
     push(`(`)
-    genCompoundExpression(test, context)
+    genNode(test, context)
     push(`)`)
   }
-  indent()
+  needNewline && indent()
   context.indentLevel++
+  needNewline || push(` `)
   push(`? `)
   genNode(consequent, context)
   context.indentLevel--
-  newline()
+  needNewline && newline()
+  needNewline || push(` `)
   push(`: `)
   const isNested = alternate.type === NodeTypes.JS_CONDITIONAL_EXPRESSION
   if (!isNested) {
@@ -701,7 +741,7 @@ function genConditionalExpression(
   if (!isNested) {
     context.indentLevel--
   }
-  deindent(true /* without newline */)
+  needNewline && deindent(true /* without newline */)
 }
 
 // ! 生成顺序表达式
@@ -737,15 +777,19 @@ function genCacheExpression(node: CacheExpression, context: CodegenContext) {
 }
 
 function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
-  const { push } = context
+  const { push, indent, deindent } = context
   push('`')
-  for (let i = 0; i < node.elements.length; i++) {
+  const l = node.elements.length
+  const multilines = l > 3
+  for (let i = 0; i < l; i++) {
     const e = node.elements[i]
     if (isString(e)) {
       push(e.replace(/`/g, '\\`'))
     } else {
       push('${')
+      if (multilines) indent()
       genNode(e, context)
+      if (multilines) deindent()
       push('}')
     }
   }
@@ -774,4 +818,13 @@ function genIfStatement(node: IfStatement, context: CodegenContext) {
       push(`}`)
     }
   }
+}
+
+function genAssignmentExpression(
+  node: AssignmentExpression,
+  context: CodegenContext
+) {
+  genNode(node.left, context)
+  context.push(` = `)
+  genNode(node.right, context)
 }

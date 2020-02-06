@@ -52,7 +52,8 @@ export const enum NodeTypes {
   // ssr codegen
   JS_BLOCK_STATEMENT,
   JS_TEMPLATE_LITERAL,
-  JS_IF_STATEMENT
+  JS_IF_STATEMENT,
+  JS_ASSIGNMENT_EXPRESSION
 }
 
 // ! 元素类型
@@ -112,7 +113,9 @@ export interface RootNode extends Node {
   hoists: JSChildNode[]
   imports: ImportItem[]
   cached: number
-  codegenNode: TemplateChildNode | JSChildNode | BlockStatement | undefined
+  temps: number
+  ssrHelpers?: symbol[]
+  codegenNode?: TemplateChildNode | JSChildNode | BlockStatement | undefined
 }
 
 // ! 元素节点
@@ -224,6 +227,7 @@ export interface CompoundExpressionNode extends Node {
   type: NodeTypes.COMPOUND_EXPRESSION
   children: (
     | SimpleExpressionNode
+    | CompoundExpressionNode
     | InterpolationNode
     | TextNode
     | string
@@ -237,7 +241,7 @@ export interface CompoundExpressionNode extends Node {
 export interface IfNode extends Node {
   type: NodeTypes.IF
   branches: IfBranchNode[]
-  codegenNode: IfCodegenNode
+  codegenNode?: IfCodegenNode
 }
 
 // ! 添加分支节点
@@ -254,8 +258,9 @@ export interface ForNode extends Node {
   valueAlias: ExpressionNode | undefined
   keyAlias: ExpressionNode | undefined
   objectIndexAlias: ExpressionNode | undefined
+  parseResult: ForParseResult
   children: TemplateChildNode[]
-  codegenNode: ForCodegenNode
+  codegenNode?: ForCodegenNode
 }
 
 // !
@@ -279,6 +284,7 @@ export type JSChildNode =
   | ConditionalExpression
   | SequenceExpression
   | CacheExpression
+  | AssignmentExpression
 
 // ! call 表达式
 export interface CallExpression extends Node {
@@ -332,9 +338,10 @@ export interface SequenceExpression extends Node {
 // ! 条件表达式
 export interface ConditionalExpression extends Node {
   type: NodeTypes.JS_CONDITIONAL_EXPRESSION
-  test: ExpressionNode
+  test: JSChildNode
   consequent: JSChildNode
   alternate: JSChildNode
+  newline: boolean
 }
 
 // ! 缓存表达式
@@ -364,6 +371,12 @@ export interface IfStatement extends Node {
   test: ExpressionNode
   consequent: BlockStatement
   alternate: IfStatement | BlockStatement | undefined
+}
+
+export interface AssignmentExpression extends Node {
+  type: NodeTypes.JS_ASSIGNMENT_EXPRESSION
+  left: SimpleExpressionNode
+  right: JSChildNode
 }
 
 // Codegen Node Types ----------------------------------------------------------
@@ -664,7 +677,7 @@ export function createCallExpression<T extends CallExpression['callee']>(
 
 export function createFunctionExpression(
   params: FunctionExpression['params'],
-  returns: FunctionExpression['returns'],
+  returns: FunctionExpression['returns'] = undefined,
   newline: boolean = false,
   isSlot: boolean = false,
   loc: SourceLocation = locStub
@@ -692,13 +705,15 @@ export function createSequenceExpression(
 export function createConditionalExpression(
   test: ConditionalExpression['test'],
   consequent: ConditionalExpression['consequent'],
-  alternate: ConditionalExpression['alternate']
+  alternate: ConditionalExpression['alternate'],
+  newline = true
 ): ConditionalExpression {
   return {
     type: NodeTypes.JS_CONDITIONAL_EXPRESSION,
     test,
     consequent,
     alternate,
+    newline,
     loc: locStub
   }
 }
@@ -747,6 +762,18 @@ export function createIfStatement(
     test,
     consequent,
     alternate,
+    loc: locStub
+  }
+}
+
+export function createAssignmentExpression(
+  left: AssignmentExpression['left'],
+  right: AssignmentExpression['right']
+): AssignmentExpression {
+  return {
+    type: NodeTypes.JS_ASSIGNMENT_EXPRESSION,
+    left,
+    right,
     loc: locStub
   }
 }

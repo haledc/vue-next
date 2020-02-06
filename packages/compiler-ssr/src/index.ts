@@ -7,35 +7,40 @@ import {
   CompilerOptions,
   transformExpression,
   trackVForSlotScopes,
-  trackSlotScopes
+  trackSlotScopes,
+  noopDirectiveTransform,
+  transformBind,
+  transformStyle
 } from '@vue/compiler-dom'
 import { ssrCodegenTransform } from './ssrCodegenTransform'
-import { ssrTransformIf } from './transforms/ssrVIf'
-import { ssrTransformFor } from './transforms/ssrVFor'
 import { ssrTransformElement } from './transforms/ssrTransformElement'
 import { ssrTransformComponent } from './transforms/ssrTransformComponent'
 import { ssrTransformSlotOutlet } from './transforms/ssrTransformSlotOutlet'
-
-export interface SSRCompilerOptions extends CompilerOptions {}
+import { ssrTransformIf } from './transforms/ssrVIf'
+import { ssrTransformFor } from './transforms/ssrVFor'
+import { ssrTransformModel } from './transforms/ssrVModel'
+import { ssrTransformShow } from './transforms/ssrVShow'
 
 export function compile(
   template: string,
-  options: SSRCompilerOptions = {}
+  options: CompilerOptions = {}
 ): CodegenResult {
-  // apply DOM-specific parsing options
   options = {
+    ...options,
+    // apply DOM-specific parsing options
     ...parserOptions,
-    ...options
+    ssr: true,
+    // always prefix since compiler-ssr doesn't have size concern
+    prefixIdentifiers: true,
+    // disalbe optimizations that are unnecessary for ssr
+    cacheHandlers: false,
+    hoistStatic: false
   }
 
   const ast = baseParse(template, options)
 
   transform(ast, {
     ...options,
-    prefixIdentifiers: true,
-    // disalbe optimizations that are unnecessary for ssr
-    cacheHandlers: false,
-    hoistStatic: false,
     nodeTransforms: [
       ssrTransformIf,
       ssrTransformFor,
@@ -45,10 +50,19 @@ export function compile(
       ssrTransformElement,
       ssrTransformComponent,
       trackSlotScopes,
+      transformStyle,
       ...(options.nodeTransforms || []) // user transforms
     ],
     directiveTransforms: {
-      // TODO server-side directive transforms
+      // reusing core v-bind
+      bind: transformBind,
+      // model and show has dedicated SSR handling
+      model: ssrTransformModel,
+      show: ssrTransformShow,
+      // the following are ignored during SSR
+      on: noopDirectiveTransform,
+      cloak: noopDirectiveTransform,
+      once: noopDirectiveTransform,
       ...(options.directiveTransforms || {}) // user transforms
     }
   })
@@ -57,10 +71,5 @@ export function compile(
   // by replacing ast.codegenNode.
   ssrCodegenTransform(ast, options)
 
-  return generate(ast, {
-    mode: 'cjs',
-    ...options,
-    ssr: true,
-    prefixIdentifiers: true
-  })
+  return generate(ast, options)
 }

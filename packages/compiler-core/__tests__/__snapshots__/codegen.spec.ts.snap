@@ -99,7 +99,7 @@ exports[`compiler: codegen compound expression 1`] = `
 "
 return function render() {
   with (this) {
-    return _ctx.foo + _toDisplayString(bar)
+    return _ctx.foo + _toDisplayString(bar) + nested
   }
 }"
 `;
@@ -186,6 +186,17 @@ exports[`compiler: codegen static text 1`] = `
 return function render() {
   with (this) {
     return \\"hello\\"
+  }
+}"
+`;
+
+exports[`compiler: codegen temps 1`] = `
+"
+return function render() {
+  with (this) {
+    let _temp0, _temp1, _temp2
+
+    return null
   }
 }"
 `;
