@@ -82,7 +82,7 @@ export function stop(effect: ReactiveEffect) {
   }
 }
 
-// ! 生成 effect 的方法
+// ! 生成 effect 的方法 -> 包装 fn 函数，并赋予其属性
 function createReactiveEffect<T = any>(
   fn: () => T,
   options: ReactiveEffectOptions
@@ -159,8 +159,8 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
     depsMap.set(key, (dep = new Set()))
   }
   if (!dep.has(activeEffect)) {
-    dep.add(activeEffect) // ! dep 添加 effect
-    activeEffect.deps.push(dep) // ! effect 的 deps 也添加 dep（循环引用）
+    dep.add(activeEffect) // ! dep 添加 activeEffect
+    activeEffect.deps.push(dep) // ! activeEffect 的 deps 也添加 dep（循环引用）
     if (__DEV__ && activeEffect.options.onTrack) {
       activeEffect.options.onTrack({
         effect: activeEffect,

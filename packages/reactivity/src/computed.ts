@@ -6,7 +6,6 @@ export interface ComputedRef<T = any> extends WritableComputedRef<T> {
   readonly value: UnwrapRef<T>
 }
 
-// ! 设置了 setter
 export interface WritableComputedRef<T> extends Ref<T> {
   readonly effect: ReactiveEffect<T>
 }
