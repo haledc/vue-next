@@ -49,6 +49,8 @@ export interface TransformOptions {
   //   analysis to determine if a handler is safe to cache.
   // - Default: false
   cacheHandlers?: boolean
+  // SFC scoped styles ID
+  scopeId?: string | null
   ssr?: boolean
   onError?: (error: CompilerError) => void
 }
@@ -71,6 +73,12 @@ export interface CodegenOptions {
   scopeId?: string | null
   // we need to know about this to generate proper preambles
   prefixIdentifiers?: boolean
+  // option to optimize helper import bindings via variable assignment
+  // (only used for webpack code-split)
+  optimizeBindings?: boolean
+  // for specifying where to import helpers
+  runtimeModuleName?: string
+  runtimeGlobalName?: string
   // generate ssr-specific code?
   ssr?: boolean
 }

@@ -21,7 +21,8 @@ import {
   SourceLocation,
   TextNode,
   TemplateChildNode,
-  InterpolationNode
+  InterpolationNode,
+  createRoot
 } from './ast'
 import { extend } from '@vue/shared'
 
@@ -74,22 +75,12 @@ export function baseParse(
   content: string,
   options: ParserOptions = {}
 ): RootNode {
-  const context = createParserContext(content, options) // ! 生成解析上下文
-  const start = getCursor(context) // ! 开始位置
-
-  return {
-    type: NodeTypes.ROOT,
-    children: parseChildren(context, TextModes.DATA, []), // ! 解析的字符串全部放到 children 中去
-    helpers: [],
-    components: [],
-    directives: [],
-    hoists: [],
-    imports: [],
-    cached: 0,
-    temps: 0,
-    codegenNode: undefined,
-    loc: getSelection(context, start)
-  }
+  const context = createParserContext(content, options)
+  const start = getCursor(context)
+  return createRoot(
+    parseChildren(context, TextModes.DATA, []),
+    getSelection(context, start)
+  )
 }
 
 // ! 生成上下文的方法
@@ -480,7 +471,8 @@ function parseTag(
     } else if (
       isCoreComponent(tag) ||
       (options.isBuiltInComponent && options.isBuiltInComponent(tag)) ||
-      /^[A-Z]/.test(tag)
+      /^[A-Z]/.test(tag) ||
+      tag === 'component'
     ) {
       tagType = ElementTypes.COMPONENT
     }

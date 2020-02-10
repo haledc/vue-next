@@ -1,4 +1,5 @@
-import { effect, ReactiveEffect, activeEffect } from './effect'
+import { effect, ReactiveEffect, trigger, track } from './effect'
+import { TriggerOpTypes, TrackOpTypes } from './operations'
 import { Ref, UnwrapRef } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
 
@@ -43,6 +44,7 @@ export function computed<T>(
 
   let dirty = true // ! 初始值为 true
   let value: T
+  let computed: ComputedRef<T>
 
   // ! 生成 effect -> 包装 getter
   const runner = effect(getter, {
@@ -50,12 +52,13 @@ export function computed<T>(
     // mark effect as computed so that it gets priority during trigger
     computed: true,
     scheduler: () => {
-      dirty = true // ! T 值发生变化，触发依赖，执行 scheduler 函数，重置为 true
+      if (!dirty) {
+        dirty = true // ! T 值发生变化，触发依赖，执行 scheduler 函数，重置为 true
+        trigger(computed, TriggerOpTypes.SET, 'value')
+      }
     }
   })
-
-  // ! 返回一个 Ref 类型的值
-  return {
+  computed = {
     _isRef: true,
     // expose effect so computed can be stopped
     effect: runner,
@@ -64,29 +67,12 @@ export function computed<T>(
         value = runner() // ! 调用 effect 获取 value 的新值
         dirty = false // ! 设置为 false，后面沿用 value 值，直到所依赖的值发生变化
       }
-      // When computed effects are accessed in a parent effect, the parent
-      // should track all the dependencies the computed property has tracked.
-      // This should also apply for chained computed properties.
-      trackChildRun(runner) // ! track 子级，用于在 effect 中又引用了计算属性
+      track(computed, TrackOpTypes.GET, 'value')
       return value
     },
     set value(newValue: T) {
       setter(newValue) // ! 执行 setter
     }
   } as any
-}
-
-// ! 追踪子级
-function trackChildRun(childRunner: ReactiveEffect) {
-  if (activeEffect === undefined) {
-    return
-  }
-  // ! 遍历子级，即本 effect
-  for (let i = 0; i < childRunner.deps.length; i++) {
-    const dep = childRunner.deps[i]
-    if (!dep.has(activeEffect)) {
-      dep.add(activeEffect)
-      activeEffect.deps.push(dep)
-    }
-  }
+  return computed
 }

@@ -85,8 +85,8 @@ export interface TransformContext extends Required<TransformOptions> {
   components: Set<string>
   directives: Set<string>
   hoists: JSChildNode[]
-  temps: number
   imports: Set<ImportItem>
+  temps: number
   cached: number
   identifiers: { [name: string]: number | undefined }
   scopes: {
@@ -109,7 +109,7 @@ export interface TransformContext extends Required<TransformOptions> {
   cache<T extends JSChildNode>(exp: T, isVNode?: boolean): CacheExpression | T
 }
 
-function createTransformContext(
+export function createTransformContext(
   root: RootNode,
   {
     prefixIdentifiers = false,
@@ -118,6 +118,7 @@ function createTransformContext(
     nodeTransforms = [],
     directiveTransforms = {},
     isBuiltInComponent = NOOP,
+    scopeId = null,
     ssr = false,
     onError = defaultOnError
   }: TransformOptions
@@ -130,6 +131,7 @@ function createTransformContext(
     nodeTransforms,
     directiveTransforms,
     isBuiltInComponent,
+    scopeId,
     ssr,
     onError,
 
@@ -139,8 +141,8 @@ function createTransformContext(
     components: new Set(),
     directives: new Set(),
     hoists: [],
-    temps: 0,
     imports: new Set(),
+    temps: 0,
     cached: 0,
     identifiers: {},
     scopes: {

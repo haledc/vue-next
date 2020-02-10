@@ -14,7 +14,10 @@ import {
 } from '@vue/compiler-dom'
 import { ssrCodegenTransform } from './ssrCodegenTransform'
 import { ssrTransformElement } from './transforms/ssrTransformElement'
-import { ssrTransformComponent } from './transforms/ssrTransformComponent'
+import {
+  ssrTransformComponent,
+  rawOptionsMap
+} from './transforms/ssrTransformComponent'
 import { ssrTransformSlotOutlet } from './transforms/ssrTransformSlotOutlet'
 import { ssrTransformIf } from './transforms/ssrVIf'
 import { ssrTransformFor } from './transforms/ssrVFor'
@@ -30,6 +33,7 @@ export function compile(
     // apply DOM-specific parsing options
     ...parserOptions,
     ssr: true,
+    scopeId: options.mode === 'function' ? null : options.scopeId,
     // always prefix since compiler-ssr doesn't have size concern
     prefixIdentifiers: true,
     // disalbe optimizations that are unnecessary for ssr
@@ -38,6 +42,10 @@ export function compile(
   }
 
   const ast = baseParse(template, options)
+
+  // Save raw options for AST. This is needed when performing sub-transforms
+  // on slot vnode branches.
+  rawOptionsMap.set(ast, options)
 
   transform(ast, {
     ...options,

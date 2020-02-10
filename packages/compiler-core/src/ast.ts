@@ -53,7 +53,8 @@ export const enum NodeTypes {
   JS_BLOCK_STATEMENT,
   JS_TEMPLATE_LITERAL,
   JS_IF_STATEMENT,
-  JS_ASSIGNMENT_EXPRESSION
+  JS_ASSIGNMENT_EXPRESSION,
+  JS_RETURN_STATEMENT
 }
 
 // ! 元素类型
@@ -161,12 +162,14 @@ export interface ComponentNode extends BaseElementNode {
     | ComponentCodegenNode
     | CacheExpression // when cached by v-once
     | undefined
+  ssrCodegenNode?: CallExpression
 }
 
 // ! 插槽节点
 export interface SlotOutletNode extends BaseElementNode {
   tagType: ElementTypes.SLOT
   codegenNode: SlotOutletCodegenNode | undefined | CacheExpression // when cached by v-once
+  ssrCodegenNode?: CallExpression
 }
 
 // ! 模板节点
@@ -321,9 +324,9 @@ export interface ArrayExpression extends Node {
 // ! 函数表达式
 export interface FunctionExpression extends Node {
   type: NodeTypes.JS_FUNCTION_EXPRESSION
-  params: ExpressionNode | ExpressionNode[] | undefined
+  params: ExpressionNode | string | (ExpressionNode | string)[] | undefined
   returns?: TemplateChildNode | TemplateChildNode[] | JSChildNode
-  body?: BlockStatement
+  body?: BlockStatement | IfStatement
   newline: boolean
   // so that codegen knows it needs to generate ScopeId wrapper
   isSlot: boolean
@@ -354,7 +357,12 @@ export interface CacheExpression extends Node {
 
 // SSR-specific Node Types -----------------------------------------------------
 
-export type SSRCodegenNode = BlockStatement | TemplateLiteral | IfStatement
+export type SSRCodegenNode =
+  | BlockStatement
+  | TemplateLiteral
+  | IfStatement
+  | AssignmentExpression
+  | ReturnStatement
 
 export interface BlockStatement extends Node {
   type: NodeTypes.JS_BLOCK_STATEMENT
@@ -370,13 +378,18 @@ export interface IfStatement extends Node {
   type: NodeTypes.JS_IF_STATEMENT
   test: ExpressionNode
   consequent: BlockStatement
-  alternate: IfStatement | BlockStatement | undefined
+  alternate: IfStatement | BlockStatement | ReturnStatement | undefined
 }
 
 export interface AssignmentExpression extends Node {
   type: NodeTypes.JS_ASSIGNMENT_EXPRESSION
   left: SimpleExpressionNode
   right: JSChildNode
+}
+
+export interface ReturnStatement extends Node {
+  type: NodeTypes.JS_RETURN_STATEMENT
+  returns: TemplateChildNode | TemplateChildNode[] | JSChildNode
 }
 
 // Codegen Node Types ----------------------------------------------------------
@@ -579,6 +592,25 @@ export const locStub: SourceLocation = {
   end: { line: 1, column: 1, offset: 0 }
 }
 
+export function createRoot(
+  children: TemplateChildNode[],
+  loc = locStub
+): RootNode {
+  return {
+    type: NodeTypes.ROOT,
+    children,
+    helpers: [],
+    components: [],
+    directives: [],
+    hoists: [],
+    imports: [],
+    cached: 0,
+    temps: 0,
+    codegenNode: undefined,
+    loc
+  }
+}
+
 export function createArrayExpression(
   elements: ArrayExpression['elements'],
   loc: SourceLocation = locStub
@@ -774,6 +806,16 @@ export function createAssignmentExpression(
     type: NodeTypes.JS_ASSIGNMENT_EXPRESSION,
     left,
     right,
+    loc: locStub
+  }
+}
+
+export function createReturnStatement(
+  returns: ReturnStatement['returns']
+): ReturnStatement {
+  return {
+    type: NodeTypes.JS_RETURN_STATEMENT,
+    returns,
     loc: locStub
   }
 }
