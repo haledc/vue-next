@@ -159,6 +159,7 @@ export interface ComponentInternalInstance {
 
 const emptyAppContext = createAppContext()
 
+// ! 创建组件实例 -> 实例对象
 export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null
@@ -275,6 +276,7 @@ export function validateComponentName(name: string, config: AppConfig) {
 
 export let isInSSRComponentSetup = false
 
+// ! 启动组件 -> 运行 setup 函数
 export function setupComponent(
   instance: ComponentInternalInstance,
   parentSuspense: SuspenseBoundary | null,
@@ -454,6 +456,7 @@ function finishComponentSetup(
     // proxy used needs a different `has` handler which is more performant and
     // also only allows a whitelist of globals to fallthrough.
     if (__RUNTIME_COMPILE__ && instance.render.isRuntimeCompiled) {
+      // ! 代理实例
       instance.withProxy = new Proxy(
         instance,
         runtimeCompiledRenderProxyHandlers

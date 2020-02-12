@@ -201,6 +201,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   }
 }
 
+// ! 实例代理处理器
 export const runtimeCompiledRenderProxyHandlers = {
   ...PublicInstanceProxyHandlers,
   has(_target: ComponentInternalInstance, key: string) {

@@ -7,7 +7,7 @@ export interface InjectionKey<T> extends Symbol {}
 export function provide<T>(key: InjectionKey<T> | string, value: T) {
   if (!currentInstance) {
     if (__DEV__) {
-      warn(`provide() can only be used inside setup().`) // ! 只能在 setup 中使用
+      warn(`provide() can only be used inside setup().`)
     }
   } else {
     let provides = currentInstance.provides
@@ -16,7 +16,6 @@ export function provide<T>(key: InjectionKey<T> | string, value: T) {
     // own provides object using parent provides object as prototype.
     // this way in `inject` we can simply look up injections from direct
     // parent and let the prototype chain do the work.
-    // ! 获取父级的 provides
     const parentProvides =
       currentInstance.parent && currentInstance.parent.provides
     if (parentProvides === provides) {
@@ -38,18 +37,15 @@ export function inject(
   const instance = currentInstance || currentRenderingInstance
   if (instance) {
     const provides = instance.provides
-    // ! 从自身 provides 属性中获取值
     if (key in provides) {
       // TS doesn't allow symbol as index type
       return provides[key as string]
-      // ! 获取不到使用默认值
     } else if (defaultValue !== undefined) {
       return defaultValue
     } else if (__DEV__) {
       warn(`injection "${String(key)}" not found.`)
     }
   } else if (__DEV__) {
-    // ! 只能在 setup 或者函数组件中使用
     warn(`inject() can only be used inside setup() or functional components.`)
   }
 }

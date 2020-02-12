@@ -114,7 +114,6 @@ function doWatch(
 
   // ! 提取 getter
   let getter: () => any
-  // ! 监听数组类型的 source, 返回数组类型的值
   if (isArray(source)) {
     getter = () =>
       source.map(
@@ -161,6 +160,8 @@ function doWatch(
   }
 
   let oldValue = isArray(source) ? [] : INITIAL_WATCHER_VALUE
+
+  // ! 设置回调函数
   const applyCb = cb
     ? () => {
         if (instance && instance.isUnmounted) {
@@ -183,6 +184,7 @@ function doWatch(
       }
     : void 0
 
+  // ! 设置调度器
   let scheduler: (job: () => any) => void
 
   if (flush === 'sync') {
@@ -203,7 +205,7 @@ function doWatch(
     }
   }
 
-  // ! 执行器 -> effect
+  // ! 生成 effect
   const runner = effect(getter, {
     lazy: true,
     // so it runs before component update effects in pre flush mode
@@ -231,7 +233,7 @@ function doWatch(
 
   recordEffect(runner)
 
-  // ! 返回一个执行后会停止观察的函数
+  // ! 返回一个停止观察函数
   return () => {
     stop(runner)
     if (instance) {

@@ -191,6 +191,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // ! 挂载根组件
       mount(rootContainer: HostElement): any {
         if (!isMounted) {
           const vnode = createVNode(rootComponent, rootProps)

@@ -53,7 +53,7 @@ export function computed<T>(
     computed: true,
     scheduler: () => {
       if (!dirty) {
-        dirty = true // ! T 值发生变化，触发依赖，执行 scheduler 函数，重置为 true
+        dirty = true // ! 当 T 值发生变化，触发依赖 -> 执行 scheduler 函数，重置为 true
         trigger(computed, TriggerOpTypes.SET, 'value')
       }
     }
