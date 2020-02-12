@@ -1,10 +1,9 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`compiler: transform v-model compound expression (with prefixIdentifiers) 1`] = `
-"import { createVNode as _createVNode, createBlock as _createBlock, openBlock as _openBlock } from \\"vue\\"
+"import { createVNode as _createVNode, openBlock as _openBlock, createBlock as _createBlock } from \\"vue\\"
 
-export function render() {
-  const _ctx = this
+export function render(_ctx, _cache) {
   return (_openBlock(), _createBlock(\\"input\\", {
     modelValue: _ctx.model[_ctx.index],
     \\"onUpdate:modelValue\\": $event => (_ctx.model[_ctx.index] = $event)
@@ -15,10 +14,10 @@ export function render() {
 exports[`compiler: transform v-model compound expression 1`] = `
 "const _Vue = Vue
 
-return function render() {
+return function render(_ctx, _cache) {
   with (this) {
-    const { createVNode: _createVNode, createBlock: _createBlock, openBlock: _openBlock } = _Vue
-    
+    const { createVNode: _createVNode, openBlock: _openBlock, createBlock: _createBlock } = _Vue
+
     return (_openBlock(), _createBlock(\\"input\\", {
       modelValue: model[index],
       \\"onUpdate:modelValue\\": $event => (model[index] = $event)
@@ -28,10 +27,9 @@ return function render() {
 `;
 
 exports[`compiler: transform v-model simple exprssion (with prefixIdentifiers) 1`] = `
-"import { createVNode as _createVNode, createBlock as _createBlock, openBlock as _openBlock } from \\"vue\\"
+"import { createVNode as _createVNode, openBlock as _openBlock, createBlock as _createBlock } from \\"vue\\"
 
-export function render() {
-  const _ctx = this
+export function render(_ctx, _cache) {
   return (_openBlock(), _createBlock(\\"input\\", {
     modelValue: _ctx.model,
     \\"onUpdate:modelValue\\": $event => (_ctx.model = $event)
@@ -42,10 +40,10 @@ export function render() {
 exports[`compiler: transform v-model simple exprssion 1`] = `
 "const _Vue = Vue
 
-return function render() {
+return function render(_ctx, _cache) {
   with (this) {
-    const { createVNode: _createVNode, createBlock: _createBlock, openBlock: _openBlock } = _Vue
-    
+    const { createVNode: _createVNode, openBlock: _openBlock, createBlock: _createBlock } = _Vue
+
     return (_openBlock(), _createBlock(\\"input\\", {
       modelValue: model,
       \\"onUpdate:modelValue\\": $event => (model = $event)
@@ -57,10 +55,10 @@ return function render() {
 exports[`compiler: transform v-model with argument 1`] = `
 "const _Vue = Vue
 
-return function render() {
+return function render(_ctx, _cache) {
   with (this) {
-    const { createVNode: _createVNode, createBlock: _createBlock, openBlock: _openBlock } = _Vue
-    
+    const { createVNode: _createVNode, openBlock: _openBlock, createBlock: _createBlock } = _Vue
+
     return (_openBlock(), _createBlock(\\"input\\", {
       value: model,
       \\"onUpdate:value\\": $event => (model = $event)
@@ -70,10 +68,9 @@ return function render() {
 `;
 
 exports[`compiler: transform v-model with dynamic argument (with prefixIdentifiers) 1`] = `
-"import { createVNode as _createVNode, createBlock as _createBlock, openBlock as _openBlock } from \\"vue\\"
+"import { createVNode as _createVNode, openBlock as _openBlock, createBlock as _createBlock } from \\"vue\\"
 
-export function render() {
-  const _ctx = this
+export function render(_ctx, _cache) {
   return (_openBlock(), _createBlock(\\"input\\", {
     [_ctx.value]: _ctx.model,
     [\\"onUpdate:\\" + _ctx.value]: $event => (_ctx.model = $event)
@@ -84,10 +81,10 @@ export function render() {
 exports[`compiler: transform v-model with dynamic argument 1`] = `
 "const _Vue = Vue
 
-return function render() {
+return function render(_ctx, _cache) {
   with (this) {
-    const { createVNode: _createVNode, createBlock: _createBlock, openBlock: _openBlock } = _Vue
-    
+    const { createVNode: _createVNode, openBlock: _openBlock, createBlock: _createBlock } = _Vue
+
     return (_openBlock(), _createBlock(\\"input\\", {
       [value]: model,
       [\\"onUpdate:\\" + value]: $event => (model = $event)

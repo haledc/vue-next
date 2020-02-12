@@ -1,7 +1,7 @@
 import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { isArray } from '@vue/shared'
 
-const queue: Function[] = [] // ! job 队列
+const queue: (Function | null)[] = [] // ! job 队列
 const postFlushCbs: Function[] = [] // ! cb 队列
 const p = Promise.resolve()
 
@@ -24,6 +24,12 @@ export function queueJob(job: () => void) {
   }
 }
 
+export function invalidateJob(job: () => void) {
+  const i = queue.indexOf(job)
+  if (i > -1) {
+    queue[i] = null
+  }
+}
 // ! cb 队列化
 export function queuePostFlushCb(cb: Function | Function[]) {
   if (!isArray(cb)) {
@@ -69,7 +75,10 @@ function flushJobs(seen?: CountMap) {
   if (__DEV__) {
     seen = seen || new Map()
   }
-  while ((job = queue.shift())) {
+  while ((job = queue.shift()) !== undefined) {
+    if (job === null) {
+      continue
+    }
     if (__DEV__) {
       checkRecursiveUpdates(seen!, job)
     }

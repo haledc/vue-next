@@ -47,7 +47,9 @@ export function renderComponentRoot(
     props,
     slots,
     attrs,
-    emit
+    vnodeHooks,
+    emit,
+    renderCache
   } = instance
 
   let result
@@ -57,7 +59,9 @@ export function renderComponentRoot(
   }
   try {
     if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-      result = normalizeVNode(instance.render!.call(withProxy || proxy))
+      result = normalizeVNode(
+        instance.render!.call(withProxy || proxy, proxy, renderCache)
+      )
     } else {
       // functional
       const render = Component as FunctionalComponent
@@ -93,14 +97,23 @@ export function renderComponentRoot(
       }
     }
 
+    // inherit vnode hooks
+    if (vnodeHooks !== EMPTY_OBJ) {
+      result = cloneVNode(result, vnodeHooks)
+    }
+    // inherit directives
+    if (vnode.dirs != null) {
+      if (__DEV__ && !isElementRoot(result)) {
+        warn(
+          `Runtime directive used on component with non-element root node. ` +
+            `The directives will not function as intended.`
+        )
+      }
+      result.dirs = vnode.dirs
+    }
     // inherit transition data
     if (vnode.transition != null) {
-      if (
-        __DEV__ &&
-        !(result.shapeFlag & ShapeFlags.COMPONENT) &&
-        !(result.shapeFlag & ShapeFlags.ELEMENT) &&
-        result.type !== Comment
-      ) {
+      if (__DEV__ && !isElementRoot(result)) {
         warn(
           `Component inside <Transition> renders non-element root node ` +
             `that cannot be animated.`
@@ -114,6 +127,14 @@ export function renderComponentRoot(
   }
   currentRenderingInstance = null
   return result
+}
+
+function isElementRoot(vnode: VNode) {
+  return (
+    vnode.shapeFlag & ShapeFlags.COMPONENT ||
+    vnode.shapeFlag & ShapeFlags.ELEMENT ||
+    vnode.type === Comment // potential v-if branch switch
+  )
 }
 
 // ! 判断是否更新组件
@@ -136,6 +157,11 @@ export function shouldUpdateComponent(
     parentComponent &&
     parentComponent.renderUpdated
   ) {
+    return true
+  }
+
+  // force child update on runtime directive usage on component vnode.
+  if (nextVNode.dirs != null) {
     return true
   }
 
@@ -176,6 +202,7 @@ export function shouldUpdateComponent(
     }
     return hasPropsChanged(prevProps, nextProps)
   }
+
   return false
 }
 
