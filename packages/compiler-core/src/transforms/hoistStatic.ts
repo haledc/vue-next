@@ -52,7 +52,11 @@ function walk(
     ) {
       if (!doNotHoistNode && isStaticNode(child, resultCache)) {
         // whole tree is static
-        child.codegenNode = context.hoist(child.codegenNode!)
+        ;(child.codegenNode as VNodeCall).patchFlag = PatchFlags.HOISTED + ``
+        const hoisted = context.transformHoist
+          ? context.transformHoist(child, context)
+          : child.codegenNode!
+        child.codegenNode = context.hoist(hoisted)
         continue
       } else {
         // node may contain dynamic children, but its props may be eligible for

@@ -39,6 +39,7 @@ export const Portal = (Symbol(__DEV__ ? 'Portal' : undefined) as any) as {
 }
 export const Text = Symbol(__DEV__ ? 'Text' : undefined)
 export const Comment = Symbol(__DEV__ ? 'Comment' : undefined)
+export const Static = Symbol(__DEV__ ? 'Static' : undefined)
 
 // ! VNode 类型
 export type VNodeTypes =
@@ -47,6 +48,7 @@ export type VNodeTypes =
   | typeof Fragment
   | typeof Portal
   | typeof Text
+  | typeof Static
   | typeof Comment
   | typeof SuspenseImpl
 
@@ -339,7 +341,10 @@ export function createTextVNode(text: string = ' ', flag: number = 0): VNode {
   return createVNode(Text, null, text, flag)
 }
 
-// ! 创建注释 VNode
+export function createStaticVNode(content: string): VNode {
+  return createVNode(Static, null, content)
+}
+
 export function createCommentVNode(
   text: string = '',
   // when used as the v-else branch, the comment node must be created as a
