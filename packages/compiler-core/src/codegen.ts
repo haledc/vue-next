@@ -213,7 +213,7 @@ export function generate(
   indent()
 
   if (useWithBlock) {
-    push(`with (this) {`)
+    push(`with (_ctx) {`)
     indent()
     // function mode const declarations should be inside with block
     // also they should be renamed to avoid collision with user properties
@@ -604,6 +604,9 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
       break
 
     /* istanbul ignore next */
+    case NodeTypes.IF_BRANCH:
+      // noop
+      break
     default:
       if (__DEV__) {
         assert(false, `unhandled codegen node type: ${(node as any).type}`)

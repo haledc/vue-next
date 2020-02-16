@@ -26,7 +26,8 @@ import {
   makeMap,
   isPromise,
   isArray,
-  hyphenate
+  hyphenate,
+  ShapeFlags
 } from '@vue/shared'
 import { SuspenseBoundary } from './components/Suspense'
 import { CompilerOptions } from '@vue/compiler-core'
@@ -34,7 +35,6 @@ import {
   currentRenderingInstance,
   markAttrsAccessed
 } from './componentRenderUtils'
-import { ShapeFlags } from './shapeFlags'
 
 export type Data = { [key: string]: unknown }
 
@@ -54,6 +54,13 @@ export interface FunctionalComponent<P = {}> extends SFCInternalOptions {
 
 // ! 组件类型
 export type Component = ComponentOptions | FunctionalComponent
+
+// A type used in public APIs where a component type is expected.
+// The constructor type is an artificial type returned by defineComponent().
+export type PublicAPIComponent =
+  | Component
+  | { new (): ComponentPublicInstance<any, any, any, any, any> }
+
 export { ComponentOptions }
 
 type LifecycleHook = Function[] | null
@@ -515,4 +522,12 @@ function createSetupContext(instance: ComponentInternalInstance): SetupContext {
     }
   }
   return __DEV__ ? Object.freeze(context) : context
+}
+
+// record effects created during a component's setup() so that they can be
+// stopped when the component unmounts
+export function recordInstanceBoundEffect(effect: ReactiveEffect) {
+  if (currentInstance) {
+    ;(currentInstance.effects || (currentInstance.effects = [])).push(effect)
+  }
 }

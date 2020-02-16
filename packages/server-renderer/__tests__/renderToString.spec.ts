@@ -4,10 +4,17 @@ import {
   createCommentVNode,
   withScopeId,
   resolveComponent,
-  ComponentOptions
+  ComponentOptions,
+  Portal,
+  ref,
+  defineComponent
 } from 'vue'
 import { escapeHtml, mockWarn } from '@vue/shared'
-import { renderToString, renderComponent } from '../src/renderToString'
+import {
+  renderToString,
+  renderComponent,
+  SSRContext
+} from '../src/renderToString'
 import { ssrRenderSlot } from '../src/helpers/ssrRenderSlot'
 
 mockWarn()
@@ -39,6 +46,32 @@ describe('ssr: renderToString', () => {
               return h('div', this.msg)
             }
           })
+        )
+      ).toBe(`<div>hello</div>`)
+    })
+
+    test('option components returning render from setup', async () => {
+      expect(
+        await renderToString(
+          createApp({
+            setup() {
+              const msg = ref('hello')
+              return () => h('div', msg.value)
+            }
+          })
+        )
+      ).toBe(`<div>hello</div>`)
+    })
+
+    test('setup components returning render from setup', async () => {
+      expect(
+        await renderToString(
+          createApp(
+            defineComponent((props: {}) => {
+              const msg = ref('hello')
+              return () => h('div', msg.value)
+            })
+          )
         )
       ).toBe(`<div>hello</div>`)
     })
@@ -478,6 +511,21 @@ describe('ssr: renderToString', () => {
         )
       ).toBe(`<textarea>${escapeHtml(`<span>hello</span>`)}</textarea>`)
     })
+  })
+
+  test('portal', async () => {
+    const ctx: SSRContext = {}
+    await renderToString(
+      h(
+        Portal,
+        {
+          target: `#target`
+        },
+        h('span', 'hello')
+      ),
+      ctx
+    )
+    expect(ctx.portals!['#target']).toBe('<span>hello</span>')
   })
 
   describe('scopeId', () => {

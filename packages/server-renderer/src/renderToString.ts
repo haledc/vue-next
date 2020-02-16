@@ -8,13 +8,13 @@ import {
   Text,
   Comment,
   Fragment,
-  Portal,
-  ShapeFlags,
   ssrUtils,
   Slots,
-  warn
+  warn,
+  createApp
 } from 'vue'
 import {
+  ShapeFlags,
   isString,
   isPromise,
   isArray,
@@ -47,8 +47,21 @@ const {
 type SSRBuffer = SSRBufferItem[]
 type SSRBufferItem = string | ResolvedSSRBuffer | Promise<ResolvedSSRBuffer>
 type ResolvedSSRBuffer = (string | ResolvedSSRBuffer)[]
+
 export type PushFn = (item: SSRBufferItem) => void
+
 export type Props = Record<string, unknown>
+
+const ssrContextKey = Symbol()
+
+export type SSRContext = {
+  [key: string]: any
+  portals?: Record<string, string>
+  __portalBuffers?: Record<
+    string,
+    ResolvedSSRBuffer | Promise<ResolvedSSRBuffer>
+  >
+}
 
 function createBuffer() {
   let appendable = false
@@ -88,17 +101,33 @@ function unrollBuffer(buffer: ResolvedSSRBuffer): string {
   return ret
 }
 
-export async function renderToString(input: App | VNode): Promise<string> {
+export async function renderToString(
+  input: App | VNode,
+  context: SSRContext = {}
+): Promise<string> {
   let buffer: ResolvedSSRBuffer
   if (isVNode(input)) {
-    // raw vnode, wrap with component
-    buffer = await renderComponent({ render: () => input })
+    // raw vnode, wrap with app (for context)
+    return renderToString(createApp({ render: () => input }), context)
   } else {
     // rendering an app
     const vnode = createVNode(input._component, input._props)
     vnode.appContext = input._context
+    // provide the ssr context to the tree
+    input.provide(ssrContextKey, context)
     buffer = await renderComponentVNode(vnode)
   }
+
+  // resolve portals
+  if (context.__portalBuffers) {
+    context.portals = context.portals || {}
+    for (const key in context.__portalBuffers) {
+      // note: it's OK to await sequentially here because the Promises were
+      // created eagerly in parallel.
+      context.portals[key] = unrollBuffer(await context.__portalBuffers[key])
+    }
+  }
+
   return unrollBuffer(buffer)
 }
 
@@ -132,7 +161,7 @@ function renderComponentVNode(
 }
 
 type SSRRenderFunction = (
-  ctx: any,
+  context: any,
   push: (item: any) => void,
   parentInstance: ComponentInternalInstance
 ) => void
@@ -177,7 +206,7 @@ function renderComponentSubTree(
   if (isFunction(comp)) {
     renderVNode(push, renderComponentRoot(instance), instance)
   } else {
-    if (!comp.ssrRender && !comp.render && isString(comp.template)) {
+    if (!instance.render && !comp.ssrRender && isString(comp.template)) {
       comp.ssrRender = ssrCompile(comp.template, instance)
     }
 
@@ -187,7 +216,7 @@ function renderComponentSubTree(
       setCurrentRenderingInstance(instance)
       comp.ssrRender(instance.proxy, push, instance)
       setCurrentRenderingInstance(null)
-    } else if (comp.render) {
+    } else if (instance.render) {
       renderVNode(push, renderComponentRoot(instance), instance)
     } else {
       throw new Error(
@@ -206,7 +235,7 @@ function renderComponentSubTree(
 function renderVNode(
   push: PushFn,
   vnode: VNode,
-  parentComponent: ComponentInternalInstance | null = null
+  parentComponent: ComponentInternalInstance
 ) {
   const { type, shapeFlag, children } = vnode
   switch (type) {
@@ -221,14 +250,13 @@ function renderVNode(
       renderVNodeChildren(push, children as VNodeArrayChildren, parentComponent)
       push(`<!---->`)
       break
-    case Portal:
-      // TODO
-      break
     default:
       if (shapeFlag & ShapeFlags.ELEMENT) {
         renderElement(push, vnode, parentComponent)
       } else if (shapeFlag & ShapeFlags.COMPONENT) {
         push(renderComponentVNode(vnode, parentComponent))
+      } else if (shapeFlag & ShapeFlags.PORTAL) {
+        renderPortal(vnode, parentComponent)
       } else if (shapeFlag & ShapeFlags.SUSPENSE) {
         // TODO
       } else {
@@ -244,7 +272,7 @@ function renderVNode(
 export function renderVNodeChildren(
   push: PushFn,
   children: VNodeArrayChildren,
-  parentComponent: ComponentInternalInstance | null = null
+  parentComponent: ComponentInternalInstance
 ) {
   for (let i = 0; i < children.length; i++) {
     renderVNode(push, normalizeVNode(children[i]), parentComponent)
@@ -254,7 +282,7 @@ export function renderVNodeChildren(
 function renderElement(
   push: PushFn,
   vnode: VNode,
-  parentComponent: ComponentInternalInstance | null = null
+  parentComponent: ComponentInternalInstance
 ) {
   const tag = vnode.type as string
   const { props, children, shapeFlag, scopeId } = vnode
@@ -304,4 +332,36 @@ function renderElement(
     }
     push(`</${tag}>`)
   }
+}
+
+function renderPortal(
+  vnode: VNode,
+  parentComponent: ComponentInternalInstance
+) {
+  const target = vnode.props && vnode.props.target
+  if (!target) {
+    console.warn(`[@vue/server-renderer] Portal is missing target prop.`)
+    return []
+  }
+  if (!isString(target)) {
+    console.warn(
+      `[@vue/server-renderer] Portal target must be a query selector string.`
+    )
+    return []
+  }
+
+  const { buffer, push, hasAsync } = createBuffer()
+  renderVNodeChildren(
+    push,
+    vnode.children as VNodeArrayChildren,
+    parentComponent
+  )
+  const context = parentComponent.appContext.provides[
+    ssrContextKey as any
+  ] as SSRContext
+  const portalBuffers =
+    context.__portalBuffers || (context.__portalBuffers = {})
+  portalBuffers[target] = hasAsync()
+    ? Promise.all(buffer)
+    : (buffer as ResolvedSSRBuffer)
 }

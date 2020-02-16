@@ -10,9 +10,8 @@ import {
 import { VNode, cloneVNode, isVNode } from '../vnode'
 import { warn } from '../warning'
 import { onBeforeUnmount, injectHook, onUnmounted } from '../apiLifecycle'
-import { isString, isArray } from '@vue/shared'
+import { isString, isArray, ShapeFlags } from '@vue/shared'
 import { watch } from '../apiWatch'
-import { ShapeFlags } from '../shapeFlags'
 import { SuspenseBoundary } from './Suspense'
 import {
   RendererInternals,
@@ -73,9 +72,9 @@ const KeepAliveImpl = {
     const sink = instance.sink as KeepAliveSink
     const {
       renderer: {
-        move,
-        unmount: _unmount,
-        options: { createElement }
+        m: move,
+        um: _unmount,
+        o: { createElement }
       },
       parentSuspense
     } = sink

@@ -10,9 +10,8 @@ import {
   Comment,
   cloneVNode
 } from './vnode'
-import { ShapeFlags } from './shapeFlags'
 import { handleError, ErrorCodes } from './errorHandling'
-import { PatchFlags, EMPTY_OBJ } from '@vue/shared'
+import { PatchFlags, ShapeFlags, EMPTY_OBJ } from '@vue/shared'
 import { warn } from './warning'
 
 // mark the current rendering instance for asset resolution (e.g.
@@ -59,8 +58,11 @@ export function renderComponentRoot(
   }
   try {
     if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+      // withProxy is a proxy with a diffrent `has` trap only for
+      // runtime-compiled render functions using `with` block.
+      const proxyToUse = withProxy || proxy
       result = normalizeVNode(
-        instance.render!.call(withProxy || proxy, proxy, renderCache)
+        instance.render!.call(proxyToUse, proxyToUse, renderCache)
       )
     } else {
       // functional
@@ -174,12 +176,20 @@ export function shouldUpdateComponent(
     if (patchFlag & PatchFlags.FULL_PROPS) {
       // presence of this flag indicates props are always non-null
       return hasPropsChanged(prevProps!, nextProps!)
-    } else if (patchFlag & PatchFlags.PROPS) {
-      const dynamicProps = nextVNode.dynamicProps!
-      for (let i = 0; i < dynamicProps.length; i++) {
-        const key = dynamicProps[i]
-        if (nextProps![key] !== prevProps![key]) {
-          return true
+    } else {
+      if (patchFlag & PatchFlags.CLASS) {
+        return prevProps!.class === nextProps!.class
+      }
+      if (patchFlag & PatchFlags.STYLE) {
+        return hasPropsChanged(prevProps!.style, nextProps!.style)
+      }
+      if (patchFlag & PatchFlags.PROPS) {
+        const dynamicProps = nextVNode.dynamicProps!
+        for (let i = 0; i < dynamicProps.length; i++) {
+          const key = dynamicProps[i]
+          if (nextProps![key] !== prevProps![key]) {
+            return true
+          }
         }
       }
     }
