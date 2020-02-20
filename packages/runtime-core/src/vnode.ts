@@ -360,7 +360,7 @@ export function createCommentVNode(
     : createVNode(Comment, null, text)
 }
 
-// ! 规范 VNode -> 创建合适的 VNode
+// ! 规范 VNode
 export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
   if (child == null || typeof child === 'boolean') {
     // empty placeholder
@@ -383,7 +383,7 @@ export function cloneIfMounted(child: VNode): VNode {
   return child.el === null ? child : cloneVNode(child)
 }
 
-// ! 规范子 VNode
+// ! 规范 children
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
   if (children == null) {

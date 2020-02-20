@@ -45,6 +45,8 @@ export interface DebuggerEventExtraInfo {
 
 // ! 依赖收集栈 -> 存放 effect 的栈
 const effectStack: ReactiveEffect[] = []
+
+// ! 当前活跃的 effect
 export let activeEffect: ReactiveEffect | undefined
 
 export const ITERATE_KEY = Symbol('iterate')
@@ -101,7 +103,7 @@ function createReactiveEffect<T = any>(
 
 // ! effect 执行函数
 function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
-  // ! 激活开关关闭时 -> 使用 stop 后
+  // ! 激活开关关闭时 -> 使用 stop 后，不需要监听
   if (!effect.active) {
     return fn(...args)
   }
