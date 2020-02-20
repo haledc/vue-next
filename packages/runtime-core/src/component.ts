@@ -1,5 +1,10 @@
 import { VNode, VNodeChild, isVNode } from './vnode'
-import { ReactiveEffect, shallowReadonly } from '@vue/reactivity'
+import {
+  ReactiveEffect,
+  shallowReadonly,
+  pauseTracking,
+  resetTracking
+} from '@vue/reactivity'
 import {
   PublicInstanceProxyHandlers,
   ComponentPublicInstance,
@@ -113,7 +118,7 @@ export interface ComponentInternalInstance {
   accessCache: Data | null
   // cache for render function values that rely on _ctx but won't need updates
   // after initialized (e.g. inline handlers)
-  renderCache: (Function | VNode)[] | null
+  renderCache: (Function | VNode)[]
 
   // assets for fast resolution
   components: Record<string, Component>
@@ -192,7 +197,7 @@ export function createComponentInstance(
     effects: null,
     provides: parent ? parent.provides : Object.create(appContext.provides),
     accessCache: null!,
-    renderCache: null,
+    renderCache: [],
 
     // setup context properties
     renderContext: EMPTY_OBJ,
@@ -348,14 +353,14 @@ function setupStatefulComponent(
 
     currentInstance = instance
     currentSuspense = parentSuspense
-
-    // ! 执行 setup 函数
+    pauseTracking()
     const setupResult = callWithErrorHandling(
       setup,
       instance,
       ErrorCodes.SETUP_FUNCTION,
       [propsProxy, setupContext] // ! 传入 props 和上下文参数
     )
+    resetTracking()
     currentInstance = null
     currentSuspense = null
 

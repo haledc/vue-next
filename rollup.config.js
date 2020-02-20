@@ -82,16 +82,13 @@ function createConfig(format, output, plugins = []) {
   const isRawESMBuild = format === 'esm'
   const isNodeBuild = format === 'cjs'
   const isBundlerESMBuild = /esm-bundler/.test(format)
-  const isRuntimeCompileBuild = /vue\./.test(output.file)
+  const isRuntimeCompileBuild = packageOptions.isRuntimeCompileBuild
 
   if (isGlobalBuild) {
     output.name = packageOptions.name
   }
 
-  const shouldEmitDeclarations =
-    process.env.TYPES != null &&
-    process.env.NODE_ENV === 'production' &&
-    !hasTSChecked
+  const shouldEmitDeclarations = process.env.TYPES != null && !hasTSChecked
 
   const tsPlugin = ts({
     check: process.env.NODE_ENV === 'production' && !hasTSChecked,

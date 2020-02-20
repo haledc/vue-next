@@ -113,11 +113,13 @@ function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
     cleanup(effect) // ! 执行之前，清除 effect 的所有 dep
     // ! 执行原始函数，触发函数里面数据的 getter, 收集依赖
     try {
+      enableTracking()
       effectStack.push(effect)
       activeEffect = effect
       return fn(...args)
     } finally {
       effectStack.pop()
+      resetTracking()
       activeEffect = effectStack[effectStack.length - 1]
     }
   }
@@ -136,18 +138,26 @@ function cleanup(effect: ReactiveEffect) {
 
 // ! 是否收集依赖
 let shouldTrack = true
+const trackStack: boolean[] = []
 
 // ! 停止收集依赖
 export function pauseTracking() {
+  trackStack.push(shouldTrack)
   shouldTrack = false
 }
 
 // ! 恢复收集依赖
-export function resumeTracking() {
+export function enableTracking() {
+  trackStack.push(shouldTrack)
   shouldTrack = true
 }
 
-// ! 收集依赖
+// ! 重置收集依赖
+export function resetTracking() {
+  const last = trackStack.pop()
+  shouldTrack = last === undefined ? true : last
+}
+
 export function track(target: object, type: TrackOpTypes, key: unknown) {
   if (!shouldTrack || activeEffect === undefined) {
     return
@@ -200,8 +210,12 @@ export function trigger(
     if (key !== void 0) {
       addRunners(effects, computedRunners, depsMap.get(key))
     }
-    // also run for iteration key on ADD | DELETE
-    if (type === TriggerOpTypes.ADD || type === TriggerOpTypes.DELETE) {
+    // also run for iteration key on ADD | DELETE | Map.SET
+    if (
+      type === TriggerOpTypes.ADD ||
+      type === TriggerOpTypes.DELETE ||
+      (type === TriggerOpTypes.SET && target instanceof Map)
+    ) {
       const iterationKey = isArray(target) ? 'length' : ITERATE_KEY
 
       addRunners(effects, computedRunners, depsMap.get(iterationKey))
@@ -225,10 +239,16 @@ function addRunners(
 ) {
   if (effectsToAdd !== void 0) {
     effectsToAdd.forEach(effect => {
-      if (effect.options.computed) {
-        computedRunners.add(effect)
+      if (effect !== activeEffect) {
+        if (effect.options.computed) {
+          computedRunners.add(effect)
+        } else {
+          effects.add(effect)
+        }
       } else {
-        effects.add(effect)
+        // the effect mutated its own dependency during its execution.
+        // this can be caused by operations like foo.value++
+        // do not trigger or we end in an infinite loop
       }
     })
   }
