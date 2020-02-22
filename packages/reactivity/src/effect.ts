@@ -189,7 +189,9 @@ export function trigger(
   target: object,
   type: TriggerOpTypes,
   key?: unknown,
-  extraInfo?: DebuggerEventExtraInfo
+  newValue?: unknown,
+  oldValue?: unknown,
+  oldTarget?: Map<unknown, unknown> | Set<unknown>
 ) {
   const depsMap = targetMap.get(target) // ! 获取 target 的所有依赖
 
@@ -199,9 +201,14 @@ export function trigger(
   }
   const effects = new Set<ReactiveEffect>()
   const computedRunners = new Set<ReactiveEffect>()
-  // ! 把依赖添加到对应的集合中
-  if (type === TriggerOpTypes.CLEAR) {
-    // collection being cleared, trigger all effects for target
+  if (
+    type === TriggerOpTypes.CLEAR ||
+    (key === 'length' &&
+      isArray(target) &&
+      (newValue as number) < (oldValue as number))
+  ) {
+    // collection being cleared or Array length mutation
+    // trigger all effects for target
     depsMap.forEach(dep => {
       addRunners(effects, computedRunners, dep)
     })
@@ -223,7 +230,19 @@ export function trigger(
   }
   // ! 执行集合里面的依赖
   const run = (effect: ReactiveEffect) => {
-    scheduleRun(effect, target, type, key, extraInfo)
+    scheduleRun(
+      effect,
+      target,
+      type,
+      key,
+      __DEV__
+        ? {
+            newValue,
+            oldValue,
+            oldTarget
+          }
+        : undefined
+    )
   }
   // Important: computed effects must be run first so that computed getters
   // can be invalidated before any normal effects that depend on them are run.

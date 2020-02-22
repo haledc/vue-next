@@ -40,6 +40,7 @@ export function renderComponentRoot(
 ): VNode {
   const {
     type: Component,
+    parent,
     vnode,
     proxy,
     withProxy,
@@ -103,6 +104,11 @@ export function renderComponentRoot(
     if (vnodeHooks !== EMPTY_OBJ) {
       result = cloneVNode(result, vnodeHooks)
     }
+    // inherit scopeId
+    const parentScopeId = parent && parent.type.__scopeId
+    if (parentScopeId) {
+      result = cloneVNode(result, { [parentScopeId]: '' })
+    }
     // inherit directives
     if (vnode.dirs != null) {
       if (__DEV__ && !isElementRoot(result)) {
@@ -128,6 +134,7 @@ export function renderComponentRoot(
     result = createVNode(Comment)
   }
   currentRenderingInstance = null
+
   return result
 }
 

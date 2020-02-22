@@ -54,12 +54,7 @@ function add(this: SetTypes, value: unknown) {
   const hadKey = proto.has.call(target, value) // ! 判断是否已经存在 key 值
   const result = proto.add.call(target, value) // ! 新增属性
   if (!hadKey) {
-    /* istanbul ignore else */
-    if (__DEV__) {
-      trigger(target, TriggerOpTypes.ADD, value, { newValue: value }) // ! 触发依赖
-    } else {
-      trigger(target, TriggerOpTypes.ADD, value)
-    }
+    trigger(target, TriggerOpTypes.ADD, value, value)
   }
   return result
 }
@@ -72,20 +67,10 @@ function set(this: MapTypes, key: unknown, value: unknown) {
   const hadKey = proto.has.call(target, key) // ! 判断是否已经存在 key 值
   const oldValue = proto.get.call(target, key) // ! 获取旧值
   const result = proto.set.call(target, key, value)
-  /* istanbul ignore else */
-  if (__DEV__) {
-    const extraInfo = { oldValue, newValue: value }
-    if (!hadKey) {
-      trigger(target, TriggerOpTypes.ADD, key, extraInfo) // ! 触发依赖，这里是 ADD 类型
-    } else if (hasChanged(value, oldValue)) {
-      trigger(target, TriggerOpTypes.SET, key, extraInfo) // ! 触发依赖
-    }
-  } else {
-    if (!hadKey) {
-      trigger(target, TriggerOpTypes.ADD, key)
-    } else if (hasChanged(value, oldValue)) {
-      trigger(target, TriggerOpTypes.SET, key)
-    }
+  if (!hadKey) {
+    trigger(target, TriggerOpTypes.ADD, key, value)
+  } else if (hasChanged(value, oldValue)) {
+    trigger(target, TriggerOpTypes.SET, key, value, oldValue)
   }
   return result
 }
@@ -99,12 +84,7 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
   // forward the operation before queueing reactions
   const result = proto.delete.call(target, key)
   if (hadKey) {
-    /* istanbul ignore else */
-    if (__DEV__) {
-      trigger(target, TriggerOpTypes.DELETE, key, { oldValue }) // ! 触发依赖
-    } else {
-      trigger(target, TriggerOpTypes.DELETE, key)
-    }
+    trigger(target, TriggerOpTypes.DELETE, key, undefined, oldValue)
   }
   return result
 }
@@ -120,12 +100,7 @@ function clear(this: IterableCollections) {
   // forward the operation before queueing reactions
   const result = getProto(target).clear.call(target)
   if (hadItems) {
-    /* istanbul ignore else */
-    if (__DEV__) {
-      trigger(target, TriggerOpTypes.CLEAR, void 0, { oldTarget }) // ! 触发依赖
-    } else {
-      trigger(target, TriggerOpTypes.CLEAR)
-    }
+    trigger(target, TriggerOpTypes.CLEAR, undefined, undefined, oldTarget)
   }
   return result
 }
