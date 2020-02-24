@@ -30,13 +30,24 @@ export function isRef(r: any): r is Ref {
 }
 
 export function ref<T>(value: T): T extends Ref ? T : Ref<T>
-export function ref<T>(value: T): Ref<T>
 export function ref<T = any>(): Ref<T>
 export function ref(value?: unknown) {
+  return createRef(value)
+}
+
+export function shallowRef<T>(value: T): T extends Ref ? T : Ref<T>
+export function shallowRef<T = any>(): Ref<T>
+export function shallowRef(value?: unknown) {
+  return createRef(value, true)
+}
+
+function createRef(value: unknown, shallow = false) {
   if (isRef(value)) {
     return value
   }
-  value = convert(value)
+  if (!shallow) {
+    value = convert(value)
+  }
   const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
@@ -44,7 +55,7 @@ export function ref(value?: unknown) {
       return value
     },
     set value(newVal) {
-      value = convert(newVal)
+      value = shallow ? newVal : convert(newVal)
       trigger(
         r,
         TriggerOpTypes.SET,
@@ -56,7 +67,10 @@ export function ref(value?: unknown) {
   return r
 }
 
-// ! 把响应式对象转换成 Ref 类型
+export function unref<T>(ref: T): T extends Ref<infer V> ? V : T {
+  return isRef(ref) ? (ref.value as any) : ref
+}
+
 export function toRefs<T extends object>(
   object: T
 ): { [K in keyof T]: Ref<T[K]> } {
@@ -86,8 +100,6 @@ function toProxyRef<T extends object, K extends keyof T>(
   } as any
 }
 
-type UnwrapArray<T> = { [P in keyof T]: UnwrapRef<T[P]> }
-
 // corner case when use narrows type
 // Ex. type RelativePath = string & { __brand: unknown }
 // RelativePath extends object -> true
@@ -101,11 +113,7 @@ export type UnwrapRef<T> = {
 
   // ! 如果是 Ref，继续解套
   ref: T extends Ref<infer V> ? UnwrapRef<V> : T
-
-  // ! 如果是数组类型，循环解套
-  array: T extends Array<infer V> ? Array<UnwrapRef<V>> & UnwrapArray<T> : T
-
-  // ! 如果是对象类型，遍历解套
+  array: T
   object: { [K in keyof T]: UnwrapRef<T[K]> }
 }[T extends ComputedRef<any>
   ? 'cRef'

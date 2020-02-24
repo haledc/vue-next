@@ -9,7 +9,7 @@ import {
   mutableCollectionHandlers,
   readonlyCollectionHandlers
 } from './collectionHandlers'
-import { UnwrapRef, Ref } from './ref'
+import { UnwrapRef, Ref, isRef } from './ref'
 import { makeMap } from '@vue/shared'
 
 // WeakMaps that store {raw <-> observed} pairs.
@@ -51,6 +51,9 @@ export function reactive(target: object) {
   // target is explicitly marked as readonly by user
   if (readonlyValues.has(target)) {
     return readonly(target)
+  }
+  if (isRef(target)) {
+    return target
   }
   return createReactiveObject(
     target,
