@@ -16,8 +16,8 @@ export interface Ref<T = any> {
   // The reason for not just declaring _isRef in the interface is because we
   // don't want this internal field to leak into userland autocompletion -
   // a private symbol, on the other hand, achieves just that.
-  [isRefSymbol]: true // ! Ref 类型标识
-  value: UnwrapRef<T> // ! 值的类型
+  [isRefSymbol]: true
+  value: T
 }
 
 // ! 转换 -> 对象类型转换成响应性对象，原始类型直接返回自身
@@ -29,7 +29,7 @@ export function isRef(r: any): r is Ref {
   return r ? r._isRef === true : false
 }
 
-export function ref<T>(value: T): T extends Ref ? T : Ref<T>
+export function ref<T>(value: T): T extends Ref ? T : Ref<UnwrapRef<T>>
 export function ref<T = any>(): Ref<T>
 export function ref(value?: unknown) {
   return createRef(value)

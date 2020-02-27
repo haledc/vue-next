@@ -87,7 +87,7 @@ export function createAppContext(): AppContext {
     mixins: [],
     components: {},
     directives: {},
-    provides: {}
+    provides: Object.create(null)
   }
 }
 
