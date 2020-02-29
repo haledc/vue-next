@@ -10,7 +10,7 @@ type KeyToDepMap = Map<any, Dep>
 const targetMap = new WeakMap<any, KeyToDepMap>()
 
 export interface ReactiveEffect<T = any> {
-  (): T
+  (): T // ! 函数类型声明
   _isEffect: true // ! effect 标识
   active: boolean // ! 激活开关 -> 默认是 true, stop 后变为 false
   raw: () => T

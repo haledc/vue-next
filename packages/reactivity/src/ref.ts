@@ -79,12 +79,12 @@ export function toRefs<T extends object>(
   }
   const ret: any = {}
   for (const key in object) {
-    ret[key] = toProxyRef(object, key) // ! 把 value 转换成 Ref 类型
+    ret[key] = toProxyRef(object, key) // ! 把 value 包装成 Ref 对象
   }
   return ret
 }
 
-// ! 把 value 转换成 Ref 类型的方法
+// ! 把 value 包装成 Ref 对象的方法
 function toProxyRef<T extends object, K extends keyof T>(
   object: T,
   key: K
