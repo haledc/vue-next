@@ -413,15 +413,20 @@ export function mergeProps(...args: (Data & VNodeProps)[]) {
     const toMerge = args[i]
     for (const key in toMerge) {
       if (key === 'class') {
-        ret.class = normalizeClass([ret.class, toMerge.class]) // ! 合并类
+        if (ret.class !== toMerge.class) {
+          ret.class = normalizeClass([ret.class, toMerge.class]) // ! 合并类
+        }
       } else if (key === 'style') {
         ret.style = normalizeStyle([ret.style, toMerge.style]) // ! 合并样式
       } else if (handlersRE.test(key)) {
         // on*, vnode*
         const existing = ret[key]
-        ret[key] = existing
-          ? [].concat(existing as any, toMerge[key] as any) // ! 合并同类事件
-          : toMerge[key]
+        const incoming = toMerge[key]
+        if (existing !== incoming) {
+          ret[key] = existing
+            ? [].concat(existing as any, toMerge[key] as any) // ! 合并同类事件
+            : incoming
+        }
       } else {
         ret[key] = toMerge[key] // ! 替换
       }
