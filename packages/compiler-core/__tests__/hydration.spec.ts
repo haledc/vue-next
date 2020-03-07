@@ -1,4 +1,14 @@
-import { createSSRApp, h, ref, nextTick, VNode, Portal } from '@vue/runtime-dom'
+import {
+  createSSRApp,
+  h,
+  ref,
+  nextTick,
+  VNode,
+  Portal,
+  createStaticVNode
+} from '@vue/runtime-dom'
+import { renderToString } from '@vue/server-renderer'
+import { mockWarn } from '@vue/shared'
 
 function mountWithHydration(html: string, render: () => any) {
   const container = document.createElement('div')
@@ -26,6 +36,21 @@ describe('SSR hydration', () => {
     msg.value = 'bar'
     await nextTick()
     expect(container.textContent).toBe('bar')
+  })
+
+  test('comment', () => {
+    const { vnode, container } = mountWithHydration('<!---->', () => null)
+    expect(vnode.el).toBe(container.firstChild)
+    expect(vnode.el.nodeType).toBe(8) // comment
+  })
+
+  test('static', () => {
+    const html = '<div><span>hello</span></div>'
+    const { vnode, container } = mountWithHydration(html, () =>
+      createStaticVNode(html)
+    )
+    expect(vnode.el).toBe(container.firstChild)
+    expect(vnode.el.outerHTML).toBe(html)
   })
 
   test('element with text children', async () => {
@@ -148,20 +173,144 @@ describe('SSR hydration', () => {
     )
   })
 
-  test('comment', () => {})
-
-  test('static', () => {})
-
   // compile SSR + client render fn from the same template & hydrate
-  test('full compiler integration', () => {})
+  test('full compiler integration', async () => {
+    const mounted: string[] = []
+    const log = jest.fn()
+    const toggle = ref(true)
+
+    const Child = {
+      data() {
+        return {
+          count: 0,
+          text: 'hello',
+          style: {
+            color: 'red'
+          }
+        }
+      },
+      mounted() {
+        mounted.push('child')
+      },
+      template: `
+      <div>
+        <span class="count" :style="style">{{ count }}</span>
+        <button class="inc" @click="count++">inc</button>
+        <button class="change" @click="style.color = 'green'" >change color</button>
+        <button class="emit" @click="$emit('foo')">emit</button>
+        <span class="text">{{ text }}</span>
+        <input v-model="text">
+      </div>
+      `
+    }
+
+    const App = {
+      setup() {
+        return { toggle }
+      },
+      mounted() {
+        mounted.push('parent')
+      },
+      template: `
+        <div>
+          <span>hello</span>
+          <template v-if="toggle">
+            <Child @foo="log('child')"/>
+            <template v-if="true">
+              <button class="parent-click" @click="log('click')">click me</button>
+            </template>
+          </template>
+          <span>hello</span>
+        </div>`,
+      components: {
+        Child
+      },
+      methods: {
+        log
+      }
+    }
+
+    const container = document.createElement('div')
+    // server render
+    container.innerHTML = await renderToString(h(App))
+    // hydrate
+    createSSRApp(App).mount(container)
+
+    // assert interactions
+    // 1. parent button click
+    triggerEvent('click', container.querySelector('.parent-click')!)
+    expect(log).toHaveBeenCalledWith('click')
+
+    // 2. child inc click + text interpolation
+    const count = container.querySelector('.count') as HTMLElement
+    expect(count.textContent).toBe(`0`)
+    triggerEvent('click', container.querySelector('.inc')!)
+    await nextTick()
+    expect(count.textContent).toBe(`1`)
+
+    // 3. child color click + style binding
+    expect(count.style.color).toBe('red')
+    triggerEvent('click', container.querySelector('.change')!)
+    await nextTick()
+    expect(count.style.color).toBe('green')
+
+    // 4. child event emit
+    triggerEvent('click', container.querySelector('.emit')!)
+    expect(log).toHaveBeenCalledWith('child')
+
+    // 5. child v-model
+    const text = container.querySelector('.text')!
+    const input = container.querySelector('input')!
+    expect(text.textContent).toBe('hello')
+    input.value = 'bye'
+    triggerEvent('input', input)
+    await nextTick()
+    expect(text.textContent).toBe('bye')
+  })
 
   describe('mismatch handling', () => {
-    test('text', () => {})
+    mockWarn()
 
-    test('not enough children', () => {})
+    test('text node', () => {
+      const { container } = mountWithHydration(`foo`, () => 'bar')
+      expect(container.textContent).toBe('bar')
+      expect(`Hydration text mismatch`).toHaveBeenWarned()
+    })
 
-    test('too many children', () => {})
+    test('element text content', () => {
+      const { container } = mountWithHydration(`<div>foo</div>`, () =>
+        h('div', 'bar')
+      )
+      expect(container.innerHTML).toBe('<div>bar</div>')
+      expect(`Hydration text content mismatch in <div>`).toHaveBeenWarned()
+    })
 
-    test('complete mismatch', () => {})
+    test('not enough children', () => {
+      const { container } = mountWithHydration(`<div></div>`, () =>
+        h('div', [h('span', 'foo'), h('span', 'bar')])
+      )
+      expect(container.innerHTML).toBe(
+        '<div><span>foo</span><span>bar</span></div>'
+      )
+      expect(`Hydration children mismatch in <div>`).toHaveBeenWarned()
+    })
+
+    test('too many children', () => {
+      const { container } = mountWithHydration(
+        `<div><span>foo</span><span>bar</span></div>`,
+        () => h('div', [h('span', 'foo')])
+      )
+      expect(container.innerHTML).toBe('<div><span>foo</span></div>')
+      expect(`Hydration children mismatch in <div>`).toHaveBeenWarned()
+    })
+
+    test('complete mismatch', () => {
+      const { container } = mountWithHydration(
+        `<div><span>foo</span><span>bar</span></div>`,
+        () => h('div', [h('div', 'foo'), h('p', 'bar')])
+      )
+      expect(container.innerHTML).toBe('<div><div>foo</div><p>bar</p></div>')
+      expect(`Hydration node mismatch`).toHaveBeenWarnedTimes(2)
+    })
   })
 })

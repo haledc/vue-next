@@ -29,16 +29,22 @@ function get(
   wrap: typeof toReactive | typeof toReadonly
 ) {
   target = toRaw(target) // ! 获取原始对象
-  key = toRaw(key) // ! 获取原始 key
-  track(target, TrackOpTypes.GET, key) // ! 收集依赖
-  return wrap(getProto(target).get.call(target, key)) // ! 通过 call 绑定 this 指向原始对象
+  const rawKey = toRaw(key) // ! 获取原始 key
+  track(target, TrackOpTypes.GET, rawKey) // ! 收集依赖
+  const { has, get } = getProto(target)
+  if (has.call(target, key)) {
+    return wrap(get.call(target, key)) // ! 通过 call 绑定 this 指向原始对象
+  } else if (has.call(target, rawKey)) {
+    return wrap(get.call(target, rawKey))
+  }
 }
 
 function has(this: CollectionTypes, key: unknown): boolean {
   const target = toRaw(this)
-  key = toRaw(key)
-  track(target, TrackOpTypes.HAS, key) // ! 收集依赖
-  return getProto(target).has.call(target, key)
+  const rawKey = toRaw(key)
+  track(target, TrackOpTypes.HAS, rawKey) // ! 收集依赖
+  const has = getProto(target).has
+  return has.call(target, key) || has.call(target, rawKey)
 }
 
 function size(target: IterableCollections) {
@@ -76,13 +82,16 @@ function set(this: MapTypes, key: unknown, value: unknown) {
 }
 
 function deleteEntry(this: CollectionTypes, key: unknown) {
-  key = toRaw(key)
   const target = toRaw(this)
-  const proto = getProto(target)
-  const hadKey = proto.has.call(target, key)
-  const oldValue = proto.get ? proto.get.call(target, key) : undefined // ! 获取旧值，没有则为 undefined
+  const { has, get, delete: del } = getProto(target)
+  let hadKey = has.call(target, key)
+  if (!hadKey) {
+    key = toRaw(key)
+    hadKey = has.call(target, key)
+  }
+  const oldValue = get ? get.call(target, key) : undefined
   // forward the operation before queueing reactions
-  const result = proto.delete.call(target, key)
+  const result = del.call(target, key)
   if (hadKey) {
     trigger(target, TriggerOpTypes.DELETE, key, undefined, oldValue)
   }
@@ -183,8 +192,8 @@ const mutableInstrumentations: Record<string, Function> = {
   get(this: MapTypes, key: unknown) {
     return get(this, key, toReactive) // ! 传入 target 参数为 this，this 指代理对象
   },
-  get size(this: IterableCollections) {
-    return size(this)
+  get size() {
+    return size((this as unknown) as IterableCollections)
   },
   has,
   add,
