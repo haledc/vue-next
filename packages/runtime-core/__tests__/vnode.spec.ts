@@ -38,6 +38,23 @@ describe('vnode', () => {
     expect(vnode.props).toBe(null)
   })
 
+  test('valid vnode keys', () => {
+    let vnode
+    for (const key in ['', '1', -1, 0, 1, null]) {
+      vnode = createVNode('div', { key })
+      expect(vnode.key).toBe(key)
+    }
+  })
+
+  test('create with class component', () => {
+    class Component {
+      $props: any
+      static __vccOpts = { template: '<div />' }
+    }
+    const vnode = createVNode(Component)
+    expect(vnode.type).toEqual(Component.__vccOpts)
+  })
+
   describe('class normalization', () => {
     test('string', () => {
       const vnode = createVNode('p', { class: 'foo baz' })

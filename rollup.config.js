@@ -77,7 +77,6 @@ function createConfig(format, output, plugins = []) {
   const isRawESMBuild = format === 'esm'
   const isNodeBuild = format === 'cjs'
   const isBundlerESMBuild = /esm-bundler/.test(format)
-  const isRuntimeCompileBuild = packageOptions.isRuntimeCompileBuild
 
   if (isGlobalBuild) {
     output.name = packageOptions.name
@@ -107,7 +106,12 @@ function createConfig(format, output, plugins = []) {
     format === 'esm-bundler-runtime' ? `src/runtime.ts` : `src/index.ts`
 
   const external =
-    isGlobalBuild || isRawESMBuild ? [] : Object.keys(pkg.dependencies || {})
+    isGlobalBuild || isRawESMBuild
+      ? []
+      : [
+          ...Object.keys(pkg.dependencies || {}),
+          ...Object.keys(pkg.peerDependencies || {})
+        ]
 
   const nodePlugins = packageOptions.enableNonBrowserBranches
     ? [
@@ -132,7 +136,6 @@ function createConfig(format, output, plugins = []) {
         // isBrowserBuild?
         (isGlobalBuild || isRawESMBuild || isBundlerESMBuild) &&
           !packageOptions.enableNonBrowserBranches,
-        isRuntimeCompileBuild,
         isGlobalBuild,
         isNodeBuild
       ),
@@ -152,7 +155,6 @@ function createReplacePlugin(
   isProduction,
   isBundlerESMBuild,
   isBrowserBuild,
-  isRuntimeCompileBuild,
   isGlobalBuild,
   isNodeBuild
 ) {
@@ -170,8 +172,6 @@ function createReplacePlugin(
     __BROWSER__: isBrowserBuild,
     // is targeting bundlers?
     __BUNDLER__: isBundlerESMBuild,
-    // support compile in browser?
-    __RUNTIME_COMPILE__: isRuntimeCompileBuild,
     __GLOBAL__: isGlobalBuild,
     // is targeting Node (SSR)?
     __NODE_JS__: isNodeBuild,

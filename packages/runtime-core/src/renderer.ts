@@ -85,8 +85,8 @@ export interface RendererOptions<HostNode = any, HostElement = any> {
   patchProp(
     el: HostElement,
     key: string,
-    value: any,
-    oldValue: any,
+    prevValue: any,
+    nextValue: any,
     isSVG?: boolean,
     prevChildren?: VNode<HostNode, HostElement>[],
     parentComponent?: ComponentInternalInstance | null,
@@ -202,7 +202,7 @@ type UnmountChildrenFn<HostNode, HostElement> = (
 
 export type MountComponentFn<HostNode, HostElement> = (
   initialVNode: VNode<HostNode, HostElement>,
-  container: HostElement | null, // only null during hydration
+  container: HostElement,
   anchor: HostNode | null,
   parentComponent: ComponentInternalInstance | null,
   parentSuspense: SuspenseBoundary<HostNode, HostElement> | null,
@@ -219,7 +219,7 @@ type ProcessTextOrCommentFn<HostNode, HostElement> = (
 export type SetupRenderEffectFn<HostNode, HostElement> = (
   instance: ComponentInternalInstance,
   initialVNode: VNode<HostNode, HostElement>,
-  container: HostElement | null, // only null during hydration
+  container: HostElement,
   anchor: HostNode | null,
   parentSuspense: SuspenseBoundary<HostNode, HostElement> | null,
   isSVG: boolean
@@ -541,7 +541,7 @@ function baseCreateRenderer<
       if (props != null) {
         for (const key in props) {
           if (!isReservedProp(key)) {
-            hostPatchProp(el, key, props[key], null, isSVG)
+            hostPatchProp(el, key, null, props[key], isSVG)
           }
         }
         if (props.onVnodeBeforeMount != null) {
@@ -667,14 +667,14 @@ function baseCreateRenderer<
         // this flag is matched when the element has dynamic class bindings.
         if (patchFlag & PatchFlags.CLASS) {
           if (oldProps.class !== newProps.class) {
-            hostPatchProp(el, 'class', newProps.class, null, isSVG)
+            hostPatchProp(el, 'class', null, newProps.class, isSVG)
           }
         }
 
         // style
         // this flag is matched when the element has dynamic style bindings
         if (patchFlag & PatchFlags.STYLE) {
-          hostPatchProp(el, 'style', newProps.style, oldProps.style, isSVG)
+          hostPatchProp(el, 'style', oldProps.style, newProps.style, isSVG)
         }
 
         // props
@@ -694,8 +694,8 @@ function baseCreateRenderer<
               hostPatchProp(
                 el,
                 key,
-                next,
                 prev,
+                next,
                 isSVG,
                 n1.children as HostVNode[],
                 parentComponent,
@@ -814,8 +814,8 @@ function baseCreateRenderer<
           hostPatchProp(
             el,
             key,
-            next,
             prev,
+            next,
             isSVG,
             vnode.children as HostVNode[],
             parentComponent,
@@ -830,7 +830,7 @@ function baseCreateRenderer<
             hostPatchProp(
               el,
               key,
-              null,
+              oldProps[key],
               null,
               isSVG,
               vnode.children as HostVNode[],
@@ -991,7 +991,7 @@ function baseCreateRenderer<
 
   const mountComponent: MountComponentFn<HostNode, HostElement> = (
     initialVNode,
-    container, // only null during hydration
+    container,
     anchor,
     parentComponent,
     parentSuspense,
@@ -1031,9 +1031,10 @@ function baseCreateRenderer<
       parentSuspense.registerDep(instance, setupRenderEffect)
 
       // Give it a placeholder if this is not hydration
-      const placeholder = (instance.subTree = createVNode(Comment))
-      processCommentNode(null, placeholder, container!, anchor)
-      initialVNode.el = placeholder.el
+      if (!initialVNode.el) {
+        const placeholder = (instance.subTree = createVNode(Comment))
+        processCommentNode(null, placeholder, container!, anchor)
+      }
       return
     }
 
@@ -1069,12 +1070,17 @@ function baseCreateRenderer<
         }
         if (initialVNode.el && hydrateNode) {
           // vnode has adopted host node - perform hydration instead of mount.
-          hydrateNode(initialVNode.el as Node, subTree, instance)
+          hydrateNode(
+            initialVNode.el as Node,
+            subTree,
+            instance,
+            parentSuspense
+          )
         } else {
           patch(
             null,
             subTree,
-            container!, // container is only null during hydration
+            container,
             anchor,
             instance,
             parentSuspense,

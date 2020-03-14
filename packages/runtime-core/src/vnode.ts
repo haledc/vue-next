@@ -14,7 +14,8 @@ import {
   ComponentInternalInstance,
   Data,
   SetupProxySymbol,
-  Component
+  Component,
+  ClassComponent
 } from './component'
 import { RawSlots } from './componentSlots'
 import { isReactive, Ref } from '@vue/reactivity'
@@ -168,7 +169,7 @@ export function setBlockTracking(value: number) {
 // `dynamicChildren` array.
 // ! 生成块 -> VNode
 export function createBlock(
-  type: VNodeTypes,
+  type: VNodeTypes | ClassComponent,
   props?: { [key: string]: any } | null,
   children?: any,
   patchFlag?: number,
@@ -212,15 +213,22 @@ export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
 
 // ! 生成 VNode
 export function createVNode(
-  type: VNodeTypes,
+  type: VNodeTypes | ClassComponent,
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
   patchFlag: number = 0,
   dynamicProps: string[] | null = null
 ): VNode {
-  if (__DEV__ && !type) {
-    warn(`Invalid vnode type when creating vnode: ${type}.`)
+  if (!type) {
+    if (__DEV__) {
+      warn(`fsef Invalid vnode type when creating vnode: ${type}.`)
+    }
     type = Comment
+  }
+
+  // class component normalization.
+  if (isFunction(type) && '__vccOpts' in type) {
+    type = type.__vccOpts
   }
 
   // class & style normalization.
@@ -260,7 +268,7 @@ export function createVNode(
     _isVNode: true,
     type,
     props,
-    key: (props !== null && props.key) || null,
+    key: props !== null && props.key !== undefined ? props.key : null,
     ref: (props !== null && props.ref) || null,
     scopeId: currentScopeId,
     children: null,

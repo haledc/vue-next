@@ -1,5 +1,5 @@
 import { VNode, normalizeVNode, Text, Comment, Static, Fragment } from './vnode'
-import { queuePostFlushCb, flushPostFlushCbs } from './scheduler'
+import { flushPostFlushCbs } from './scheduler'
 import { ComponentInternalInstance } from './component'
 import { invokeDirectiveHook } from './directives'
 import { warn } from './warning'
@@ -11,6 +11,11 @@ import {
   isString
 } from '@vue/shared'
 import { RendererInternals } from './renderer'
+import {
+  SuspenseImpl,
+  SuspenseBoundary,
+  queueEffectWithSuspense
+} from './components/Suspense'
 
 export type RootHydrateFunction = (
   vnode: VNode<Node, Element>,
@@ -25,16 +30,26 @@ const enum DOMNodeTypes {
 
 let hasMismatch = false
 
+const isSVGContainer = (container: Element) =>
+  /svg/.test(container.namespaceURI!) && container.tagName !== 'foreignObject'
+
+const isComment = (node: Node): node is Comment =>
+  node.nodeType === DOMNodeTypes.COMMENT
+
 // Note: hydration is DOM-specific
 // But we have to place it in core due to tight coupling with core - splitting
 // it out creates a ton of unnecessary complexity.
 // Hydration also depends on some renderer internal logic which needs to be
 // passed in via arguments.
-export function createHydrationFunctions({
-  mt: mountComponent,
-  p: patch,
-  o: { patchProp, createText }
-}: RendererInternals<Node, Element>) {
+export function createHydrationFunctions(
+  rendererInternals: RendererInternals<Node, Element>
+) {
+  const {
+    mt: mountComponent,
+    p: patch,
+    o: { patchProp, nextSibling, parentNode, remove, insert, createComment }
+  } = rendererInternals
+
   const hydrate: RootHydrateFunction = (vnode, container) => {
     if (__DEV__ && !container.hasChildNodes()) {
       warn(
@@ -45,7 +60,7 @@ export function createHydrationFunctions({
       return
     }
     hasMismatch = false
-    hydrateNode(container.firstChild!, vnode)
+    hydrateNode(container.firstChild!, vnode, null, null)
     flushPostFlushCbs()
     if (hasMismatch && !__TEST__) {
       // this error should show up in production
@@ -56,18 +71,28 @@ export function createHydrationFunctions({
   const hydrateNode = (
     node: Node,
     vnode: VNode,
-    parentComponent: ComponentInternalInstance | null = null,
+    parentComponent: ComponentInternalInstance | null,
+    parentSuspense: SuspenseBoundary | null,
     optimized = false
   ): Node | null => {
+    const isFragmentStart = isComment(node) && node.data === '['
+    const onMismatch = () =>
+      handleMismtach(
+        node,
+        vnode,
+        parentComponent,
+        parentSuspense,
+        isFragmentStart
+      )
+
     const { type, shapeFlag } = vnode
     const domType = node.nodeType
-
     vnode.el = node
 
     switch (type) {
       case Text:
         if (domType !== DOMNodeTypes.TEXT) {
-          return handleMismtach(node, vnode, parentComponent)
+          return onMismatch()
         }
         if ((node as Text).data !== vnode.children) {
           hasMismatch = true
@@ -79,48 +104,79 @@ export function createHydrationFunctions({
             )
           ;(node as Text).data = vnode.children as string
         }
-        return node.nextSibling
+        return nextSibling(node)
       case Comment:
-        if (domType !== DOMNodeTypes.COMMENT) {
-          return handleMismtach(node, vnode, parentComponent)
+        if (domType !== DOMNodeTypes.COMMENT || isFragmentStart) {
+          return onMismatch()
         }
-        return node.nextSibling
+        return nextSibling(node)
       case Static:
         if (domType !== DOMNodeTypes.ELEMENT) {
-          return handleMismtach(node, vnode, parentComponent)
+          return onMismatch()
         }
-        return node.nextSibling
+        return nextSibling(node)
       case Fragment:
-        return hydrateFragment(node, vnode, parentComponent, optimized)
+        if (!isFragmentStart) {
+          return onMismatch()
+        }
+        return hydrateFragment(
+          node as Comment,
+          vnode,
+          parentComponent,
+          parentSuspense,
+          optimized
+        )
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
           if (
             domType !== DOMNodeTypes.ELEMENT ||
             vnode.type !== (node as Element).tagName.toLowerCase()
           ) {
-            return handleMismtach(node, vnode, parentComponent)
+            return onMismatch()
           }
           return hydrateElement(
             node as Element,
             vnode,
             parentComponent,
+            parentSuspense,
             optimized
           )
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           // when setting up the render effect, if the initial vnode already
           // has .el set, the component will perform hydration instead of mount
           // on its sub-tree.
-          mountComponent(vnode, null, null, parentComponent, null, false)
-          const subTree = vnode.component!.subTree
-          return (subTree.anchor || subTree.el).nextSibling
+          const container = parentNode(node)!
+          mountComponent(
+            vnode,
+            container,
+            null,
+            parentComponent,
+            parentSuspense,
+            isSVGContainer(container)
+          )
+          // component may be async, so in the case of fragments we cannot rely
+          // on component's rendered output to determine the end of the fragment
+          // instead, we do a lookahead to find the end anchor node.
+          return isFragmentStart
+            ? locateClosingAsyncAnchor(node)
+            : nextSibling(node)
         } else if (shapeFlag & ShapeFlags.PORTAL) {
           if (domType !== DOMNodeTypes.COMMENT) {
-            return handleMismtach(node, vnode, parentComponent)
+            return onMismatch()
           }
-          hydratePortal(vnode, parentComponent, optimized)
-          return node.nextSibling
+          hydratePortal(vnode, parentComponent, parentSuspense, optimized)
+          return nextSibling(node)
         } else if (__FEATURE_SUSPENSE__ && shapeFlag & ShapeFlags.SUSPENSE) {
-          // TODO Suspense
+          return (vnode.type as typeof SuspenseImpl).hydrate(
+            node,
+            vnode,
+            parentComponent,
+            parentSuspense,
+            isSVGContainer(parentNode(node)!),
+            optimized,
+            rendererInternals,
+            hydrateNode
+          )
         } else if (__DEV__) {
           warn('Invalid HostVNode type:', type, `(${typeof type})`)
         }
@@ -132,6 +188,7 @@ export function createHydrationFunctions({
     el: Element,
     vnode: VNode,
     parentComponent: ComponentInternalInstance | null,
+    parentSuspense: SuspenseBoundary | null,
     optimized: boolean
   ) => {
     optimized = optimized || vnode.dynamicChildren !== null
@@ -147,13 +204,13 @@ export function createHydrationFunctions({
         ) {
           for (const key in props) {
             if (!isReservedProp(key) && isOn(key)) {
-              patchProp(el, key, props[key], null)
+              patchProp(el, key, null, props[key])
             }
           }
         } else if (props.onClick != null) {
           // Fast path for click listeners (which is most often) to avoid
           // iterating through props.
-          patchProp(el, 'onClick', props.onClick, null)
+          patchProp(el, 'onClick', null, props.onClick)
         }
         // vnode hooks
         const { onVnodeBeforeMount, onVnodeMounted } = props
@@ -161,9 +218,9 @@ export function createHydrationFunctions({
           invokeDirectiveHook(onVnodeBeforeMount, parentComponent, vnode)
         }
         if (onVnodeMounted != null) {
-          queuePostFlushCb(() => {
+          queueEffectWithSuspense(() => {
             invokeDirectiveHook(onVnodeMounted, parentComponent, vnode)
-          })
+          }, parentSuspense)
         }
       }
       // children
@@ -177,6 +234,7 @@ export function createHydrationFunctions({
           vnode,
           el,
           parentComponent,
+          parentSuspense,
           optimized
         )
         let hasWarned = false
@@ -192,7 +250,7 @@ export function createHydrationFunctions({
           // The SSRed DOM contains more nodes than it should. Remove them.
           const cur = next
           next = next.nextSibling
-          el.removeChild(cur)
+          remove(cur)
         }
       } else if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
         if (el.textContent !== vnode.children) {
@@ -215,6 +273,7 @@ export function createHydrationFunctions({
     vnode: VNode,
     container: Element,
     parentComponent: ComponentInternalInstance | null,
+    parentSuspense: SuspenseBoundary | null,
     optimized: boolean
   ): Node | null => {
     optimized = optimized || vnode.dynamicChildren !== null
@@ -226,7 +285,13 @@ export function createHydrationFunctions({
         ? children[i]
         : (children[i] = normalizeVNode(children[i]))
       if (node) {
-        node = hydrateNode(node, vnode, parentComponent, optimized)
+        node = hydrateNode(
+          node,
+          vnode,
+          parentComponent,
+          parentSuspense,
+          optimized
+        )
       } else {
         hasMismatch = true
         if (__DEV__ && !hasWarned) {
@@ -237,34 +302,52 @@ export function createHydrationFunctions({
           hasWarned = true
         }
         // the SSRed DOM didn't contain enough nodes. Mount the missing ones.
-        patch(null, vnode, container)
+        patch(
+          null,
+          vnode,
+          container,
+          null,
+          parentComponent,
+          parentSuspense,
+          isSVGContainer(container)
+        )
       }
     }
     return node
   }
 
   const hydrateFragment = (
-    node: Node,
+    node: Comment,
     vnode: VNode,
     parentComponent: ComponentInternalInstance | null,
+    parentSuspense: SuspenseBoundary | null,
     optimized: boolean
   ) => {
-    const parent = node.parentNode as Element
-    parent.insertBefore((vnode.el = createText('')), node)
+    const container = parentNode(node)!
     const next = hydrateChildren(
-      node,
+      nextSibling(node)!,
       vnode,
-      parent,
+      container,
       parentComponent,
+      parentSuspense,
       optimized
     )
-    parent.insertBefore((vnode.anchor = createText('')), next)
-    return next
+    if (next && isComment(next) && next.data === ']') {
+      return nextSibling((vnode.anchor = next))
+    } else {
+      // fragment didn't hydrate successfully, since we didn't get a end anchor
+      // back. This should have led to node/children mismatch warnings.
+      hasMismatch = true
+      // since the anchor is missing, we need to create one and insert it
+      insert((vnode.anchor = createComment(`]`)), container, next)
+      return next
+    }
   }
 
   const hydratePortal = (
     vnode: VNode,
     parentComponent: ComponentInternalInstance | null,
+    parentSuspense: SuspenseBoundary | null,
     optimized: boolean
   ) => {
     const targetSelector = vnode.props && vnode.props.target
@@ -277,6 +360,7 @@ export function createHydrationFunctions({
         vnode,
         target,
         parentComponent,
+        parentSuspense,
         optimized
       )
     } else if (__DEV__) {
@@ -290,7 +374,9 @@ export function createHydrationFunctions({
   const handleMismtach = (
     node: Node,
     vnode: VNode,
-    parentComponent: ComponentInternalInstance | null
+    parentComponent: ComponentInternalInstance | null,
+    parentSuspense: SuspenseBoundary | null,
+    isFragment: boolean
   ) => {
     hasMismatch = true
     __DEV__ &&
@@ -298,15 +384,60 @@ export function createHydrationFunctions({
         `Hydration node mismatch:\n- Client vnode:`,
         vnode.type,
         `\n- Server rendered DOM:`,
-        node
+        node,
+        node.nodeType === DOMNodeTypes.TEXT
+          ? `(text)`
+          : isComment(node) && node.data === '['
+            ? `(start of fragment)`
+            : ``
       )
     vnode.el = null
-    const next = node.nextSibling
-    const container = node.parentNode as Element
-    container.removeChild(node)
-    // TODO Suspense and SVG
-    patch(null, vnode, container, next, parentComponent)
+
+    if (isFragment) {
+      // remove excessive fragment nodes
+      const end = locateClosingAsyncAnchor(node)
+      while (true) {
+        const next = nextSibling(node)
+        if (next && next !== end) {
+          remove(next)
+        } else {
+          break
+        }
+      }
+    }
+
+    const next = nextSibling(node)
+    const container = parentNode(node)!
+    remove(node)
+
+    patch(
+      null,
+      vnode,
+      container,
+      next,
+      parentComponent,
+      parentSuspense,
+      isSVGContainer(container)
+    )
     return next
+  }
+
+  const locateClosingAsyncAnchor = (node: Node | null): Node | null => {
+    let match = 0
+    while (node) {
+      node = nextSibling(node)
+      if (node && isComment(node)) {
+        if (node.data === '[') match++
+        if (node.data === ']') {
+          if (match === 0) {
+            return nextSibling(node)
+          } else {
+            match--
+          }
+        }
+      }
+    }
+    return node
   }
 
   return [hydrate, hydrateNode] as const

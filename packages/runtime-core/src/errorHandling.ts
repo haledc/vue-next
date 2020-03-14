@@ -80,7 +80,7 @@ export function callWithAsyncErrorHandling(
   if (isFunction(fn)) {
     const res = callWithErrorHandling(fn, instance, type, args)
     if (res != null && !res._isVue && isPromise(res)) {
-      res.catch((err: Error) => {
+      res.catch(err => {
         handleError(err, instance, type)
       })
     }
@@ -96,7 +96,7 @@ export function callWithAsyncErrorHandling(
 
 // ! 处理错误
 export function handleError(
-  err: Error,
+  err: unknown,
   instance: ComponentInternalInstance | null,
   type: ErrorTypes
 ) {
@@ -139,8 +139,7 @@ export function setErrorRecovery(value: boolean) {
   forceRecover = value
 }
 
-// ! 记录错误
-function logError(err: Error, type: ErrorTypes, contextVNode: VNode | null) {
+function logError(err: unknown, type: ErrorTypes, contextVNode: VNode | null) {
   // default behavior is crash in prod & test, recover in dev.
   if (__DEV__ && (forceRecover || !__TEST__)) {
     const info = ErrorTypeStrings[type]

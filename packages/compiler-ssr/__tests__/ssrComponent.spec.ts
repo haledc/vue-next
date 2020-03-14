@@ -34,7 +34,7 @@ describe('ssr: components', () => {
       .toMatchInlineSnapshot(`
       "const { resolveDynamicComponent: _resolveDynamicComponent } = require(\\"vue\\")
       const { ssrRenderComponent: _ssrRenderComponent } = require(\\"@vue/server-renderer\\")
-      
+
       return function ssrRender(_ctx, _push, _parent) {
         _push(_ssrRenderComponent(_resolveDynamicComponent(_ctx.foo, _ctx.$), { prop: \\"b\\" }, null, _parent))
       }"
@@ -219,11 +219,11 @@ describe('ssr: components', () => {
             foo: ({ list }, _push, _parent, _scopeId) => {
               if (_push) {
                 if (_ctx.ok) {
-                  _push(\`<div\${_scopeId}>\`)
+                  _push(\`<div\${_scopeId}><!--[-->\`)
                   _ssrRenderList(list, (i) => {
                     _push(\`<span\${_scopeId}></span>\`)
                   })
-                  _push(\`</div>\`)
+                  _push(\`<!--]--></div>\`)
                 } else {
                   _push(\`<!---->\`)
                 }
@@ -242,11 +242,11 @@ describe('ssr: components', () => {
             bar: ({ ok }, _push, _parent, _scopeId) => {
               if (_push) {
                 if (ok) {
-                  _push(\`<div\${_scopeId}>\`)
+                  _push(\`<div\${_scopeId}><!--[-->\`)
                   _ssrRenderList(_ctx.list, (i) => {
                     _push(\`<span\${_scopeId}></span>\`)
                   })
-                  _push(\`</div>\`)
+                  _push(\`<!--]--></div>\`)
                 } else {
                   _push(\`<!---->\`)
                 }
@@ -269,7 +269,6 @@ describe('ssr: components', () => {
     })
 
     test('built-in fallthroughs', () => {
-      // no fragment
       expect(compile(`<transition><div/></transition>`).code)
         .toMatchInlineSnapshot(`
         "
@@ -278,16 +277,14 @@ describe('ssr: components', () => {
         }"
       `)
 
-      // wrap with fragment
       expect(compile(`<transition-group><div/></transition-group>`).code)
         .toMatchInlineSnapshot(`
         "
         return function ssrRender(_ctx, _push, _parent) {
-          _push(\`<div></div>\`)
+          _push(\`<!--[--><div></div><!--]-->\`)
         }"
       `)
 
-      // no fragment
       expect(compile(`<keep-alive><foo/></keep-alive>`).code)
         .toMatchInlineSnapshot(`
         "const { resolveComponent: _resolveComponent } = require(\\"vue\\")
@@ -297,28 +294,6 @@ describe('ssr: components', () => {
           const _component_foo = _resolveComponent(\\"foo\\")
 
           _push(_ssrRenderComponent(_component_foo, null, null, _parent))
-        }"
-      `)
-
-      // wrap with fragment
-      expect(compile(`<suspense><div/></suspense>`).code)
-        .toMatchInlineSnapshot(`
-        "
-        return function ssrRender(_ctx, _push, _parent) {
-          _push(\`<div></div>\`)
-        }"
-      `)
-    })
-
-    test('portal rendering', () => {
-      expect(compile(`<portal :target="target"><div/></portal>`).code)
-        .toMatchInlineSnapshot(`
-        "const { ssrRenderPortal: _ssrRenderPortal } = require(\\"@vue/server-renderer\\")
-
-        return function ssrRender(_ctx, _push, _parent) {
-          _ssrRenderPortal((_push) => {
-            _push(\`<div></div>\`)
-          }, _ctx.target, _parent)
         }"
       `)
     })

@@ -58,14 +58,18 @@ export interface FunctionalComponent<P = {}> extends SFCInternalOptions {
   displayName?: string
 }
 
-// ! 组件类型
+export interface ClassComponent {
+  new (...args: any[]): ComponentPublicInstance<any, any, any, any, any>
+  __vccOpts: ComponentOptions
+}
+
 export type Component = ComponentOptions | FunctionalComponent
 
 // A type used in public APIs where a component type is expected.
 // The constructor type is an artificial type returned by defineComponent().
 export type PublicAPIComponent =
   | Component
-  | { new (): ComponentPublicInstance<any, any, any, any, any> }
+  | { new (...args: any[]): ComponentPublicInstance<any, any, any, any, any> }
 
 export { ComponentOptions }
 
@@ -99,7 +103,7 @@ export interface SetupContext {
 
 export type RenderFunction = {
   (): VNodeChild
-  isRuntimeCompiled?: boolean
+  _rc?: boolean // isRuntimeCompiled
 }
 
 // ! 组件内部实例接口
@@ -143,7 +147,6 @@ export interface ComponentInternalInstance {
 
   // suspense related
   asyncDep: Promise<any> | null
-  asyncResult: unknown
   asyncResolved: boolean
 
   // storage for any extra properties
@@ -215,7 +218,6 @@ export function createComponentInstance(
 
     // async dependency management
     asyncDep: null,
-    asyncResult: null,
     asyncResolved: false,
 
     // user namespace for storing whatever the user assigns to `this`
@@ -343,7 +345,7 @@ function setupStatefulComponent(
   // 2. create props proxy
   // the propsProxy is a reactive AND readonly proxy to the actual props.
   // it will be updated in resolveProps() on updates before render
-  const propsProxy = (instance.propsProxy = isInSSRComponentSetup
+  const propsProxy = (instance.propsProxy = isSSR
     ? instance.props
     : shallowReadonly(instance.props))
   // 3. call setup()
@@ -367,9 +369,9 @@ function setupStatefulComponent(
     currentSuspense = null
 
     if (isPromise(setupResult)) {
-      if (isInSSRComponentSetup) {
+      if (isSSR) {
         // return the promise so server-renderer can wait on it
-        return setupResult.then(resolvedResult => {
+        return setupResult.then((resolvedResult: unknown) => {
           handleSetupResult(instance, resolvedResult, parentSuspense, isSSR)
         })
       } else if (__FEATURE_SUSPENSE__) {
@@ -446,29 +448,24 @@ function finishComponentSetup(
       instance.render = Component.render as RenderFunction
     }
   } else if (!instance.render) {
-    if (__RUNTIME_COMPILE__ && Component.template && !Component.render) {
-      // __RUNTIME_COMPILE__ ensures `compile` is provided
-      Component.render = compile!(Component.template, {
+    if (compile && Component.template && !Component.render) {
+      Component.render = compile(Component.template, {
         isCustomElement: instance.appContext.config.isCustomElement || NO
       })
       // mark the function as runtime compiled
-      ;(Component.render as RenderFunction).isRuntimeCompiled = true
+      ;(Component.render as RenderFunction)._rc = true
     }
 
     if (__DEV__ && !Component.render) {
       /* istanbul ignore if */
-      if (!__RUNTIME_COMPILE__ && Component.template) {
+      if (!compile && Component.template) {
         warn(
           `Component provides template but the build of Vue you are running ` +
             `does not support runtime template compilation. Either use the ` +
             `full build or pre-compile the template using Vue CLI.`
         )
       } else {
-        warn(
-          `Component is missing${
-            __RUNTIME_COMPILE__ ? ` template or` : ``
-          } render function.`
-        )
+        warn(`Component is missing template or render function.`)
       }
     }
 
@@ -477,8 +474,7 @@ function finishComponentSetup(
     // for runtime-compiled render functions using `with` blocks, the render
     // proxy used needs a different `has` handler which is more performant and
     // also only allows a whitelist of globals to fallthrough.
-    if (__RUNTIME_COMPILE__ && instance.render.isRuntimeCompiled) {
-      // ! 代理实例
+    if (instance.render._rc) {
       instance.withProxy = new Proxy(
         instance,
         runtimeCompiledRenderProxyHandlers
