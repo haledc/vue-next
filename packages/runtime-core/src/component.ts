@@ -108,7 +108,7 @@ export type RenderFunction = {
 
 // ! 组件内部实例接口
 export interface ComponentInternalInstance {
-  type: FunctionalComponent | ComponentOptions
+  type: Component
   parent: ComponentInternalInstance | null
   appContext: AppContext
   root: ComponentInternalInstance
@@ -502,6 +502,9 @@ const SetupProxyHandlers: { [key: string]: ProxyHandler<any> } = {}
       if (__DEV__) {
         markAttrsAccessed()
       }
+      // if the user pass the slots proxy to h(), normalizeChildren should not
+      // attempt to attach ctx to the object
+      if (key === '_') return 1
       return instance[type][key]
     },
     has: (instance, key) => key === SetupProxySymbol || key in instance[type],

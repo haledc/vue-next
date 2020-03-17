@@ -54,6 +54,7 @@ export const enum NodeTypes {
   JS_TEMPLATE_LITERAL,
   JS_IF_STATEMENT,
   JS_ASSIGNMENT_EXPRESSION,
+  JS_SEQUENCE_EXPRESSION,
   JS_RETURN_STATEMENT
 }
 
@@ -308,6 +309,7 @@ export type JSChildNode =
   | ConditionalExpression
   | CacheExpression
   | AssignmentExpression
+  | SequenceExpression
 
 // ! call 表达式
 export interface CallExpression extends Node {
@@ -377,6 +379,7 @@ export type SSRCodegenNode =
   | IfStatement
   | AssignmentExpression
   | ReturnStatement
+  | SequenceExpression
 
 export interface BlockStatement extends Node {
   type: NodeTypes.JS_BLOCK_STATEMENT
@@ -399,6 +402,11 @@ export interface AssignmentExpression extends Node {
   type: NodeTypes.JS_ASSIGNMENT_EXPRESSION
   left: SimpleExpressionNode
   right: JSChildNode
+}
+
+export interface SequenceExpression extends Node {
+  type: NodeTypes.JS_SEQUENCE_EXPRESSION
+  expressions: JSChildNode[]
 }
 
 export interface ReturnStatement extends Node {
@@ -764,6 +772,16 @@ export function createAssignmentExpression(
     type: NodeTypes.JS_ASSIGNMENT_EXPRESSION,
     left,
     right,
+    loc: locStub
+  }
+}
+
+export function createSequenceExpression(
+  expressions: SequenceExpression['expressions']
+): SequenceExpression {
+  return {
+    type: NodeTypes.JS_SEQUENCE_EXPRESSION,
+    expressions,
     loc: locStub
   }
 }

@@ -30,6 +30,7 @@ import { TransitionHooks } from './components/BaseTransition'
 import { warn } from './warning'
 import { currentScopeId } from './helpers/scopeId'
 import { PortalImpl, isPortal } from './components/Portal'
+import { currentRenderingInstance } from './componentRenderUtils'
 
 export const Fragment = (Symbol(__DEV__ ? 'Fragment' : undefined) as any) as {
   __isFragment: true
@@ -52,11 +53,17 @@ export type VNodeTypes =
   | typeof PortalImpl
   | typeof SuspenseImpl
 
-// ! VNode 属性
+export type VNodeRef =
+  | string
+  | Ref
+  | ((ref: object | null, refs: Record<string, any>) => void)
+
+export type VNodeNormalizedRef = [ComponentInternalInstance, VNodeRef]
+
 export interface VNodeProps {
   [key: string]: any
   key?: string | number
-  ref?: string | Ref | ((ref: object | null) => void)
+  ref?: VNodeRef
 
   // vnode hooks
   onVnodeBeforeMount?: (vnode: VNode) => void
@@ -99,7 +106,7 @@ export interface VNode<HostNode = any, HostElement = any> {
   type: VNodeTypes
   props: VNodeProps | null
   key: string | number | null
-  ref: string | Ref | ((ref: object | null) => void) | null
+  ref: VNodeNormalizedRef | null
   scopeId: string | null // SFC only
   children: VNodeNormalizedChildren<HostNode, HostElement>
   component: ComponentInternalInstance | null
@@ -221,7 +228,7 @@ export function createVNode(
 ): VNode {
   if (!type) {
     if (__DEV__) {
-      warn(`fsef Invalid vnode type when creating vnode: ${type}.`)
+      warn(`Invalid vnode type when creating vnode: ${type}.`)
     }
     type = Comment
   }
@@ -269,7 +276,10 @@ export function createVNode(
     type,
     props,
     key: props !== null && props.key !== undefined ? props.key : null,
-    ref: (props !== null && props.ref) || null,
+    ref:
+      props !== null && props.ref !== undefined
+        ? [currentRenderingInstance!, props.ref]
+        : null,
     scopeId: currentScopeId,
     children: null,
     component: null,
@@ -400,8 +410,11 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
     type = ShapeFlags.ARRAY_CHILDREN
   } else if (typeof children === 'object') {
     type = ShapeFlags.SLOTS_CHILDREN
+    if (!(children as RawSlots)._) {
+      ;(children as RawSlots)._ctx = currentRenderingInstance
+    }
   } else if (isFunction(children)) {
-    children = { default: children } // ! 设置为 slot
+    children = { default: children, _ctx: currentRenderingInstance }
     type = ShapeFlags.SLOTS_CHILDREN
   } else {
     children = String(children)
