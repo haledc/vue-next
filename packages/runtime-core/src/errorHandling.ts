@@ -13,6 +13,7 @@ export const enum ErrorCodes {
   WATCH_CLEANUP,
   NATIVE_EVENT_HANDLER,
   COMPONENT_EVENT_HANDLER,
+  VNODE_HOOK,
   DIRECTIVE_HOOK,
   TRANSITION_HOOK,
   APP_ERROR_HANDLER,
@@ -42,6 +43,7 @@ export const ErrorTypeStrings: Record<number | string, string> = {
   [ErrorCodes.WATCH_CLEANUP]: 'watcher cleanup function',
   [ErrorCodes.NATIVE_EVENT_HANDLER]: 'native event handler',
   [ErrorCodes.COMPONENT_EVENT_HANDLER]: 'component event handler',
+  [ErrorCodes.VNODE_HOOK]: 'vnode hook',
   [ErrorCodes.DIRECTIVE_HOOK]: 'directive hook',
   [ErrorCodes.TRANSITION_HOOK]: 'transition hook',
   [ErrorCodes.APP_ERROR_HANDLER]: 'app errorHandler',
@@ -79,7 +81,7 @@ export function callWithAsyncErrorHandling(
 ): any[] {
   if (isFunction(fn)) {
     const res = callWithErrorHandling(fn, instance, type, args)
-    if (res != null && !res._isVue && isPromise(res)) {
+    if (res && !res._isVue && isPromise(res)) {
       res.catch(err => {
         handleError(err, instance, type)
       })
@@ -109,7 +111,7 @@ export function handleError(
     const errorInfo = __DEV__ ? ErrorTypeStrings[type] : type
     while (cur) {
       const errorCapturedHooks = cur.ec
-      if (errorCapturedHooks !== null) {
+      if (errorCapturedHooks) {
         for (let i = 0; i < errorCapturedHooks.length; i++) {
           if (errorCapturedHooks[i](err, exposedInstance, errorInfo)) {
             return

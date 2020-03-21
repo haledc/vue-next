@@ -53,7 +53,7 @@ export const ITERATE_KEY = Symbol('iterate')
 
 // ! 是否是 effect
 export function isEffect(fn: any): fn is ReactiveEffect {
-  return fn != null && fn._isEffect === true
+  return fn && fn._isEffect === true
 }
 
 // ! 生成 effect

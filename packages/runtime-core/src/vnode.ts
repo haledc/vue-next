@@ -60,18 +60,26 @@ export type VNodeRef =
 
 export type VNodeNormalizedRef = [ComponentInternalInstance, VNodeRef]
 
+type VNodeMountHook = (vnode: VNode) => void
+type VNodeUpdateHook = (vnode: VNode, oldVNode: VNode) => void
+export type VNodeHook =
+  | VNodeMountHook
+  | VNodeUpdateHook
+  | VNodeMountHook[]
+  | VNodeUpdateHook[]
+
 export interface VNodeProps {
   [key: string]: any
   key?: string | number
   ref?: VNodeRef
 
   // vnode hooks
-  onVnodeBeforeMount?: (vnode: VNode) => void
-  onVnodeMounted?: (vnode: VNode) => void
-  onVnodeBeforeUpdate?: (vnode: VNode, oldVNode: VNode) => void
-  onVnodeUpdated?: (vnode: VNode, oldVNode: VNode) => void
-  onVnodeBeforeUnmount?: (vnode: VNode) => void
-  onVnodeUnmounted?: (vnode: VNode) => void
+  onVnodeBeforeMount?: VNodeMountHook | VNodeMountHook[]
+  onVnodeMounted?: VNodeMountHook | VNodeMountHook[]
+  onVnodeBeforeUpdate?: VNodeUpdateHook | VNodeUpdateHook[]
+  onVnodeUpdated?: VNodeUpdateHook | VNodeUpdateHook[]
+  onVnodeBeforeUnmount?: VNodeMountHook | VNodeMountHook[]
+  onVnodeUnmounted?: VNodeMountHook | VNodeMountHook[]
 }
 
 // ! VNode 子节点原子
@@ -193,7 +201,7 @@ export function createBlock(
   currentBlock = blockStack[blockStack.length - 1] || null
   // a block is always going to be patched, so track it as a child of its
   // parent block
-  if (currentBlock !== null) {
+  if (currentBlock) {
     currentBlock.push(vnode)
   }
   return vnode
@@ -239,14 +247,14 @@ export function createVNode(
   }
 
   // class & style normalization.
-  if (props !== null) {
+  if (props) {
     // for reactive or proxy objects, we need to clone it to enable mutation.
     if (isReactive(props) || SetupProxySymbol in props) {
       props = extend({}, props)
     }
     let { class: klass, style } = props
-    if (klass != null && !isString(klass)) {
-      props.class = normalizeClass(klass) // ! 规范化 class
+    if (klass && !isString(klass)) {
+      props.class = normalizeClass(klass)
     }
     if (isObject(style)) {
       // reactive state objects need to be cloned since they are likely to be
@@ -275,9 +283,9 @@ export function createVNode(
     _isVNode: true,
     type,
     props,
-    key: props !== null && props.key !== undefined ? props.key : null,
+    key: props && props.key !== undefined ? props.key : null,
     ref:
-      props !== null && props.ref !== undefined
+      props && props.ref !== undefined
         ? [currentRenderingInstance!, props.ref]
         : null,
     scopeId: currentScopeId,
@@ -304,7 +312,7 @@ export function createVNode(
   // the next vnode so that it can be properly unmounted later.
   if (
     shouldTrack > 0 &&
-    currentBlock !== null &&
+    currentBlock &&
     // the EVENTS flag is only for hydration and if it is the only flag, the
     // vnode should not be considered dynamic due to handler caching.
     patchFlag !== PatchFlags.HYDRATE_EVENTS &&
