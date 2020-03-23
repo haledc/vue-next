@@ -21,7 +21,7 @@ export interface ReactiveEffect<T = any> {
 // ! effect 选项接口
 export interface ReactiveEffectOptions {
   lazy?: boolean // ! 延迟计算，为 true 时 effect 不会立即执行一次
-  computed?: boolean // ! 计算属性依赖的 effect
+  computed?: boolean // ! 计算属性标识
   scheduler?: (run: Function) => void // ! 调度器函数
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
@@ -125,7 +125,7 @@ function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
   }
 }
 
-// ! 清除 effect 的所有 dep，清除自身的引用
+// ! 清除 effect 的所有 dep，清除引用
 function cleanup(effect: ReactiveEffect) {
   const { deps } = effect
   if (deps.length) {
@@ -158,6 +158,7 @@ export function resetTracking() {
   shouldTrack = last === undefined ? true : last
 }
 
+// ! 收集依赖（effect）
 export function track(target: object, type: TrackOpTypes, key: unknown) {
   if (!shouldTrack || activeEffect === undefined) {
     return
@@ -184,7 +185,7 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
   }
 }
 
-// ! 触发依赖
+// ! 触发依赖（执行 effect）
 export function trigger(
   target: object,
   type: TriggerOpTypes,

@@ -53,7 +53,7 @@ export function computed<T>(
     computed: true,
     scheduler: () => {
       if (!dirty) {
-        dirty = true // ! 当 T 值发生变化，触发依赖 -> 执行 scheduler 函数，重置为 true
+        dirty = true // ! 当 T 值发生变化，触发依赖 -> 执行这个 scheduler 函数，重置为 true
         trigger(computed, TriggerOpTypes.SET, 'value')
       }
     }
@@ -64,8 +64,8 @@ export function computed<T>(
     effect: runner,
     get value() {
       if (dirty) {
-        value = runner() // ! 调用 effect 获取 value 的新值
-        dirty = false // ! 设置为 false，后面沿用 value 值，直到所依赖的值发生变化
+        value = runner() // ! 调用 effect 生成 value 的值
+        dirty = false // ! 设置为 false，后面沿用 value 值，直到所依赖的 T 值发生变化
       }
       track(computed, TrackOpTypes.GET, 'value')
       return value
