@@ -25,10 +25,14 @@ export function resolveComponent(name: string): Component | undefined {
 // ! 解析动态组件
 export function resolveDynamicComponent(
   component: unknown
-): Component | undefined {
+): Component | string | undefined {
   if (!component) return
   if (isString(component)) {
-    return resolveAsset(COMPONENTS, component, currentRenderingInstance)
+    return (
+      resolveAsset(COMPONENTS, component, currentRenderingInstance, false) ||
+      // fallback to plain element
+      component
+    )
   } else if (isFunction(component) || isObject(component)) {
     return component
   }
@@ -42,7 +46,8 @@ export function resolveDirective(name: string): Directive | undefined {
 function resolveAsset(
   type: typeof COMPONENTS,
   name: string,
-  instance?: ComponentInternalInstance | null
+  instance?: ComponentInternalInstance | null,
+  warnMissing?: boolean
 ): Component | undefined
 // overload 2: directives
 function resolveAsset(
@@ -56,7 +61,8 @@ function resolveAsset(
   type: typeof COMPONENTS | typeof DIRECTIVES,
   name: string,
   instance: ComponentInternalInstance | null = currentRenderingInstance ||
-    currentInstance
+    currentInstance,
+  warnMissing = true
 ) {
   if (instance) {
     let camelized, capitalized
@@ -77,7 +83,7 @@ function resolveAsset(
         res = self
       }
     }
-    if (__DEV__ && !res) {
+    if (__DEV__ && warnMissing && !res) {
       warn(`Failed to resolve ${type.slice(0, -1)}: ${name}`)
     }
     return res

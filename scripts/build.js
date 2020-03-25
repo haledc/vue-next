@@ -31,7 +31,6 @@ const sourceMap = args.sourcemap || args.s
 const isRelease = args.release
 const buildTypes = args.t || args.types || isRelease
 const buildAllMatching = args.all || args.a
-const lean = args.lean || args.l
 const commit = execa.sync('git', ['rev-parse', 'HEAD']).stdout.slice(0, 7)
 
 run()
@@ -84,7 +83,6 @@ async function build(target) {
         formats ? `FORMATS:${formats}` : ``,
         buildTypes ? `TYPES:true` : ``,
         prodOnly ? `PROD_ONLY:true` : ``,
-        lean ? `LEAN:true` : ``,
         sourceMap ? `SOURCE_MAP:true` : ``
       ]
         .filter(Boolean)
@@ -151,20 +149,24 @@ function checkAllSizes(targets) {
 
 // ! 检测尺寸，并打印结果
 function checkSize(target) {
-  const pkgDir = path.resolve(`packages/${target}`) // ! 包的路径
-  const esmProdBuild = `${pkgDir}/dist/${target}.global.prod.js` // ! 编译后文件路径
-  if (fs.existsSync(esmProdBuild)) {
-    const file = fs.readFileSync(esmProdBuild) // ! 读取文件
-    const minSize = (file.length / 1024).toFixed(2) + 'kb' // ! 原始尺寸
-    const gzipped = gzipSync(file)
-    const gzippedSize = (gzipped.length / 1024).toFixed(2) + 'kb' // ! gzip 尺寸
-    const compressed = compress(file)
-    const compressedSize = (compressed.length / 1024).toFixed(2) + 'kb' // ! 压缩尺寸
-    // ! 打印结果
-    console.log(
-      `${chalk.gray(
-        chalk.bold(target)
-      )} min:${minSize} / gzip:${gzippedSize} / brotli:${compressedSize}`
-    )
+  const pkgDir = path.resolve(`packages/${target}`)
+  checkFileSize(`${pkgDir}/dist/${target}.global.prod.js`)
+  checkFileSize(`${pkgDir}/dist/${target}.runtime.global.prod.js`)
+}
+
+function checkFileSize(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return
   }
+  const file = fs.readFileSync(filePath)
+  const minSize = (file.length / 1024).toFixed(2) + 'kb'
+  const gzipped = gzipSync(file)
+  const gzippedSize = (gzipped.length / 1024).toFixed(2) + 'kb'
+  const compressed = compress(file)
+  const compressedSize = (compressed.length / 1024).toFixed(2) + 'kb'
+  console.log(
+    `${chalk.gray(
+      chalk.bold(path.basename(filePath))
+    )} min:${minSize} / gzip:${gzippedSize} / brotli:${compressedSize}`
+  )
 }

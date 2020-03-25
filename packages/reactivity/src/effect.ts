@@ -1,5 +1,5 @@
 import { TrackOpTypes, TriggerOpTypes } from './operations'
-import { EMPTY_OBJ, extend, isArray } from '@vue/shared'
+import { EMPTY_OBJ, isArray } from '@vue/shared'
 
 // The main WeakMap that stores {target -> key -> dep} connections.
 // Conceptually, it's easier to think of a dependency as a Dep class
@@ -22,7 +22,7 @@ export interface ReactiveEffect<T = any> {
 export interface ReactiveEffectOptions {
   lazy?: boolean // ! 延迟计算，为 true 时 effect 不会立即执行一次
   computed?: boolean // ! 计算属性标识
-  scheduler?: (run: Function) => void // ! 调度器函数
+  scheduler?: (job: () => void) => void // ! 调度器函数
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
   onStop?: () => void
@@ -49,7 +49,8 @@ const effectStack: ReactiveEffect[] = []
 // ! 当前活跃的 effect
 export let activeEffect: ReactiveEffect | undefined
 
-export const ITERATE_KEY = Symbol('iterate')
+export const ITERATE_KEY = Symbol(__DEV__ ? 'iterate' : '')
+export const MAP_KEY_ITERATE_KEY = Symbol(__DEV__ ? 'Map key iterate' : '')
 
 // ! 是否是 effect
 export function isEffect(fn: any): fn is ReactiveEffect {
@@ -200,101 +201,78 @@ export function trigger(
     // never been tracked
     return
   }
+
   const effects = new Set<ReactiveEffect>()
   const computedRunners = new Set<ReactiveEffect>()
+  const add = (effectsToAdd: Set<ReactiveEffect> | undefined) => {
+    if (effectsToAdd !== void 0) {
+      effectsToAdd.forEach(effect => {
+        if (effect !== activeEffect || !shouldTrack) {
+          if (effect.options.computed) {
+            computedRunners.add(effect)
+          } else {
+            effects.add(effect)
+          }
+        } else {
+          // the effect mutated its own dependency during its execution.
+          // this can be caused by operations like foo.value++
+          // do not trigger or we end in an infinite loop
+        }
+      })
+    }
+  }
+
   if (type === TriggerOpTypes.CLEAR) {
     // collection being cleared
     // trigger all effects for target
-    depsMap.forEach(dep => {
-      addRunners(effects, computedRunners, dep)
-    })
+    depsMap.forEach(add)
   } else if (key === 'length' && isArray(target)) {
     depsMap.forEach((dep, key) => {
       if (key === 'length' || key >= (newValue as number)) {
-        addRunners(effects, computedRunners, dep)
+        add(dep)
       }
     })
   } else {
     // schedule runs for SET | ADD | DELETE
     if (key !== void 0) {
-      addRunners(effects, computedRunners, depsMap.get(key))
+      add(depsMap.get(key))
     }
     // also run for iteration key on ADD | DELETE | Map.SET
-    if (
+    const isAddOrDelete =
       type === TriggerOpTypes.ADD ||
-      (type === TriggerOpTypes.DELETE && !isArray(target)) ||
+      (type === TriggerOpTypes.DELETE && !isArray(target))
+    if (
+      isAddOrDelete ||
       (type === TriggerOpTypes.SET && target instanceof Map)
     ) {
-      const iterationKey = isArray(target) ? 'length' : ITERATE_KEY
-
-      addRunners(effects, computedRunners, depsMap.get(iterationKey))
+      add(depsMap.get(isArray(target) ? 'length' : ITERATE_KEY))
+    }
+    if (isAddOrDelete && target instanceof Map) {
+      add(depsMap.get(MAP_KEY_ITERATE_KEY))
     }
   }
-  // ! 执行集合里面的依赖
+
   const run = (effect: ReactiveEffect) => {
-    scheduleRun(
-      effect,
-      target,
-      type,
-      key,
-      __DEV__
-        ? {
-            newValue,
-            oldValue,
-            oldTarget
-          }
-        : undefined
-    )
+    if (__DEV__ && effect.options.onTrigger) {
+      effect.options.onTrigger({
+        effect,
+        target,
+        key,
+        type,
+        newValue,
+        oldValue,
+        oldTarget
+      })
+    }
+    if (effect.options.scheduler !== void 0) {
+      effect.options.scheduler(effect)
+    } else {
+      effect()
+    }
   }
+
   // Important: computed effects must be run first so that computed getters
   // can be invalidated before any normal effects that depend on them are run.
   computedRunners.forEach(run) // ! 先执行，优先级更高
   effects.forEach(run)
-}
-
-// ! 把需要执行的依赖添加到对应集合中
-function addRunners(
-  effects: Set<ReactiveEffect>,
-  computedRunners: Set<ReactiveEffect>,
-  effectsToAdd: Set<ReactiveEffect> | undefined
-) {
-  if (effectsToAdd !== void 0) {
-    effectsToAdd.forEach(effect => {
-      if (effect !== activeEffect || !shouldTrack) {
-        if (effect.options.computed) {
-          computedRunners.add(effect)
-        } else {
-          effects.add(effect)
-        }
-      } else {
-        // the effect mutated its own dependency during its execution.
-        // this can be caused by operations like foo.value++
-        // do not trigger or we end in an infinite loop
-      }
-    })
-  }
-}
-
-// ! 使用调度器函数执行依赖
-function scheduleRun(
-  effect: ReactiveEffect,
-  target: object,
-  type: TriggerOpTypes,
-  key: unknown,
-  extraInfo?: DebuggerEventExtraInfo
-) {
-  if (__DEV__ && effect.options.onTrigger) {
-    const event: DebuggerEvent = {
-      effect,
-      target,
-      key,
-      type
-    }
-    effect.options.onTrigger(extraInfo ? extend(event, extraInfo) : event)
-  }
-  if (effect.options.scheduler !== void 0) {
-    effect.options.scheduler(effect)
-  } else {
-    effect() // ! 没有设置 scheduler 直接执行
-  }
 }

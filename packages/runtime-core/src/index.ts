@@ -109,6 +109,9 @@ export { toDisplayString, camelize } from '@vue/shared'
 // For integration with runtime compiler
 export { registerRuntimeCompiler } from './component'
 
+// For test-utils
+export { transformVNodeArgs } from './vnode'
+
 // SSR -------------------------------------------------------------------------
 
 import { createComponentInstance, setupComponent } from './component'
@@ -147,6 +150,8 @@ export {
 } from '@vue/reactivity'
 export {
   // types
+  WatchEffect,
+  BaseWatchOptions,
   WatchOptions,
   WatchCallback,
   WatchSource,
@@ -158,7 +163,8 @@ export {
   AppConfig,
   AppContext,
   Plugin,
-  CreateAppFunction
+  CreateAppFunction,
+  OptionMergeFunction
 } from './apiCreateApp'
 export {
   VNode,

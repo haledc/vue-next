@@ -6,7 +6,8 @@ import {
   ExtractComputedReturns,
   ComponentOptionsBase,
   ComputedOptions,
-  MethodOptions
+  MethodOptions,
+  resolveMergedOptions
 } from './apiOptions'
 import { ReactiveEffect, UnwrapRef } from '@vue/reactivity'
 import { warn } from './warning'
@@ -61,7 +62,7 @@ const publicPropertiesMap: Record<
   $parent: i => i.parent,
   $root: i => i.root,
   $emit: i => i.emit,
-  $options: i => i.type,
+  $options: i => (__FEATURE_OPTIONS__ ? resolveMergedOptions(i) : i.type),
   $forceUpdate: i => () => queueJob(i.update),
   $nextTick: () => nextTick,
   $watch: __FEATURE_OPTIONS__ ? i => instanceWatch.bind(i) : NOOP
@@ -124,7 +125,6 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       }
       return publicGetter(target)
     } else if (
-      __BUNDLER__ &&
       (cssModule = type.__cssModules) &&
       (cssModule = cssModule[key])
     ) {

@@ -1,5 +1,5 @@
 import { toRaw, reactive, readonly } from './reactive'
-import { track, trigger, ITERATE_KEY } from './effect'
+import { track, trigger, ITERATE_KEY, MAP_KEY_ITERATE_KEY } from './effect'
 import { TrackOpTypes, TriggerOpTypes } from './operations'
 import { LOCKED } from './lock'
 import { isObject, capitalize, hasOwn, hasChanged } from '@vue/shared'
@@ -137,13 +137,16 @@ function createForEach(isReadonly: boolean) {
 function createIterableMethod(method: string | symbol, isReadonly: boolean) {
   return function(this: IterableCollections, ...args: unknown[]) {
     const target = toRaw(this)
-    // ! [key, value] 成对结构
-    const isPair =
-      method === 'entries' ||
-      (method === Symbol.iterator && target instanceof Map)
-    const innerIterator = getProto(target)[method].apply(target, args) // ! 调用对应的迭代方法，生成迭代器
+    const isMap = target instanceof Map
+    const isPair = method === 'entries' || (method === Symbol.iterator && isMap) // ! [key, value] 成对结构
+    const isKeyOnly = method === 'keys' && isMap
+    const innerIterator = getProto(target)[method].apply(target, args)
     const wrap = isReadonly ? toReadonly : toReactive // ! 转换成响应式的方法
-    track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
+    track(
+      target,
+      TrackOpTypes.ITERATE,
+      isKeyOnly ? MAP_KEY_ITERATE_KEY : ITERATE_KEY
+    )
     // return a wrapped iterator which returns observed versions of the
     // values emitted from the real iterator
     return {

@@ -34,7 +34,8 @@ const canObserve = (value: any): boolean => {
     !value._isVue && // ! 不能是 Vue 组件
     !value._isVNode && // ! 不能是 VNode
     isObservableType(toRawType(value)) && // ! 必须符合设置的六种引用类型
-    !nonReactiveValues.has(value) // ! 不能是非响应式集合中的值
+    !nonReactiveValues.has(value) && // ! 不能是非响应式集合中的值
+    !Object.isFrozen(value) // ! 不能是冻结对象
   )
 }
 

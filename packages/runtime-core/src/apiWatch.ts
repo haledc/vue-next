@@ -181,7 +181,7 @@ function doWatch(
     getter = () => traverse(baseGetter()) // ! 深度追踪
   }
 
-  let cleanup: Function
+  let cleanup: () => void
   const onInvalidate: InvalidateCbRegistrator = (fn: () => void) => {
     cleanup = runner.options.onStop = () => {
       callWithErrorHandling(fn, instance, ErrorCodes.WATCH_CLEANUP)

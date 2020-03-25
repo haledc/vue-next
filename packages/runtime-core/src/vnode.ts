@@ -31,6 +31,7 @@ import { warn } from './warning'
 import { currentScopeId } from './helpers/scopeId'
 import { PortalImpl, isPortal } from './components/Portal'
 import { currentRenderingInstance } from './componentRenderUtils'
+import { RendererNode, RendererElement } from './renderer'
 
 export const Fragment = (Symbol(__DEV__ ? 'Fragment' : undefined) as any) as {
   __isFragment: true
@@ -82,43 +83,31 @@ export interface VNodeProps {
   onVnodeUnmounted?: VNodeMountHook | VNodeMountHook[]
 }
 
-// ! VNode 子节点原子
-type VNodeChildAtom<HostNode, HostElement> =
-  | VNode<HostNode, HostElement>
+type VNodeChildAtom = VNode | string | number | boolean | null | void
+
+export interface VNodeArrayChildren<
+  HostNode = RendererNode,
+  HostElement = RendererElement
+> extends Array<VNodeArrayChildren | VNodeChildAtom> {}
+
+export type VNodeChild = VNodeChildAtom | VNodeArrayChildren
+
+export type VNodeNormalizedChildren =
   | string
-  | number
-  | boolean
-  | null
-  | void
-
-export interface VNodeArrayChildren<HostNode = any, HostElement = any>
-  extends Array<
-      | VNodeArrayChildren<HostNode, HostElement>
-      | VNodeChildAtom<HostNode, HostElement>
-    > {}
-
-// ! VNode 单个子节点
-export type VNodeChild<HostNode = any, HostElement = any> =
-  | VNodeChildAtom<HostNode, HostElement>
-  | VNodeArrayChildren<HostNode, HostElement>
-
-export type VNodeNormalizedChildren<HostNode = any, HostElement = any> =
-  | string
-  | VNodeArrayChildren<HostNode, HostElement>
+  | VNodeArrayChildren
   | RawSlots
   | null
 
-// ! VNode 接口
-export interface VNode<HostNode = any, HostElement = any> {
+export interface VNode<HostNode = RendererNode, HostElement = RendererElement> {
   _isVNode: true
   type: VNodeTypes
   props: VNodeProps | null
   key: string | number | null
   ref: VNodeNormalizedRef | null
   scopeId: string | null // SFC only
-  children: VNodeNormalizedChildren<HostNode, HostElement>
+  children: VNodeNormalizedChildren
   component: ComponentInternalInstance | null
-  suspense: SuspenseBoundary<HostNode, HostElement> | null
+  suspense: SuspenseBoundary | null
   dirs: DirectiveBinding[] | null
   transition: TransitionHooks | null
 
@@ -226,8 +215,34 @@ export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
   return n1.type === n2.type && n1.key === n2.key
 }
 
-// ! 生成 VNode
-export function createVNode(
+let vnodeArgsTransformer:
+  | ((
+      args: Parameters<typeof _createVNode>,
+      instance: ComponentInternalInstance | null
+    ) => Parameters<typeof _createVNode>)
+  | undefined
+
+// Internal API for registering an arguments transform for createVNode
+// used for creating stubs in the test-utils
+export function transformVNodeArgs(transformer?: typeof vnodeArgsTransformer) {
+  vnodeArgsTransformer = transformer
+}
+
+const createVNodeWithArgsTransform = (
+  ...args: Parameters<typeof _createVNode>
+): VNode => {
+  return _createVNode(
+    ...(vnodeArgsTransformer
+      ? vnodeArgsTransformer(args, currentRenderingInstance)
+      : args)
+  )
+}
+
+export const createVNode = (__DEV__
+  ? createVNodeWithArgsTransform
+  : _createVNode) as typeof _createVNode
+
+function _createVNode(
   type: VNodeTypes | ClassComponent,
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
@@ -386,8 +401,7 @@ export function createCommentVNode(
     : createVNode(Comment, null, text)
 }
 
-// ! 规范 VNode
-export function normalizeVNode<T, U>(child: VNodeChild<T, U>): VNode<T, U> {
+export function normalizeVNode(child: VNodeChild): VNode {
   if (child == null || typeof child === 'boolean') {
     // empty placeholder
     return createVNode(Comment)
@@ -417,9 +431,16 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   } else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN
   } else if (typeof children === 'object') {
-    type = ShapeFlags.SLOTS_CHILDREN
-    if (!(children as RawSlots)._) {
-      ;(children as RawSlots)._ctx = currentRenderingInstance
+    // in case <component :is="x"> resolves to native element, the vnode call
+    // will receive slots object.
+    if (vnode.shapeFlag & ShapeFlags.ELEMENT && (children as any).default) {
+      normalizeChildren(vnode, (children as any).default())
+      return
+    } else {
+      type = ShapeFlags.SLOTS_CHILDREN
+      if (!(children as RawSlots)._) {
+        ;(children as RawSlots)._ctx = currentRenderingInstance
+      }
     }
   } else if (isFunction(children)) {
     children = { default: children, _ctx: currentRenderingInstance }

@@ -7,7 +7,8 @@ import {
   Portal,
   createStaticVNode,
   Suspense,
-  onMounted
+  onMounted,
+  createAsyncComponent
 } from '@vue/runtime-dom'
 import { renderToString } from '@vue/server-renderer'
 import { mockWarn } from '@vue/shared'
@@ -19,7 +20,9 @@ function mountWithHydration(html: string, render: () => any) {
     render
   })
   return {
-    vnode: app.mount(container).$.subTree,
+    vnode: app.mount(container).$.subTree as VNode<Node, Element> & {
+      el: Element
+    },
     container
   }
 }
@@ -90,7 +93,7 @@ describe('SSR hydration', () => {
     )
 
     // event handler
-    triggerEvent('click', vnode.el.querySelector('.foo'))
+    triggerEvent('click', vnode.el.querySelector('.foo')!)
     expect(fn).toHaveBeenCalled()
 
     msg.value = 'bar'
@@ -120,7 +123,7 @@ describe('SSR hydration', () => {
     const fragment1Children = fragment1.children as VNode[]
 
     // first <span>
-    expect(fragment1Children[0].el.tagName).toBe('SPAN')
+    expect(fragment1Children[0].el!.tagName).toBe('SPAN')
     expect(fragment1Children[0].el).toBe(vnode.el.childNodes[1])
 
     // start fragment 2
@@ -129,7 +132,7 @@ describe('SSR hydration', () => {
     const fragment2Children = fragment2.children as VNode[]
 
     // second <span>
-    expect(fragment2Children[0].el.tagName).toBe('SPAN')
+    expect(fragment2Children[0].el!.tagName).toBe('SPAN')
     expect(fragment2Children[0].el).toBe(vnode.el.childNodes[3])
 
     // end fragment 2
@@ -139,7 +142,7 @@ describe('SSR hydration', () => {
     expect(fragment1.anchor).toBe(vnode.el.childNodes[5])
 
     // event handler
-    triggerEvent('click', vnode.el.querySelector('.foo'))
+    triggerEvent('click', vnode.el.querySelector('.foo')!)
     expect(fn).toHaveBeenCalled()
 
     msg.value = 'bar'
@@ -379,8 +382,64 @@ describe('SSR hydration', () => {
     expect(container.innerHTML).toMatch(`<span>2</span><span>3</span>`)
   })
 
-  // TODO
-  test.todo('async component')
+  test('async component', async () => {
+    const spy = jest.fn()
+    const Comp = () =>
+      h(
+        'button',
+        {
+          onClick: spy
+        },
+        'hello!'
+      )
+
+    let serverResolve: any
+    let AsyncComp = createAsyncComponent(
+      () =>
+        new Promise(r => {
+          serverResolve = r
+        })
+    )
+
+    const App = {
+      render() {
+        return ['hello', h(AsyncComp), 'world']
+      }
+    }
+
+    // server render
+    const htmlPromise = renderToString(h(App))
+    serverResolve(Comp)
+    const html = await htmlPromise
+    expect(html).toMatchInlineSnapshot(
+      `"<!--[-->hello<button>hello!</button>world<!--]-->"`
+    )
+
+    // hydration
+    let clientResolve: any
+    AsyncComp = createAsyncComponent(
+      () =>
+        new Promise(r => {
+          clientResolve = r
+        })
+    )
+
+    const container = document.createElement('div')
+    container.innerHTML = html
+    createSSRApp(App).mount(container)
+
+    // hydration not complete yet
+    triggerEvent('click', container.querySelector('button')!)
+    expect(spy).not.toHaveBeenCalled()
+
+    // resolve
+    clientResolve(Comp)
+    await new Promise(r => setTimeout(r))
+
+    // should be hydrated now
+    triggerEvent('click', container.querySelector('button')!)
+    expect(spy).toHaveBeenCalled()
+  })
 
   describe('mismatch handling', () => {
     test('text node', () => {
