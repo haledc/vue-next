@@ -327,7 +327,7 @@ export function createVNode(
   return vnode
 }
 
-// ! 克隆 VNode -> 可扩展属性
+// ! 克隆 VNode -> 可扩展 props
 export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
   extraProps?: Data & VNodeProps

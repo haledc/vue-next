@@ -142,7 +142,7 @@ function doWatch(
   const instance = currentInstance
   const suspense = currentSuspense
 
-  // ! 提取 getter
+  // ! 生成 getter
   let getter: () => any
   if (isArray(source)) {
     getter = () =>
@@ -178,7 +178,7 @@ function doWatch(
 
   if (cb && deep) {
     const baseGetter = getter
-    getter = () => traverse(baseGetter())
+    getter = () => traverse(baseGetter()) // ! 深度追踪
   }
 
   let cleanup: Function
@@ -205,7 +205,7 @@ function doWatch(
 
   let oldValue = isArray(source) ? [] : INITIAL_WATCHER_VALUE
 
-  // ! 设置回调函数
+  // ! 生成 applyCb
   const applyCb = cb
     ? () => {
         if (instance && instance.isUnmounted) {
@@ -256,7 +256,7 @@ function doWatch(
     computed: true,
     onTrack,
     onTrigger,
-    scheduler: applyCb ? () => scheduler(applyCb) : scheduler
+    scheduler: applyCb ? () => scheduler(applyCb) : scheduler // ! 执行 cb
   })
 
   recordInstanceBoundEffect(runner)
