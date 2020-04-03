@@ -41,6 +41,7 @@ import {
   currentRenderingInstance,
   markAttrsAccessed
 } from './componentRenderUtils'
+import { startMeasure, endMeasure } from './profiling'
 
 export type Data = { [key: string]: unknown }
 
@@ -111,6 +112,7 @@ export type RenderFunction = {
 
 // ! 组件内部实例接口
 export interface ComponentInternalInstance {
+  uid: number
   type: Component
   parent: ComponentInternalInstance | null
   appContext: AppContext
@@ -148,6 +150,7 @@ export interface ComponentInternalInstance {
   emit: Emit
 
   // suspense related
+  suspense: SuspenseBoundary | null
   asyncDep: Promise<any> | null
   asyncResolved: boolean
 
@@ -178,15 +181,18 @@ export interface ComponentInternalInstance {
 
 const emptyAppContext = createAppContext()
 
-// ! 创建组件实例 -> 实例对象
+let uid = 0
+
 export function createComponentInstance(
   vnode: VNode,
-  parent: ComponentInternalInstance | null
+  parent: ComponentInternalInstance | null,
+  suspense: SuspenseBoundary | null
 ) {
   // inherit parent app context - or - if root, adopt from root vnode
   const appContext =
     (parent ? parent.appContext : vnode.appContext) || emptyAppContext
   const instance: ComponentInternalInstance = {
+    uid: uid++,
     vnode,
     parent,
     appContext,
@@ -217,7 +223,8 @@ export function createComponentInstance(
     components: Object.create(appContext.components),
     directives: Object.create(appContext.directives),
 
-    // async dependency management
+    // suspense related
+    suspense,
     asyncDep: null,
     asyncResolved: false,
 
@@ -270,7 +277,6 @@ export function createComponentInstance(
 }
 
 export let currentInstance: ComponentInternalInstance | null = null
-export let currentSuspense: SuspenseBoundary | null = null
 
 export const getCurrentInstance: () => ComponentInternalInstance | null = () =>
   currentInstance || currentRenderingInstance
@@ -357,7 +363,6 @@ function setupStatefulComponent(
       setup.length > 1 ? createSetupContext(instance) : null)
 
     currentInstance = instance
-    currentSuspense = parentSuspense
     pauseTracking()
     const setupResult = callWithErrorHandling(
       setup,
@@ -367,7 +372,6 @@ function setupStatefulComponent(
     )
     resetTracking()
     currentInstance = null
-    currentSuspense = null
 
     if (isPromise(setupResult)) {
       if (isSSR) {
@@ -389,7 +393,7 @@ function setupStatefulComponent(
       handleSetupResult(instance, setupResult, parentSuspense, isSSR)
     }
   } else {
-    finishComponentSetup(instance, parentSuspense, isSSR)
+    finishComponentSetup(instance, isSSR)
   }
 }
 
@@ -420,7 +424,7 @@ export function handleSetupResult(
       }`
     )
   }
-  finishComponentSetup(instance, parentSuspense, isSSR)
+  finishComponentSetup(instance, isSSR)
 }
 
 type CompileFunction = (
@@ -438,7 +442,6 @@ export function registerRuntimeCompiler(_compile: any) {
 // ! 完成组件 setup
 function finishComponentSetup(
   instance: ComponentInternalInstance,
-  parentSuspense: SuspenseBoundary | null,
   isSSR: boolean
 ) {
   const Component = instance.type as ComponentOptions
@@ -450,9 +453,15 @@ function finishComponentSetup(
     }
   } else if (!instance.render) {
     if (compile && Component.template && !Component.render) {
+      if (__DEV__) {
+        startMeasure(instance, `compile`)
+      }
       Component.render = compile(Component.template, {
         isCustomElement: instance.appContext.config.isCustomElement || NO
       })
+      if (__DEV__) {
+        endMeasure(instance, `compile`)
+      }
       // mark the function as runtime compiled
       ;(Component.render as RenderFunction)._rc = true
     }
@@ -486,10 +495,8 @@ function finishComponentSetup(
   // support for 2.x options
   if (__FEATURE_OPTIONS__) {
     currentInstance = instance
-    currentSuspense = parentSuspense
     applyOptions(instance, Component)
     currentInstance = null
-    currentSuspense = null
   }
 }
 
@@ -539,4 +546,24 @@ export function recordInstanceBoundEffect(effect: ReactiveEffect) {
   if (currentInstance) {
     ;(currentInstance.effects || (currentInstance.effects = [])).push(effect)
   }
+}
+
+const classifyRE = /(?:^|[-_])(\w)/g
+const classify = (str: string): string =>
+  str.replace(classifyRE, c => c.toUpperCase()).replace(/[-_]/g, '')
+
+export function formatComponentName(
+  Component: Component,
+  file?: string
+): string {
+  let name = isFunction(Component)
+    ? Component.displayName || Component.name
+    : Component.name
+  if (!name && file) {
+    const match = file.match(/([^/\\]+)\.vue$/)
+    if (match) {
+      name = match[1]
+    }
+  }
+  return name ? classify(name) : 'Anonymous'
 }

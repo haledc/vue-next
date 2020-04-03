@@ -29,7 +29,7 @@ import { DirectiveBinding } from './directives'
 import { TransitionHooks } from './components/BaseTransition'
 import { warn } from './warning'
 import { currentScopeId } from './helpers/scopeId'
-import { PortalImpl, isPortal } from './components/Portal'
+import { TeleportImpl, isTeleport } from './components/Teleport'
 import { currentRenderingInstance } from './componentRenderUtils'
 import { RendererNode, RendererElement } from './renderer'
 
@@ -51,7 +51,7 @@ export type VNodeTypes =
   | typeof Static
   | typeof Comment
   | typeof Fragment
-  | typeof PortalImpl
+  | typeof TeleportImpl
   | typeof SuspenseImpl
 
 export type VNodeRef =
@@ -114,7 +114,8 @@ export interface VNode<HostNode = RendererNode, HostElement = RendererElement> {
   // DOM
   el: HostNode | null
   anchor: HostNode | null // fragment anchor
-  target: HostElement | null // portal target
+  target: HostElement | null // teleport target
+  targetAnchor: HostNode | null // teleport target anchor
 
   // optimization only
   shapeFlag: number
@@ -286,8 +287,8 @@ function _createVNode(
     ? ShapeFlags.ELEMENT
     : __FEATURE_SUSPENSE__ && isSuspense(type)
       ? ShapeFlags.SUSPENSE
-      : isPortal(type)
-        ? ShapeFlags.PORTAL
+      : isTeleport(type)
+        ? ShapeFlags.TELEPORT
         : isObject(type)
           ? ShapeFlags.STATEFUL_COMPONENT
           : isFunction(type)
@@ -312,6 +313,7 @@ function _createVNode(
     el: null,
     anchor: null,
     target: null,
+    targetAnchor: null,
     shapeFlag,
     patchFlag,
     dynamicProps,
@@ -362,6 +364,7 @@ export function cloneVNode<T, U>(
     scopeId: vnode.scopeId,
     children: vnode.children,
     target: vnode.target,
+    targetAnchor: vnode.targetAnchor,
     shapeFlag: vnode.shapeFlag,
     patchFlag: vnode.patchFlag,
     dynamicProps: vnode.dynamicProps,
@@ -426,14 +429,17 @@ export function cloneIfMounted(child: VNode): VNode {
 // ! 规范 children
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
+  const { shapeFlag } = vnode
   if (children == null) {
     children = null
   } else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN
   } else if (typeof children === 'object') {
-    // in case <component :is="x"> resolves to native element, the vnode call
-    // will receive slots object.
-    if (vnode.shapeFlag & ShapeFlags.ELEMENT && (children as any).default) {
+    // Normalize slot to plain children
+    if (
+      (shapeFlag & ShapeFlags.ELEMENT || shapeFlag & ShapeFlags.TELEPORT) &&
+      (children as any).default
+    ) {
       normalizeChildren(vnode, (children as any).default())
       return
     } else {
@@ -447,7 +453,13 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
     type = ShapeFlags.SLOTS_CHILDREN
   } else {
     children = String(children)
-    type = ShapeFlags.TEXT_CHILDREN
+    // force teleport children to array so it can be moved around
+    if (shapeFlag & ShapeFlags.TELEPORT) {
+      type = ShapeFlags.ARRAY_CHILDREN
+      children = [createTextVNode(children as string)]
+    } else {
+      type = ShapeFlags.TEXT_CHILDREN
+    }
   }
   vnode.children = children as VNodeNormalizedChildren
   vnode.shapeFlag |= type

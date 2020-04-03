@@ -10,7 +10,7 @@ type KeyToDepMap = Map<any, Dep>
 const targetMap = new WeakMap<any, KeyToDepMap>()
 
 export interface ReactiveEffect<T = any> {
-  (): T // ! 函数类型声明
+  (...args: any[]): T // ! 函数类型声明
   _isEffect: true // ! effect 标识
   active: boolean // ! 激活开关 -> 默认是 true, stop 后变为 false
   raw: () => T
@@ -87,12 +87,27 @@ export function stop(effect: ReactiveEffect) {
 
 // ! 生成 effect 的方法 -> 包装 fn 函数，并赋予其属性
 function createReactiveEffect<T = any>(
-  fn: () => T,
+  fn: (...args: any[]) => T,
   options: ReactiveEffectOptions
 ): ReactiveEffect<T> {
-  // ! 创建一个 effect 函数，返回用 run 包装的原始函数
+  // ! 创建一个 effect 函数
   const effect = function reactiveEffect(...args: unknown[]): unknown {
-    return run(effect, fn, args)
+    if (!effect.active) {
+      return options.scheduler ? undefined : fn(...args)
+    }
+    if (!effectStack.includes(effect)) {
+      cleanup(effect)
+      try {
+        enableTracking()
+        effectStack.push(effect)
+        activeEffect = effect
+        return fn(...args)
+      } finally {
+        effectStack.pop()
+        resetTracking()
+        activeEffect = effectStack[effectStack.length - 1]
+      }
+    }
   } as ReactiveEffect
   effect._isEffect = true
   effect.active = true // ! 初始为 true，使用 stop 后为 false
@@ -102,31 +117,6 @@ function createReactiveEffect<T = any>(
   return effect
 }
 
-// ! effect 执行函数
-function run(effect: ReactiveEffect, fn: Function, args: unknown[]): unknown {
-  // ! 激活开关关闭时 -> 使用 stop 后，不需要监听
-  if (!effect.active) {
-    return fn(...args)
-  }
-
-  // ! 栈中没有 effect 时，进栈并执行 fn，最后出栈
-  if (!effectStack.includes(effect)) {
-    cleanup(effect) // ! 执行之前，清除 effect 的所有 dep
-    // ! 执行原始函数，触发函数里面数据的 getter, 收集依赖
-    try {
-      enableTracking()
-      effectStack.push(effect)
-      activeEffect = effect
-      return fn(...args)
-    } finally {
-      effectStack.pop()
-      resetTracking()
-      activeEffect = effectStack[effectStack.length - 1]
-    }
-  }
-}
-
-// ! 清除 effect 的所有 dep，清除引用
 function cleanup(effect: ReactiveEffect) {
   const { deps } = effect
   if (deps.length) {

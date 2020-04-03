@@ -20,7 +20,6 @@ import {
 import {
   currentInstance,
   ComponentInternalInstance,
-  currentSuspense,
   Data,
   isInSSRComponentSetup,
   recordInstanceBoundEffect
@@ -140,7 +139,6 @@ function doWatch(
   }
 
   const instance = currentInstance
-  const suspense = currentSuspense
 
   // ! 生成 getter
   let getter: () => any
@@ -244,9 +242,7 @@ function doWatch(
       }
     }
   } else {
-    scheduler = job => {
-      queuePostRenderEffect(job, suspense)
-    }
+    scheduler = job => queuePostRenderEffect(job, instance && instance.suspense)
   }
 
   // ! 生成 effect

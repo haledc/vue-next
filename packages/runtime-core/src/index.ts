@@ -2,6 +2,7 @@
 
 export const version = __VERSION__
 export {
+  effect,
   ref,
   unref,
   shallowRef,
@@ -34,7 +35,7 @@ export {
 export { provide, inject } from './apiInject'
 export { nextTick } from './scheduler'
 export { defineComponent } from './apiDefineComponent'
-export { createAsyncComponent } from './apiAsyncComponent'
+export { defineAsyncComponent } from './apiAsyncComponent'
 
 // Advanced API ----------------------------------------------------------------
 
@@ -53,7 +54,7 @@ export {
 } from './vnode'
 // Internal Components
 export { Text, Comment, Fragment } from './vnode'
-export { Portal, PortalProps } from './components/Portal'
+export { Teleport, TeleportProps } from './components/Teleport'
 export { Suspense, SuspenseProps } from './components/Suspense'
 export { KeepAlive, KeepAliveProps } from './components/KeepAlive'
 export {
@@ -189,6 +190,8 @@ export {
 export { ComponentPublicInstance } from './componentProxy'
 export {
   Renderer,
+  RendererNode,
+  RendererElement,
   HydrationRenderer,
   RendererOptions,
   RootRenderFunction
