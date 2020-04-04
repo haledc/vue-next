@@ -14,25 +14,24 @@ import {
 import { ComponentPropsOptions, resolveProps } from './componentProps'
 import { Slots, resolveSlots } from './componentSlots'
 import { warn } from './warning'
-import {
-  ErrorCodes,
-  callWithErrorHandling,
-  callWithAsyncErrorHandling
-} from './errorHandling'
+import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { AppContext, createAppContext, AppConfig } from './apiCreateApp'
 import { Directive, validateDirectiveName } from './directives'
-import { applyOptions, ComponentOptions } from './apiOptions'
+import { applyOptions, ComponentOptions } from './componentOptions'
+import {
+  EmitsOptions,
+  ObjectEmitsOptions,
+  EmitFn,
+  emit
+} from './componentEmits'
 import {
   EMPTY_OBJ,
   isFunction,
-  capitalize,
   NOOP,
   isObject,
   NO,
   makeMap,
   isPromise,
-  isArray,
-  hyphenate,
   ShapeFlags
 } from '@vue/shared'
 import { SuspenseBoundary } from './components/Suspense'
@@ -52,9 +51,13 @@ export interface SFCInternalOptions {
   __hmrUpdated?: boolean
 }
 
-export interface FunctionalComponent<P = {}> extends SFCInternalOptions {
-  (props: P, ctx: SetupContext): VNodeChild
+export interface FunctionalComponent<
+  P = {},
+  E extends EmitsOptions = Record<string, any>
+> extends SFCInternalOptions {
+  (props: P, ctx: SetupContext<E>): any
   props?: ComponentPropsOptions<P>
+  emits?: E | (keyof E)[]
   inheritAttrs?: boolean
   displayName?: string
 }
@@ -93,13 +96,10 @@ export const enum LifecycleHooks {
   ERROR_CAPTURED = 'ec'
 }
 
-export type Emit = (event: string, ...args: unknown[]) => any[]
-
-// ! 组件上下文接口
-export interface SetupContext {
+export interface SetupContext<E = ObjectEmitsOptions> {
   attrs: Data
   slots: Slots
-  emit: Emit
+  emit: EmitFn<E>
 }
 
 export type RenderFunction = {
@@ -147,7 +147,7 @@ export interface ComponentInternalInstance {
   propsProxy: Data | null
   setupContext: SetupContext | null
   refs: Data
-  emit: Emit
+  emit: EmitFn
 
   // suspense related
   suspense: SuspenseBoundary | null
@@ -250,29 +250,10 @@ export function createComponentInstance(
     rtg: null,
     rtc: null,
     ec: null,
-
-    emit: (event, ...args): any[] => {
-      const props = instance.vnode.props || EMPTY_OBJ
-      let handler = props[`on${event}`] || props[`on${capitalize(event)}`]
-      if (!handler && event.indexOf('update:') === 0) {
-        event = hyphenate(event)
-        handler = props[`on${event}`] || props[`on${capitalize(event)}`]
-      }
-      if (handler) {
-        const res = callWithAsyncErrorHandling(
-          handler,
-          instance,
-          ErrorCodes.COMPONENT_EVENT_HANDLER,
-          args
-        )
-        return isArray(res) ? res : [res]
-      } else {
-        return []
-      }
-    }
+    emit: null as any // to be set immediately
   }
-
-  instance.root = parent ? parent.root : instance // ! 设置根组件
+  instance.root = parent ? parent.root : instance
+  instance.emit = emit.bind(null, instance)
   return instance
 }
 
@@ -307,9 +288,8 @@ export function setupComponent(
   isSSR = false
 ) {
   isInSSRComponentSetup = isSSR
-  const propsOptions = instance.type.props
   const { props, children, shapeFlag } = instance.vnode
-  resolveProps(instance, props, propsOptions)
+  resolveProps(instance, props)
   resolveSlots(instance, children)
 
   // setup stateful logic

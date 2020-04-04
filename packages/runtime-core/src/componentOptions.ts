@@ -41,6 +41,7 @@ import {
   WritableComputedOptions
 } from '@vue/reactivity'
 import { ComponentObjectPropsOptions, ExtractPropTypes } from './componentProps'
+import { EmitsOptions } from './componentEmits'
 import { Directive } from './directives'
 import { ComponentPublicInstance } from './componentProxy'
 import { warn } from './warning'
@@ -51,12 +52,14 @@ export interface ComponentOptionsBase<
   RawBindings,
   D,
   C extends ComputedOptions,
-  M extends MethodOptions
-> extends LegacyOptions<Props, RawBindings, D, C, M>, SFCInternalOptions {
+  M extends MethodOptions,
+  E extends EmitsOptions,
+  EE extends string = string
+> extends LegacyOptions<Props, D, C, M>, SFCInternalOptions {
   setup?: (
     this: void,
     props: Props,
-    ctx: SetupContext
+    ctx: SetupContext<E>
   ) => RawBindings | RenderFunction | void
   name?: string
   template?: string | object // can be a direct DOM node
@@ -76,6 +79,7 @@ export interface ComponentOptionsBase<
   components?: Record<string, PublicAPIComponent>
   directives?: Record<string, Directive>
   inheritAttrs?: boolean
+  emits?: E | EE[]
 
   // Internal ------------------------------------------------------------------
 
@@ -98,10 +102,14 @@ export type ComponentOptionsWithoutProps<
   RawBindings = {},
   D = {},
   C extends ComputedOptions = {},
-  M extends MethodOptions = {}
-> = ComponentOptionsBase<Props, RawBindings, D, C, M> & {
+  M extends MethodOptions = {},
+  E extends EmitsOptions = EmitsOptions,
+  EE extends string = string
+> = ComponentOptionsBase<Props, RawBindings, D, C, M, E, EE> & {
   props?: undefined
-} & ThisType<ComponentPublicInstance<{}, RawBindings, D, C, M, Readonly<Props>>>
+} & ThisType<
+    ComponentPublicInstance<{}, RawBindings, D, C, M, E, Readonly<Props>>
+  >
 
 export type ComponentOptionsWithArrayProps<
   PropNames extends string = string,
@@ -109,10 +117,12 @@ export type ComponentOptionsWithArrayProps<
   D = {},
   C extends ComputedOptions = {},
   M extends MethodOptions = {},
+  E extends EmitsOptions = EmitsOptions,
+  EE extends string = string,
   Props = Readonly<{ [key in PropNames]?: any }>
-> = ComponentOptionsBase<Props, RawBindings, D, C, M> & {
+> = ComponentOptionsBase<Props, RawBindings, D, C, M, E, EE> & {
   props: PropNames[]
-} & ThisType<ComponentPublicInstance<Props, RawBindings, D, C, M>>
+} & ThisType<ComponentPublicInstance<Props, RawBindings, D, C, M, E>>
 
 export type ComponentOptionsWithObjectProps<
   PropsOptions = ComponentObjectPropsOptions,
@@ -120,10 +130,12 @@ export type ComponentOptionsWithObjectProps<
   D = {},
   C extends ComputedOptions = {},
   M extends MethodOptions = {},
+  E extends EmitsOptions = EmitsOptions,
+  EE extends string = string,
   Props = Readonly<ExtractPropTypes<PropsOptions>>
-> = ComponentOptionsBase<Props, RawBindings, D, C, M> & {
+> = ComponentOptionsBase<Props, RawBindings, D, C, M, E, EE> & {
   props: PropsOptions
-} & ThisType<ComponentPublicInstance<Props, RawBindings, D, C, M>>
+} & ThisType<ComponentPublicInstance<Props, RawBindings, D, C, M, E>>
 
 export type ComponentOptions =
   | ComponentOptionsWithoutProps<any, any, any, any, any>
@@ -164,7 +176,6 @@ type ComponentInjectOptions =
 // ! 2.x 遗留的选项接口
 export interface LegacyOptions<
   Props,
-  RawBindings,
   D,
   C extends ComputedOptions,
   M extends MethodOptions

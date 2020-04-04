@@ -172,7 +172,7 @@ export function markReadonly<T>(value: T): T {
 }
 
 // ! 标记非响应 -> 加入到非响应集合中
-export function markNonReactive<T>(value: T): T {
+export function markNonReactive<T extends object>(value: T): T {
   nonReactiveValues.add(value)
   return value
 }
