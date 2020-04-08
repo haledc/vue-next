@@ -13,7 +13,6 @@ import {
 import {
   ComponentInternalInstance,
   Data,
-  SetupProxySymbol,
   Component,
   ClassComponent
 } from './component'
@@ -239,6 +238,8 @@ const createVNodeWithArgsTransform = (
   )
 }
 
+export const InternalObjectSymbol = Symbol()
+
 export const createVNode = (__DEV__
   ? createVNodeWithArgsTransform
   : _createVNode) as typeof _createVNode
@@ -265,7 +266,7 @@ function _createVNode(
   // class & style normalization.
   if (props) {
     // for reactive or proxy objects, we need to clone it to enable mutation.
-    if (isReactive(props) || SetupProxySymbol in props) {
+    if (isReactive(props) || InternalObjectSymbol in props) {
       props = extend({}, props)
     }
     let { class: klass, style } = props
@@ -357,7 +358,7 @@ export function cloneVNode<T, U>(
     props: extraProps
       ? vnode.props
         ? mergeProps(vnode.props, extraProps)
-        : extraProps
+        : extend({}, extraProps)
       : vnode.props,
     key: vnode.key,
     ref: vnode.ref,
@@ -444,7 +445,9 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
       return
     } else {
       type = ShapeFlags.SLOTS_CHILDREN
-      if (!(children as RawSlots)._) {
+      if (!(children as RawSlots)._ && !(InternalObjectSymbol in children!)) {
+        // if slots are not normalized, attach context instance
+        // (compiled / normalized slots already have context)
         ;(children as RawSlots)._ctx = currentRenderingInstance
       }
     }

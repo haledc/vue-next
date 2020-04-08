@@ -32,7 +32,8 @@ import {
   PatchFlags,
   ShapeFlags,
   NOOP,
-  hasOwn
+  hasOwn,
+  invokeArrayFns
 } from '@vue/shared'
 import {
   queueJob,
@@ -40,15 +41,9 @@ import {
   flushPostFlushCbs,
   invalidateJob
 } from './scheduler'
-import {
-  effect,
-  stop,
-  ReactiveEffectOptions,
-  isRef,
-  DebuggerEvent
-} from '@vue/reactivity'
-import { resolveProps } from './componentProps'
-import { resolveSlots } from './componentSlots'
+import { effect, stop, ReactiveEffectOptions, isRef } from '@vue/reactivity'
+import { updateProps } from './componentProps'
+import { updateSlots } from './componentSlots'
 import { pushWarningContext, popWarningContext, warn } from './warning'
 import { ComponentPublicInstance } from './componentProxy'
 import { createAppAPI, CreateAppFunction } from './apiCreateApp'
@@ -231,7 +226,8 @@ export type MountComponentFn = (
   anchor: RendererNode | null,
   parentComponent: ComponentInternalInstance | null,
   parentSuspense: SuspenseBoundary | null,
-  isSVG: boolean
+  isSVG: boolean,
+  optimized: boolean
 ) => void
 
 type ProcessTextOrCommentFn = (
@@ -247,7 +243,8 @@ export type SetupRenderEffectFn = (
   container: RendererElement,
   anchor: RendererNode | null,
   parentSuspense: SuspenseBoundary | null,
-  isSVG: boolean
+  isSVG: boolean,
+  optimized: boolean
 ) => void
 
 export const enum MoveType {
@@ -265,14 +262,8 @@ function createDevEffectOptions(
 ): ReactiveEffectOptions {
   return {
     scheduler: queueJob,
-    onTrack: instance.rtc ? e => invokeHooks(instance.rtc!, e) : void 0,
-    onTrigger: instance.rtg ? e => invokeHooks(instance.rtg!, e) : void 0
-  }
-}
-
-export function invokeHooks(hooks: Function[], arg?: DebuggerEvent) {
-  for (let i = 0; i < hooks.length; i++) {
-    hooks[i](arg)
+    onTrack: instance.rtc ? e => invokeArrayFns(instance.rtc!, e) : void 0,
+    onTrigger: instance.rtg ? e => invokeArrayFns(instance.rtg!, e) : void 0
   }
 }
 
@@ -972,7 +963,8 @@ function baseCreateRenderer(
           anchor,
           parentComponent,
           parentSuspense,
-          isSVG
+          isSVG,
+          optimized
         )
       }
     } else {
@@ -989,7 +981,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             pushWarningContext(n2)
           }
-          updateComponentPreRender(instance, n2)
+          updateComponentPreRender(instance, n2, optimized)
           if (__DEV__) {
             popWarningContext()
           }
@@ -1017,7 +1009,8 @@ function baseCreateRenderer(
     anchor,
     parentComponent,
     parentSuspense,
-    isSVG
+    isSVG,
+    optimized
   ) => {
     const instance: ComponentInternalInstance = (initialVNode.component = createComponentInstance(
       initialVNode,
@@ -1045,7 +1038,7 @@ function baseCreateRenderer(
     if (__DEV__) {
       startMeasure(instance, `init`)
     }
-    setupComponent(instance, parentSuspense)
+    setupComponent(instance)
     if (__DEV__) {
       endMeasure(instance, `init`)
     }
@@ -1074,7 +1067,8 @@ function baseCreateRenderer(
       container,
       anchor,
       parentSuspense,
-      isSVG
+      isSVG,
+      optimized
     )
 
     if (__DEV__) {
@@ -1089,7 +1083,8 @@ function baseCreateRenderer(
     container,
     anchor,
     parentSuspense,
-    isSVG
+    isSVG,
+    optimized
   ) => {
     // create reactive effect for rendering
     instance.update = effect(function componentEffect() {
@@ -1106,7 +1101,7 @@ function baseCreateRenderer(
         }
         // beforeMount hook
         if (bm) {
-          invokeHooks(bm)
+          invokeArrayFns(bm)
         }
         // onVnodeBeforeMount
         if ((vnodeHook = props && props.onVnodeBeforeMount)) {
@@ -1173,7 +1168,7 @@ function baseCreateRenderer(
         }
 
         if (next) {
-          updateComponentPreRender(instance, next)
+          updateComponentPreRender(instance, next, optimized)
         } else {
           next = vnode
         }
@@ -1189,7 +1184,7 @@ function baseCreateRenderer(
         next.el = vnode.el
         // beforeUpdate hook
         if (bu) {
-          invokeHooks(bu)
+          invokeArrayFns(bu)
         }
         // onVnodeBeforeUpdate
         if ((vnodeHook = next.props && next.props.onVnodeBeforeUpdate)) {
@@ -1243,13 +1238,14 @@ function baseCreateRenderer(
 
   const updateComponentPreRender = (
     instance: ComponentInternalInstance,
-    nextVNode: VNode
+    nextVNode: VNode,
+    optimized: boolean
   ) => {
     nextVNode.component = instance
     instance.vnode = nextVNode
     instance.next = null
-    resolveProps(instance, nextVNode.props)
-    resolveSlots(instance, nextVNode.children)
+    updateProps(instance, nextVNode.props, optimized)
+    updateSlots(instance, nextVNode.children)
   }
 
   const patchChildren: PatchChildrenFn = (
@@ -1812,7 +1808,7 @@ function baseCreateRenderer(
     const { bum, effects, update, subTree, um, da, isDeactivated } = instance
     // beforeUnmount hook
     if (bum) {
-      invokeHooks(bum)
+      invokeArrayFns(bum)
     }
     if (effects) {
       for (let i = 0; i < effects.length; i++) {

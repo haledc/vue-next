@@ -2,7 +2,13 @@ import { toRaw, reactive, readonly } from './reactive'
 import { track, trigger, ITERATE_KEY, MAP_KEY_ITERATE_KEY } from './effect'
 import { TrackOpTypes, TriggerOpTypes } from './operations'
 import { LOCKED } from './lock'
-import { isObject, capitalize, hasOwn, hasChanged } from '@vue/shared'
+import {
+  isObject,
+  capitalize,
+  hasOwn,
+  hasChanged,
+  toRawType
+} from '@vue/shared'
 
 export type CollectionTypes = IterableCollections | WeakCollections
 
@@ -30,7 +36,10 @@ function get(
 ) {
   target = toRaw(target) // ! 获取原始对象
   const rawKey = toRaw(key) // ! 获取原始 key
-  track(target, TrackOpTypes.GET, rawKey) // ! 收集依赖
+  if (key !== rawKey) {
+    track(target, TrackOpTypes.GET, key)
+  }
+  track(target, TrackOpTypes.GET, rawKey)
   const { has, get } = getProto(target)
   if (has.call(target, key)) {
     return wrap(get.call(target, key)) // ! 通过 call 绑定 this 指向原始对象
@@ -42,7 +51,10 @@ function get(
 function has(this: CollectionTypes, key: unknown): boolean {
   const target = toRaw(this)
   const rawKey = toRaw(key)
-  track(target, TrackOpTypes.HAS, rawKey) // ! 收集依赖
+  if (key !== rawKey) {
+    track(target, TrackOpTypes.HAS, key)
+  }
+  track(target, TrackOpTypes.HAS, rawKey)
   const has = getProto(target).has
   return has.call(target, key) || has.call(target, rawKey)
 }
@@ -67,12 +79,19 @@ function add(this: SetTypes, value: unknown) {
 
 function set(this: MapTypes, key: unknown, value: unknown) {
   value = toRaw(value)
-  key = toRaw(key)
   const target = toRaw(this)
-  const proto = getProto(target)
-  const hadKey = proto.has.call(target, key) // ! 判断是否已经存在 key 值
-  const oldValue = proto.get.call(target, key) // ! 获取旧值
-  const result = proto.set.call(target, key, value)
+  const { has, get, set } = getProto(target)
+
+  let hadKey = has.call(target, key)
+  if (!hadKey) {
+    key = toRaw(key)
+    hadKey = has.call(target, key)
+  } else if (__DEV__) {
+    checkIdentityKeys(target, has, key)
+  }
+
+  const oldValue = get.call(target, key)
+  const result = set.call(target, key, value)
   if (!hadKey) {
     trigger(target, TriggerOpTypes.ADD, key, value)
   } else if (hasChanged(value, oldValue)) {
@@ -88,7 +107,10 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
   if (!hadKey) {
     key = toRaw(key)
     hadKey = has.call(target, key)
+  } else if (__DEV__) {
+    checkIdentityKeys(target, has, key)
   }
+
   const oldValue = get ? get.call(target, key) : undefined
   // forward the operation before queueing reactions
   const result = del.call(target, key)
@@ -258,4 +280,22 @@ export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
 
 export const readonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
   get: createInstrumentationGetter(readonlyInstrumentations)
+}
+
+function checkIdentityKeys(
+  target: CollectionTypes,
+  has: (key: unknown) => boolean,
+  key: unknown
+) {
+  const rawKey = toRaw(key)
+  if (rawKey !== key && has.call(target, rawKey)) {
+    const type = toRawType(target)
+    console.warn(
+      `Reactive ${type} contains both the raw and reactive ` +
+        `versions of the same object${type === `Map` ? `as keys` : ``}, ` +
+        `which can lead to inconsistencies. ` +
+        `Avoid differentiating between the raw and reactive versions ` +
+        `of an object and only use the reactive version if possible.`
+    )
+  }
 }

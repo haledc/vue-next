@@ -14,7 +14,7 @@ import {
   isVNode
 } from './vnode'
 import { handleError, ErrorCodes } from './errorHandling'
-import { PatchFlags, ShapeFlags, EMPTY_OBJ, isOn } from '@vue/shared'
+import { PatchFlags, ShapeFlags, isOn } from '@vue/shared'
 import { warn } from './warning'
 
 // mark the current rendering instance for asset resolution (e.g.
@@ -95,7 +95,7 @@ export function renderComponentRoot(
     if (
       Component.inheritAttrs !== false &&
       fallthroughAttrs &&
-      fallthroughAttrs !== EMPTY_OBJ
+      Object.keys(fallthroughAttrs).length
     ) {
       if (
         root.shapeFlag & ShapeFlags.ELEMENT ||
@@ -164,6 +164,7 @@ const getChildRoot = (
     return [vnode, undefined]
   }
   const rawChildren = vnode.children as VNodeArrayChildren
+  const dynamicChildren = vnode.dynamicChildren as VNodeArrayChildren
   const children = rawChildren.filter(child => {
     return !(isVNode(child) && child.type === Comment)
   })
@@ -172,7 +173,13 @@ const getChildRoot = (
   }
   const childRoot = children[0]
   const index = rawChildren.indexOf(childRoot)
-  const setRoot = (updatedRoot: VNode) => (rawChildren[index] = updatedRoot)
+  const dynamicIndex = dynamicChildren
+    ? dynamicChildren.indexOf(childRoot)
+    : null
+  const setRoot = (updatedRoot: VNode) => {
+    rawChildren[index] = updatedRoot
+    if (dynamicIndex !== null) dynamicChildren[dynamicIndex] = updatedRoot
+  }
   return [normalizeVNode(childRoot), setRoot]
 }
 
@@ -217,8 +224,8 @@ export function shouldUpdateComponent(
     return true
   }
 
-  // force child update on runtime directive usage on component vnode.
-  if (nextVNode.dirs) {
+  // force child update for runtime directive or transition on component vnode.
+  if (nextVNode.dirs || nextVNode.transition) {
     return true
   }
 
