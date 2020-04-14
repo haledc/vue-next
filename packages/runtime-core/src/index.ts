@@ -2,7 +2,6 @@
 
 export const version = __VERSION__
 export {
-  effect,
   ref,
   unref,
   shallowRef,
@@ -14,7 +13,6 @@ export {
   isReadonly,
   shallowReactive,
   toRaw,
-  markReadonly,
   markNonReactive
 } from '@vue/reactivity'
 export { computed } from './apiComputed'

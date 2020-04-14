@@ -103,7 +103,7 @@ function toProxyRef<T extends object, K extends keyof T>(
 // corner case when use narrows type
 // Ex. type RelativePath = string & { __brand: unknown }
 // RelativePath extends object -> true
-type BaseTypes = string | number | boolean
+type BaseTypes = string | number | boolean | Node | Window
 
 // Recursively unwraps nested value bindings.
 // ! 递归获取嵌套数据的类型
