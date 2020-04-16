@@ -20,14 +20,14 @@ const readonlyToRaw = new WeakMap<any, any>()
 
 // WeakSets for values that are marked readonly or non-reactive during
 // observable creation.
-const rawValues = new WeakSet<any>() // ! 非响应式对象集合
+const rawValues = new WeakSet<any>() // ! 原生对象集合
 
 const collectionTypes = new Set<Function>([Set, Map, WeakMap, WeakSet])
 const isObservableType = /*#__PURE__*/ makeMap(
   'Object,Array,Map,Set,WeakMap,WeakSet' // ! 可以设置响应式的六种引用类型
 )
 
-// ! 判断能否监听
+// ! 判断能否监听（能否生成响应式对象）
 const canObserve = (value: any): boolean => {
   return (
     !value._isVue && // ! 不能是 Vue 组件
@@ -70,7 +70,7 @@ export function shallowReactive<T extends object>(target: T): T {
   )
 }
 
-// ! 生成只读响应性对象 -> 存储对象的映射和代理的 handlers 不一样
+// ! 生成只读响应式对象 -> 存储对象的映射和代理的 handlers 不一样
 export function readonly<T extends object>(
   target: T
 ): Readonly<UnwrapNestedRefs<T>> {
@@ -99,6 +99,7 @@ export function shallowReadonly<T extends object>(
   )
 }
 
+// ! 生成响应式对象的方法
 function createReactiveObject(
   target: unknown,
   toProxy: WeakMap<any, any>,
@@ -136,17 +137,16 @@ function createReactiveObject(
   return observed
 }
 
-// ! 判断是否是响应式对象 -> 包括只读的响应式
 export function isReactive(value: unknown): boolean {
   value = readonlyToRaw.get(value) || value
   return reactiveToRaw.has(value)
 }
 
-// ! 判断是否是只读响应式对象
 export function isReadonly(value: unknown): boolean {
   return readonlyToRaw.has(value)
 }
 
+// ! 判断是否是应式对象（包括只读和非只读响应式对象，只要属于其中之一即可）
 export function isProxy(value: unknown): boolean {
   return readonlyToRaw.has(value) || reactiveToRaw.has(value)
 }

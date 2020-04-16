@@ -60,7 +60,7 @@ function has(this: CollectionTypes, key: unknown): boolean {
 
 function size(target: IterableCollections) {
   target = toRaw(target)
-  track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
+  track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! ITERATE 类型
   return Reflect.get(getProto(target), 'size', target)
 }
 
@@ -68,8 +68,8 @@ function add(this: SetTypes, value: unknown) {
   value = toRaw(value)
   const target = toRaw(this)
   const proto = getProto(target)
-  const hadKey = proto.has.call(target, value) // ! 判断是否已经存在 key 值
-  const result = proto.add.call(target, value) // ! 新增属性
+  const hadKey = proto.has.call(target, value)
+  const result = proto.add.call(target, value)
   if (!hadKey) {
     trigger(target, TriggerOpTypes.ADD, value, value)
   }
@@ -144,7 +144,7 @@ function createForEach(isReadonly: boolean) {
     const observed = this
     const target = toRaw(observed)
     const wrap = isReadonly ? toReadonly : toReactive
-    !isReadonly && track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
+    !isReadonly && track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! ITERATE 类型
     // important: create sure the callback is
     // 1. invoked with the reactive map as `this` and 3rd arg
     // 2. the value received should be a corresponding reactive/readonly.
@@ -166,7 +166,7 @@ function createIterableMethod(method: string | symbol, isReadonly: boolean) {
     !isReadonly &&
       track(
         target,
-        TrackOpTypes.ITERATE,
+        TrackOpTypes.ITERATE, // ! ITERATE 类型
         isKeyOnly ? MAP_KEY_ITERATE_KEY : ITERATE_KEY
       )
     // return a wrapped iterator which returns observed versions of the

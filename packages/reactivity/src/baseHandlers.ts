@@ -141,7 +141,6 @@ export const mutableHandlers: ProxyHandler<object> = {
 }
 
 // ! 只读的代理的 handlers，
-// ! 在拦截修改、新增、删除时判断是否解锁，如果没有解锁会报错且无法操作，解锁后才操作
 export const readonlyHandlers: ProxyHandler<object> = {
   get: readonlyGet,
   has,

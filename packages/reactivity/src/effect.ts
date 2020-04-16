@@ -12,7 +12,7 @@ const targetMap = new WeakMap<any, KeyToDepMap>()
 export interface ReactiveEffect<T = any> {
   (...args: any[]): T // ! 函数类型声明
   _isEffect: true // ! effect 标识
-  id: number
+  id: number // ! 唯一 ID
   active: boolean // ! 激活开关 -> 默认是 true, stop 后变为 false
   raw: () => T
   deps: Array<Dep>
@@ -47,7 +47,7 @@ export interface DebuggerEventExtraInfo {
 // ! 依赖收集栈 -> 存放 effect 的栈
 const effectStack: ReactiveEffect[] = []
 
-// ! 当前活跃的 effect
+// ! 当前活跃的依赖 effect
 export let activeEffect: ReactiveEffect | undefined
 
 export const ITERATE_KEY = Symbol(__DEV__ ? 'iterate' : '')
@@ -88,7 +88,7 @@ export function stop(effect: ReactiveEffect) {
 
 let uid = 0
 
-// ! 生成 effect 的方法 -> 包装 fn 函数，并赋予其属性
+// ! 生成 effect 的方法 -> 包装函数，并赋予其属性
 function createReactiveEffect<T = any>(
   fn: (...args: any[]) => T,
   options: ReactiveEffectOptions
@@ -131,17 +131,14 @@ function cleanup(effect: ReactiveEffect) {
   }
 }
 
-// ! 是否收集依赖
 let shouldTrack = true
 const trackStack: boolean[] = []
 
-// ! 停止收集依赖
 export function pauseTracking() {
   trackStack.push(shouldTrack)
   shouldTrack = false
 }
 
-// ! 恢复收集依赖
 export function enableTracking() {
   trackStack.push(shouldTrack)
   shouldTrack = true
@@ -153,7 +150,7 @@ export function resetTracking() {
   shouldTrack = last === undefined ? true : last
 }
 
-// ! 收集依赖（effect）
+// ! 收集依赖（获取 effect）
 export function track(target: object, type: TrackOpTypes, key: unknown) {
   if (!shouldTrack || activeEffect === undefined) {
     return
@@ -189,7 +186,7 @@ export function trigger(
   oldValue?: unknown,
   oldTarget?: Map<unknown, unknown> | Set<unknown>
 ) {
-  const depsMap = targetMap.get(target) // ! 获取 target 的所有依赖
+  const depsMap = targetMap.get(target) // ! 获取 target 对象的所有依赖
 
   if (depsMap === void 0) {
     // never been tracked

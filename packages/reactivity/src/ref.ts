@@ -20,7 +20,7 @@ export interface Ref<T = any> {
   value: T
 }
 
-// ! 转换 -> 对象类型转换成响应性对象，原始类型直接返回自身
+// ! 转换 -> 普通对象转响应式对象，原始类型直接返回自身
 const convert = <T extends unknown>(val: T): T =>
   isObject(val) ? reactive(val) : val
 
@@ -96,6 +96,7 @@ export function customRef<T>(factory: CustomRefFactory<T>): Ref<T> {
   return r as any
 }
 
+// ! 响应式对象转 Ref 对象
 export function toRefs<T extends object>(
   object: T
 ): { [K in keyof T]: Ref<T[K]> } {
@@ -130,7 +131,7 @@ export function toRef<T extends object, K extends keyof T>(
 // RelativePath extends object -> true
 type BaseTypes = string | number | boolean | Node | Window
 
-// ! 递归获取嵌套数据的类型
+// ! 解套 Ref 类型
 export type UnwrapRef<T> = T extends ComputedRef<infer V>
   ? UnwrapRefSimple<V>
   : T extends Ref<infer V> ? UnwrapRefSimple<V> : UnwrapRefSimple<T>
