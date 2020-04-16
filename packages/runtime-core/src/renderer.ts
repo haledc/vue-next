@@ -53,7 +53,7 @@ import {
   SuspenseImpl
 } from './components/Suspense'
 import { TeleportImpl } from './components/Teleport'
-import { KeepAliveSink, isKeepAlive } from './components/KeepAlive'
+import { isKeepAlive, KeepAliveContext } from './components/KeepAlive'
 import { registerHMR, unregisterHMR } from './hmr'
 import {
   ErrorCodes,
@@ -949,7 +949,7 @@ function baseCreateRenderer(
   ) => {
     if (n1 == null) {
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
-        ;(parentComponent!.sink as KeepAliveSink).activate(
+        ;(parentComponent!.ctx as KeepAliveContext).activate(
           n2,
           container,
           anchor,
@@ -998,9 +998,7 @@ function baseCreateRenderer(
 
     // inject renderer internals for keepAlive
     if (isKeepAlive(initialVNode)) {
-      const sink = instance.sink as KeepAliveSink
-      sink.renderer = internals
-      sink.parentSuspense = parentSuspense
+      ;(instance.ctx as KeepAliveContext).renderer = internals
     }
 
     // resolve props and slots for setup context
@@ -1721,7 +1719,7 @@ function baseCreateRenderer(
 
     if (shapeFlag & ShapeFlags.COMPONENT) {
       if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
-        ;(parentComponent!.sink as KeepAliveSink).deactivate(vnode)
+        ;(parentComponent!.ctx as KeepAliveContext).deactivate(vnode)
       } else {
         unmountComponent(vnode.component!, parentSuspense, doRemove)
       }
@@ -1901,14 +1899,14 @@ function baseCreateRenderer(
     }
     const oldRef = oldRawRef && oldRawRef[1]
     const refs = owner.refs === EMPTY_OBJ ? (owner.refs = {}) : owner.refs
-    const renderContext = owner.renderContext
+    const setupState = owner.setupState
 
     // unset old ref
     if (oldRef != null && oldRef !== ref) {
       if (isString(oldRef)) {
         refs[oldRef] = null
-        if (hasOwn(renderContext, oldRef)) {
-          renderContext[oldRef] = null
+        if (hasOwn(setupState, oldRef)) {
+          setupState[oldRef] = null
         }
       } else if (isRef(oldRef)) {
         oldRef.value = null
@@ -1917,8 +1915,8 @@ function baseCreateRenderer(
 
     if (isString(ref)) {
       refs[ref] = value
-      if (hasOwn(renderContext, ref)) {
-        renderContext[ref] = value
+      if (hasOwn(setupState, ref)) {
+        setupState[ref] = value
       }
     } else if (isRef(ref)) {
       ref.value = value
