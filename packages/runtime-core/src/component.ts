@@ -3,7 +3,8 @@ import {
   reactive,
   ReactiveEffect,
   pauseTracking,
-  resetTracking
+  resetTracking,
+  shallowReadonly
 } from '@vue/reactivity'
 import {
   ComponentPublicInstance,
@@ -351,7 +352,7 @@ function setupStatefulComponent(
       setup,
       instance,
       ErrorCodes.SETUP_FUNCTION,
-      [instance.props, setupContext]
+      [__DEV__ ? shallowReadonly(instance.props) : instance.props, setupContext]
     )
     resetTracking()
     currentInstance = null
@@ -485,17 +486,6 @@ function finishComponentSetup(
   }
 }
 
-const slotsHandlers: ProxyHandler<InternalSlots> = {
-  set: () => {
-    warn(`setupContext.slots is readonly.`)
-    return false
-  },
-  deleteProperty: () => {
-    warn(`setupContext.slots is readonly.`)
-    return false
-  }
-}
-
 const attrHandlers: ProxyHandler<Data> = {
   get: (target, key: string) => {
     markAttrsAccessed()
@@ -521,7 +511,7 @@ function createSetupContext(instance: ComponentInternalInstance): SetupContext {
         return new Proxy(instance.attrs, attrHandlers)
       },
       get slots() {
-        return new Proxy(instance.slots, slotsHandlers)
+        return shallowReadonly(instance.slots)
       },
       get emit() {
         return (event: string, ...args: any[]) => instance.emit(event, ...args)

@@ -20,6 +20,18 @@ function plainType(arg: number | Ref<number>) {
   })
   expectType<Ref<{ foo: number }>>(nestedRef)
   expectType<{ foo: number }>(nestedRef.value)
+
+  // tuple
+  expectType<[number, string]>(unref(ref([1, '1'])))
+
+  interface IteratorFoo {
+    [Symbol.iterator]: any
+  }
+
+  // with symbol
+  expectType<Ref<IteratorFoo | null | undefined>>(
+    ref<IteratorFoo | null | undefined>()
+  )
 }
 
 plainType(1)

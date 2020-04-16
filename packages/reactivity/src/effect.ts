@@ -12,6 +12,7 @@ const targetMap = new WeakMap<any, KeyToDepMap>()
 export interface ReactiveEffect<T = any> {
   (...args: any[]): T // ! 函数类型声明
   _isEffect: true // ! effect 标识
+  id: number
   active: boolean // ! 激活开关 -> 默认是 true, stop 后变为 false
   raw: () => T
   deps: Array<Dep>
@@ -22,7 +23,7 @@ export interface ReactiveEffect<T = any> {
 export interface ReactiveEffectOptions {
   lazy?: boolean // ! 延迟计算，为 true 时 effect 不会立即执行一次
   computed?: boolean // ! 计算属性标识
-  scheduler?: (job: () => void) => void // ! 调度器函数
+  scheduler?: (job: ReactiveEffect) => void // ! 调度器函数
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
   onStop?: () => void
@@ -85,6 +86,8 @@ export function stop(effect: ReactiveEffect) {
   }
 }
 
+let uid = 0
+
 // ! 生成 effect 的方法 -> 包装 fn 函数，并赋予其属性
 function createReactiveEffect<T = any>(
   fn: (...args: any[]) => T,
@@ -109,6 +112,7 @@ function createReactiveEffect<T = any>(
       }
     }
   } as ReactiveEffect
+  effect.id = uid++
   effect._isEffect = true
   effect.active = true // ! 初始为 true，使用 stop 后为 false
   effect.raw = fn

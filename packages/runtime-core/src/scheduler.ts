@@ -1,7 +1,12 @@
 import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { isArray } from '@vue/shared'
 
-const queue: (Function | null)[] = [] // ! job 队列
+export interface Job {
+  (): void
+  id?: number
+}
+
+const queue: (Job | null)[] = [] // ! job 队列
 const postFlushCbs: Function[] = [] // ! cb 队列
 const p = Promise.resolve()
 
@@ -9,22 +14,21 @@ let isFlushing = false
 let isFlushPending = false
 
 const RECURSION_LIMIT = 100
-type CountMap = Map<Function, number>
+type CountMap = Map<Job | Function, number>
 
 // ! nextTick -> 使用 Promise.then 异步执行函数，目前版本无兼容处理
 export function nextTick(fn?: () => void): Promise<void> {
   return fn ? p.then(fn) : p
 }
 
-// ! job 队列化
-export function queueJob(job: () => void) {
+export function queueJob(job: Job) {
   if (!queue.includes(job)) {
     queue.push(job)
     queueFlush()
   }
 }
 
-export function invalidateJob(job: () => void) {
+export function invalidateJob(job: Job) {
   const i = queue.indexOf(job)
   if (i > -1) {
     queue[i] = null
@@ -48,13 +52,10 @@ function queueFlush() {
   }
 }
 
-const dedupe = (cbs: Function[]): Function[] => [...new Set(cbs)]
-
-// ! 执行 cbs
 export function flushPostFlushCbs(seen?: CountMap) {
   if (postFlushCbs.length) {
-    const cbs = dedupe(postFlushCbs) // ! cbs 去重
-    postFlushCbs.length = 0 // ! 清空值
+    const cbs = [...new Set(postFlushCbs)]
+    postFlushCbs.length = 0
     if (__DEV__) {
       seen = seen || new Map()
     }
@@ -67,7 +68,8 @@ export function flushPostFlushCbs(seen?: CountMap) {
   }
 }
 
-// ! 执行 jobs
+const getId = (job: Job) => (job.id == null ? Infinity : job.id)
+
 function flushJobs(seen?: CountMap) {
   isFlushPending = false
   isFlushing = true
@@ -75,6 +77,18 @@ function flushJobs(seen?: CountMap) {
   if (__DEV__) {
     seen = seen || new Map()
   }
+
+  // Sort queue before flush.
+  // This ensures that:
+  // 1. Components are updated from parent to child. (because parent is always
+  //    created before the child so its render effect will have smaller
+  //    priority number)
+  // 2. If a component is unmounted during a parent component's update,
+  //    its update can be skipped.
+  // Jobs can never be null before flush starts, since they are only invalidated
+  // during execution of another flushed job.
+  queue.sort((a, b) => getId(a!) - getId(b!))
+
   while ((job = queue.shift()) !== undefined) {
     if (job === null) {
       continue
@@ -93,7 +107,7 @@ function flushJobs(seen?: CountMap) {
   }
 }
 
-function checkRecursiveUpdates(seen: CountMap, fn: Function) {
+function checkRecursiveUpdates(seen: CountMap, fn: Job | Function) {
   if (!seen.has(fn)) {
     seen.set(fn, 1)
   } else {

@@ -1,13 +1,24 @@
-export { ref, unref, shallowRef, isRef, toRefs, Ref, UnwrapRef } from './ref'
+export {
+  ref,
+  unref,
+  shallowRef,
+  isRef,
+  toRef,
+  toRefs,
+  customRef,
+  Ref,
+  UnwrapRef
+} from './ref'
 export {
   reactive,
-  isReactive,
-  shallowReactive,
   readonly,
+  isReactive,
   isReadonly,
+  isProxy,
+  shallowReactive,
   shallowReadonly,
-  toRaw,
-  markNonReactive
+  markRaw,
+  toRaw
 } from './reactive'
 export {
   computed,
@@ -30,5 +41,4 @@ export {
   ReactiveEffectOptions,
   DebuggerEvent
 } from './effect'
-export { lock, unlock } from './lock'
 export { TrackOpTypes, TriggerOpTypes } from './operations'
