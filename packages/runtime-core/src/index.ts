@@ -189,10 +189,14 @@ export {
 export {
   ComponentOptions,
   ComponentOptionsWithoutProps,
-  ComponentOptionsWithObjectProps as ComponentOptionsWithProps,
-  ComponentOptionsWithArrayProps
+  ComponentOptionsWithObjectProps,
+  ComponentOptionsWithArrayProps,
+  ComponentCustomOptions
 } from './componentOptions'
-export { ComponentPublicInstance } from './componentProxy'
+export {
+  ComponentPublicInstance,
+  ComponentCustomProperties
+} from './componentProxy'
 export {
   Renderer,
   RendererNode,
@@ -207,7 +211,8 @@ export {
   Prop,
   PropType,
   ComponentPropsOptions,
-  ComponentObjectPropsOptions
+  ComponentObjectPropsOptions,
+  ExtractPropTypes
 } from './componentProps'
 export {
   Directive,

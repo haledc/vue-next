@@ -20,7 +20,6 @@ import {
 import {
   currentInstance,
   ComponentInternalInstance,
-  Data,
   isInSSRComponentSetup,
   recordInstanceBoundEffect
 } from './component'
@@ -283,9 +282,11 @@ export function instanceWatch(
   cb: Function,
   options?: WatchOptions
 ): StopHandle {
-  const ctx = this.proxy as Data
-  const getter = isString(source) ? () => ctx[source] : source.bind(ctx)
-  const stop = watch(getter, cb.bind(ctx), options)
+  const publicThis = this.proxy as any
+  const getter = isString(source)
+    ? () => publicThis[source]
+    : source.bind(publicThis)
+  const stop = watch(getter, cb.bind(publicThis), options)
   onBeforeUnmount(stop, this)
   return stop
 }
@@ -293,7 +294,7 @@ export function instanceWatch(
 // ! 追踪子级 -> 实现深度观察的方法
 function traverse(value: unknown, seen: Set<unknown> = new Set()) {
   if (!isObject(value) || seen.has(value)) {
-    return
+    return value
   }
   seen.add(value)
   if (isArray(value)) {

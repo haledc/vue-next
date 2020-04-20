@@ -51,7 +51,24 @@ import { Directive } from './directives'
 import { ComponentPublicInstance } from './componentProxy'
 import { warn } from './warning'
 
-// ! 组件选项基础接口 -> 继承 Vue2 选项接口
+/**
+ * Interface for declaring custom options.
+ *
+ * @example
+ * ```ts
+ * declare module '@vue/runtime-core' {
+ *   interface ComponentCustomOptions {
+ *     beforeRouteUpdate?(
+ *       to: Route,
+ *       from: Route,
+ *       next: () => void
+ *     ): void
+ *   }
+ * }
+ * ```
+ */
+export interface ComponentCustomOptions {}
+
 export interface ComponentOptionsBase<
   Props,
   RawBindings,
@@ -60,7 +77,10 @@ export interface ComponentOptionsBase<
   M extends MethodOptions,
   E extends EmitsOptions,
   EE extends string = string
-> extends LegacyOptions<Props, D, C, M>, SFCInternalOptions {
+>
+  extends LegacyOptions<Props, D, C, M>,
+    SFCInternalOptions,
+    ComponentCustomOptions {
   setup?: (
     this: void,
     props: Props,
@@ -531,7 +551,7 @@ function createWatcher(
   publicThis: ComponentPublicInstance,
   key: string
 ) {
-  const getter = () => (publicThis as Data)[key]
+  const getter = () => (publicThis as any)[key]
   if (isString(raw)) {
     const handler = ctx[raw]
     if (isFunction(handler)) {

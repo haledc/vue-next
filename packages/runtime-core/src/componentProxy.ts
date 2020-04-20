@@ -24,6 +24,33 @@ import {
 } from './componentRenderUtils'
 import { warn } from './warning'
 
+/**
+ * Custom properties added to component instances in any way and can be accessed through `this`
+ *
+ * @example
+ * Here is an example of adding a property `$router` to every component instance:
+ * ```ts
+ * import { createApp } from 'vue'
+ * import { Router, createRouter } from 'vue-router'
+ *
+ * declare module '@vue/runtime-core' {
+ *   interface ComponentCustomProperties {
+ *     $router: Router
+ *   }
+ * }
+ *
+ * // effectively adding the router to every component instance
+ * const app = createApp({})
+ * const router = createRouter()
+ * app.config.globalProperties.$router = router
+ *
+ * const vm = app.mount('#app')
+ * // we can access the router from the instance
+ * vm.$router.push('/')
+ * ```
+ */
+export interface ComponentCustomProperties {}
+
 // public properties exposed on the proxy, which is used as the render context
 // in templates (as `this` in the render option)
 export type ComponentPublicInstance<
@@ -53,7 +80,8 @@ export type ComponentPublicInstance<
   UnwrapRef<B> &
   D &
   ExtractComputedReturns<C> &
-  M
+  M &
+  ComponentCustomProperties
 
 const publicPropertiesMap: Record<
   string,
@@ -156,6 +184,10 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       (cssModule = cssModule[key])
     ) {
       return cssModule
+    } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key)) {
+      // user may set custom properties to `this` that start with `$`
+      accessCache![key] = AccessTypes.CONTEXT
+      return ctx[key]
     } else if (
       // global properties
       ((globalProperties = appContext.config.globalProperties),
