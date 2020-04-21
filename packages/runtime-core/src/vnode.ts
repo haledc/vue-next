@@ -204,7 +204,6 @@ export function isVNode(value: any): value is VNode {
 // ! 判断是否是相同的 VNode -> type 和 key 相同
 export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
   if (
-    __BUNDLER__ &&
     __DEV__ &&
     n2.shapeFlag & ShapeFlags.COMPONENT &&
     (n2.type as Component).__hmrUpdated

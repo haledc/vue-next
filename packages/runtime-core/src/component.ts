@@ -52,6 +52,7 @@ export interface SFCInternalOptions {
   __cssModules?: Data
   __hmrId?: string
   __hmrUpdated?: boolean
+  __file?: string
 }
 
 export interface FunctionalComponent<
@@ -457,9 +458,15 @@ function finishComponentSetup(
       /* istanbul ignore if */
       if (!compile && Component.template) {
         warn(
-          `Component provides template but the build of Vue you are running ` +
-            `does not support runtime template compilation. Either use the ` +
-            `full build or pre-compile the template using Vue CLI.`
+          `Component provided template option but ` +
+            `runtime compilation is not supported in this build of Vue.` +
+            (__ESM_BUNDLER__
+              ? ` Configure your bundler to alias "vue" to "vue/dist/vue.esm-bundler.js".`
+              : __ESM_BROWSER__
+                ? ` Use "vue.esm-browser.js" instead.`
+                : __GLOBAL__
+                  ? ` Use "vue.global.js" instead.`
+                  : ``) /* should not happen */
         )
       } else {
         warn(`Component is missing template or render function.`)
@@ -489,7 +496,9 @@ function finishComponentSetup(
 
 const attrHandlers: ProxyHandler<Data> = {
   get: (target, key: string) => {
-    markAttrsAccessed()
+    if (__DEV__) {
+      markAttrsAccessed()
+    }
     return target[key]
   },
   set: () => {
@@ -541,16 +550,16 @@ const classify = (str: string): string =>
 
 export function formatComponentName(
   Component: Component,
-  file?: string
+  isRoot = false
 ): string {
   let name = isFunction(Component)
     ? Component.displayName || Component.name
     : Component.name
-  if (!name && file) {
-    const match = file.match(/([^/\\]+)\.vue$/)
+  if (!name && Component.__file) {
+    const match = Component.__file.match(/([^/\\]+)\.vue$/)
     if (match) {
       name = match[1]
     }
   }
-  return name ? classify(name) : 'Anonymous'
+  return name ? classify(name) : isRoot ? `App` : `Anonymous`
 }
