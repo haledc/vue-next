@@ -214,7 +214,9 @@ function doWatch(
           if (cleanup) {
             cleanup()
           }
+          // ! 异步执行
           callWithAsyncErrorHandling(cb, instance, ErrorCodes.WATCH_CALLBACK, [
+            // ! 传入的参数
             newValue,
             // pass undefined as the old value when it's changed for the first time
             oldValue === INITIAL_WATCHER_VALUE ? undefined : oldValue,
