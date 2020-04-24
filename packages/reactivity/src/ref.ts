@@ -1,7 +1,7 @@
 import { track, trigger } from './effect'
 import { TrackOpTypes, TriggerOpTypes } from './operations'
-import { isObject } from '@vue/shared'
-import { reactive, isProxy } from './reactive'
+import { isObject, hasChanged } from '@vue/shared'
+import { reactive, isProxy, toRaw } from './reactive'
 import { ComputedRef } from './computed'
 import { CollectionTypes } from './collectionHandlers'
 
@@ -20,7 +20,9 @@ export interface Ref<T = any> {
   value: T
 }
 
-// ! 转换 -> 普通对象转响应式对象，原始类型直接返回自身
+export type ToRefs<T = any> = { [K in keyof T]: Ref<T[K]> }
+
+// ! 转换 -> 普通对象转响应式对象，原始类型直接返回自身s
 const convert = <T extends unknown>(val: T): T =>
   isObject(val) ? reactive(val) : val
 
@@ -29,7 +31,10 @@ export function isRef(r: any): r is Ref {
   return r ? r._isRef === true : false
 }
 
-export function ref<T>(value: T): T extends Ref ? T : Ref<UnwrapRef<T>>
+export function ref<T extends object>(
+  value: T
+): T extends Ref ? T : Ref<UnwrapRef<T>>
+export function ref<T>(value: T): Ref<UnwrapRef<T>>
 export function ref<T = any>(): Ref<T | undefined>
 export function ref(value?: unknown) {
   return createRef(value)
@@ -41,13 +46,11 @@ export function shallowRef(value?: unknown) {
   return createRef(value, true)
 }
 
-function createRef(value: unknown, shallow = false) {
-  if (isRef(value)) {
-    return value
+function createRef(rawValue: unknown, shallow = false) {
+  if (isRef(rawValue)) {
+    return rawValue
   }
-  if (!shallow) {
-    value = convert(value)
-  }
+  let value = shallow ? rawValue : convert(rawValue)
   const r = {
     _isRef: true, // ! Ref 类型标识
     get value() {
@@ -55,16 +58,28 @@ function createRef(value: unknown, shallow = false) {
       return value
     },
     set value(newVal) {
-      value = shallow ? newVal : convert(newVal)
-      trigger(
-        r,
-        TriggerOpTypes.SET,
-        'value',
-        __DEV__ ? { newValue: newVal } : void 0
-      )
+      if (hasChanged(toRaw(newVal), rawValue)) {
+        rawValue = newVal
+        value = shallow ? newVal : convert(newVal)
+        trigger(
+          r,
+          TriggerOpTypes.SET,
+          'value',
+          __DEV__ ? { newValue: newVal } : void 0
+        )
+      }
     }
   }
   return r
+}
+
+export function triggerRef(ref: Ref) {
+  trigger(
+    ref,
+    TriggerOpTypes.SET,
+    'value',
+    __DEV__ ? { newValue: ref.value } : void 0
+  )
 }
 
 export function unref<T>(ref: T): T extends Ref<infer V> ? V : T {
@@ -97,9 +112,7 @@ export function customRef<T>(factory: CustomRefFactory<T>): Ref<T> {
 }
 
 // ! 响应式对象转 Ref 对象
-export function toRefs<T extends object>(
-  object: T
-): { [K in keyof T]: Ref<T[K]> } {
+export function toRefs<T extends object>(object: T): ToRefs<T> {
   if (__DEV__ && !isProxy(object)) {
     console.warn(`toRefs() expects a reactive object but received a plain one.`)
   }
