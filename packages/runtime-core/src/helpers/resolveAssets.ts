@@ -12,13 +12,18 @@ import { warn } from '../warning'
 const COMPONENTS = 'components'
 const DIRECTIVES = 'directives'
 
+/**
+ * @internal
+ */
 export function resolveComponent(name: string): Component | string | undefined {
   return resolveAsset(COMPONENTS, name) || name
 }
 
 export const NULL_DYNAMIC_COMPONENT = Symbol()
 
-// ! 解析动态组件
+/**
+ * @internal
+ */
 export function resolveDynamicComponent(
   component: unknown
 ): Component | string | typeof NULL_DYNAMIC_COMPONENT {
@@ -30,6 +35,9 @@ export function resolveDynamicComponent(
   }
 }
 
+/**
+ * @internal
+ */
 export function resolveDirective(name: string): Directive | undefined {
   return resolveAsset(DIRECTIVES, name)
 }

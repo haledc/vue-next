@@ -30,8 +30,7 @@ const isObservableType = /*#__PURE__*/ makeMap(
 // ! 判断能否监听（能否生成响应式对象）
 const canObserve = (value: any): boolean => {
   return (
-    !value._isVue && // ! 不能是 Vue 组件
-    !value._isVNode && // ! 不能是 VNode
+    !value._isVNode && // ! 必须符合设置的六种引用类型
     isObservableType(toRawType(value)) && // ! 必须符合设置的六种引用类型
     !rawValues.has(value) && // ! 不能是原生集合中的值
     !Object.isFrozen(value) // ! 不能是冻结对象
