@@ -54,6 +54,8 @@ import {
 } from './runtimeHelpers'
 import { ImportItem } from './transform'
 
+const PURE_ANNOTATION = `/*#__PURE__*/`
+
 type CodegenNode = TemplateChildNode | JSChildNode | SSRCodegenNode
 
 export interface CodegenResult {
@@ -70,6 +72,7 @@ export interface CodegenContext extends Required<CodegenOptions> {
   column: number
   offset: number
   indentLevel: number
+  pure: boolean
   map?: SourceMapGenerator
   helper(key: symbol): string
   push(code: string, node?: CodegenNode): void
@@ -109,6 +112,7 @@ function createCodegenContext(
     line: 1,
     offset: 0,
     indentLevel: 0,
+    pure: false,
     map: undefined,
     helper(key) {
       return `_${helperNameMap[key]}`
@@ -204,7 +208,7 @@ export function generate(
 
   // enter render function
   if (genScopeId && !ssr) {
-    push(`const render = _withId(`)
+    push(`const render = ${PURE_ANNOTATION}_withId(`)
   }
   if (!ssr) {
     push(`function render(_ctx, _cache) {`)
@@ -403,7 +407,9 @@ function genModulePreamble(
   }
 
   if (genScopeId) {
-    push(`const _withId = ${helper(WITH_SCOPE_ID)}("${scopeId}")`)
+    push(
+      `const _withId = ${PURE_ANNOTATION}${helper(WITH_SCOPE_ID)}("${scopeId}")`
+    )
     newline()
   }
 
@@ -435,6 +441,7 @@ function genHoists(hoists: JSChildNode[], context: CodegenContext) {
   if (!hoists.length) {
     return
   }
+  context.pure = true
   const { push, newline, helper, scopeId, mode } = context
   const genScopeId = !__BROWSER__ && scopeId != null && mode !== 'function'
   newline()
@@ -456,6 +463,7 @@ function genHoists(hoists: JSChildNode[], context: CodegenContext) {
     push(`${helper(POP_SCOPE_ID)}()`)
     newline()
   }
+  context.pure = false
 }
 
 function genImports(importsOptions: ImportItem[], context: CodegenContext) {
@@ -637,7 +645,8 @@ function genExpression(node: SimpleExpressionNode, context: CodegenContext) {
 
 // ! 生成插值
 function genInterpolation(node: InterpolationNode, context: CodegenContext) {
-  const { push, helper } = context
+  const { push, helper, pure } = context
+  if (pure) push(PURE_ANNOTATION)
   push(`${helper(TO_DISPLAY_STRING)}(`)
   genNode(node.content, context)
   push(`)`)
@@ -681,13 +690,16 @@ function genExpressionAsPropertyKey(
 // ! 生成注释
 function genComment(node: CommentNode, context: CodegenContext) {
   if (__DEV__) {
-    const { push, helper } = context
+    const { push, helper, pure } = context
+    if (pure) {
+      push(PURE_ANNOTATION)
+    }
     push(`${helper(CREATE_COMMENT)}(${JSON.stringify(node.content)})`, node)
   }
 }
 
 function genVNodeCall(node: VNodeCall, context: CodegenContext) {
-  const { push, helper } = context
+  const { push, helper, pure } = context
   const {
     tag,
     props,
@@ -703,6 +715,9 @@ function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   }
   if (isBlock) {
     push(`(${helper(OPEN_BLOCK)}(${isForBlock ? `true` : ``}), `)
+  }
+  if (pure) {
+    push(PURE_ANNOTATION)
   }
   push(helper(isBlock ? CREATE_BLOCK : CREATE_VNODE) + `(`, node)
   genNodeList(
@@ -730,12 +745,14 @@ function genNullableArgs(args: any[]): CallExpression['arguments'] {
 
 // JavaScript
 function genCallExpression(node: CallExpression, context: CodegenContext) {
-  const callee = isString(node.callee)
-    ? node.callee
-    : context.helper(node.callee)
-  context.push(callee + `(`, node)
+  const { push, helper, pure } = context
+  const callee = isString(node.callee) ? node.callee : helper(node.callee)
+  if (pure) {
+    push(PURE_ANNOTATION)
+  }
+  push(callee + `(`, node)
   genNodeList(node.arguments, context)
-  context.push(`)`)
+  push(`)`)
 }
 
 // ! 生成对象表达式
