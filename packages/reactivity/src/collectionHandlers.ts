@@ -1,4 +1,4 @@
-import { toRaw, reactive, readonly } from './reactive'
+import { toRaw, reactive, readonly, ReactiveFlags } from './reactive'
 import { track, trigger, ITERATE_KEY, MAP_KEY_ITERATE_KEY } from './effect'
 import { TrackOpTypes, TriggerOpTypes } from './operations'
 import {
@@ -247,30 +247,41 @@ iteratorMethods.forEach(method => {
   )
 })
 
-function createInstrumentationGetter(
-  instrumentations: Record<string, Function>
-) {
+function createInstrumentationGetter(isReadonly: boolean) {
+  const instrumentations = isReadonly
+    ? readonlyInstrumentations
+    : mutableInstrumentations
+
   return (
     target: CollectionTypes,
     key: string | symbol,
     receiver: CollectionTypes
-  ) =>
-    Reflect.get(
-      // ! 改变反射的 target -> 有 key 时指向插桩对象
+  ) => {
+    if (key === ReactiveFlags.isReactive) {
+      return !isReadonly
+    } else if (key === ReactiveFlags.isReadonly) {
+      return isReadonly
+    } else if (key === ReactiveFlags.raw) {
+      return target
+    }
+
+    // ! 改变反射的 target -> 有 key 时指向插桩对象
+    return Reflect.get(
       hasOwn(instrumentations, key) && key in target
         ? instrumentations // ! 插桩对象
         : target,
       key,
       receiver
     )
+  }
 }
 
 export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
-  get: createInstrumentationGetter(mutableInstrumentations)
+  get: createInstrumentationGetter(false)
 }
 
 export const readonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
-  get: createInstrumentationGetter(readonlyInstrumentations)
+  get: createInstrumentationGetter(true)
 }
 
 function checkIdentityKeys(
