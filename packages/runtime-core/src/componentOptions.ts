@@ -218,7 +218,7 @@ type ComponentInjectOptions =
     >
 
 // ! 2.x 遗留的选项接口
-export interface LegacyOptions<
+interface LegacyOptions<
   Props,
   D,
   C extends ComputedOptions,
