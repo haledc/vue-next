@@ -117,7 +117,19 @@ export function createHydrationFunctions(
         if (domType !== DOMNodeTypes.ELEMENT) {
           return onMismatch()
         }
-        return nextSibling(node)
+        // determine anchor, adopt content
+        let cur = node
+        // if the static vnode has its content stripped during build,
+        // adopt it from the server-rendered HTML.
+        const needToAdoptContent = !(vnode.children as string).length
+        for (let i = 0; i < vnode.staticCount; i++) {
+          if (needToAdoptContent) vnode.children += (cur as Element).outerHTML
+          if (i === vnode.staticCount - 1) {
+            vnode.anchor = cur
+          }
+          cur = nextSibling(cur)!
+        }
+        return cur
       case Fragment:
         if (!isFragmentStart) {
           return onMismatch()

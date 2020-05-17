@@ -437,7 +437,7 @@ function genAssets(
   }
 }
 
-function genHoists(hoists: JSChildNode[], context: CodegenContext) {
+function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   if (!hoists.length) {
     return
   }
@@ -454,9 +454,11 @@ function genHoists(hoists: JSChildNode[], context: CodegenContext) {
   }
 
   hoists.forEach((exp, i) => {
-    push(`const _hoisted_${i + 1} = `)
-    genNode(exp, context)
-    newline()
+    if (exp) {
+      push(`const _hoisted_${i + 1} = `)
+      genNode(exp, context)
+      newline()
+    }
   })
 
   if (genScopeId) {

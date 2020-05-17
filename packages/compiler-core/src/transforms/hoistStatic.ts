@@ -43,6 +43,7 @@ function walk(
   resultCache: Map<TemplateChildNode, boolean>,
   doNotHoistNode: boolean = false
 ) {
+  let hasHoistedNode = false
   for (let i = 0; i < children.length; i++) {
     const child = children[i]
     // only plain elements & text calls are eligible for hoisting.
@@ -54,10 +55,8 @@ function walk(
         // whole tree is static
         ;(child.codegenNode as VNodeCall).patchFlag =
           PatchFlags.HOISTED + (__DEV__ ? ` /* HOISTED */` : ``)
-        const hoisted = context.transformHoist
-          ? context.transformHoist(child, context)
-          : child.codegenNode!
-        child.codegenNode = context.hoist(hoisted)
+        child.codegenNode = context.hoist(child.codegenNode!)
+        hasHoistedNode = true
         continue
       } else {
         // node may contain dynamic children, but its props may be eligible for
@@ -84,6 +83,7 @@ function walk(
       isStaticNode(child.content, resultCache)
     ) {
       child.codegenNode = context.hoist(child.codegenNode)
+      hasHoistedNode = true
     }
 
     // walk further
@@ -99,6 +99,10 @@ function walk(
         walk(branchChildren, context, resultCache, branchChildren.length === 1)
       }
     }
+  }
+
+  if (hasHoistedNode && context.transformHoist) {
+    context.transformHoist(children, context)
   }
 }
 
