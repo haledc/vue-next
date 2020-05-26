@@ -17,7 +17,8 @@ import {
   ComponentInternalInstance,
   createComponentInstance,
   Data,
-  setupComponent
+  setupComponent,
+  Component
 } from './component'
 import {
   renderComponentRoot,
@@ -47,7 +48,6 @@ import { effect, stop, ReactiveEffectOptions, isRef } from '@vue/reactivity'
 import { updateProps } from './componentProps'
 import { updateSlots } from './componentSlots'
 import { pushWarningContext, popWarningContext, warn } from './warning'
-import { ComponentPublicInstance } from './componentProxy'
 import { createAppAPI, CreateAppFunction } from './apiCreateApp'
 import {
   SuspenseBoundary,
@@ -65,6 +65,7 @@ import {
 import { createHydrationFunctions, RootHydrateFunction } from './hydration'
 import { invokeDirectiveHook } from './directives'
 import { startMeasure, endMeasure } from './profiling'
+import { ComponentPublicInstance } from './componentProxy'
 
 export interface Renderer<HostElement = any> {
   render: RootRenderFunction<HostElement>
@@ -271,6 +272,65 @@ export const queuePostRenderEffect = __FEATURE_SUSPENSE__
   ? queueEffectWithSuspense
   : queuePostFlushCb
 
+export const setRef = (
+  rawRef: VNodeNormalizedRef,
+  oldRawRef: VNodeNormalizedRef | null,
+  parent: ComponentInternalInstance,
+  vnode: VNode | null
+) => {
+  let value: ComponentPublicInstance | RendererNode | null
+  if (!vnode) {
+    value = null
+  } else {
+    const { el, component, shapeFlag, type } = vnode
+    if (shapeFlag & ShapeFlags.COMPONENT && (type as Component).inheritRef) {
+      return
+    }
+    if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+      value = component!.proxy
+    } else {
+      value = el
+    }
+  }
+
+  const [owner, ref] = rawRef
+  if (__DEV__ && !owner) {
+    warn(
+      `Missing ref owner context. ref cannot be used on hoisted vnodes. ` +
+        `A vnode with ref must be created inside the render function.`
+    )
+    return
+  }
+  const oldRef = oldRawRef && oldRawRef[1]
+  const refs = owner.refs === EMPTY_OBJ ? (owner.refs = {}) : owner.refs
+  const setupState = owner.setupState
+
+  // unset old ref
+  if (oldRef != null && oldRef !== ref) {
+    if (isString(oldRef)) {
+      refs[oldRef] = null
+      if (hasOwn(setupState, oldRef)) {
+        setupState[oldRef] = null
+      }
+    } else if (isRef(oldRef)) {
+      oldRef.value = null
+    }
+  }
+
+  if (isString(ref)) {
+    refs[ref] = value
+    if (hasOwn(setupState, ref)) {
+      setupState[ref] = value
+    }
+  } else if (isRef(ref)) {
+    ref.value = value
+  } else if (isFunction(ref)) {
+    callWithErrorHandling(ref, parent, ErrorCodes.FUNCTION_REF, [value, refs])
+  } else if (__DEV__) {
+    warn('Invalid template ref type:', value, `(${typeof value})`)
+  }
+}
+
 /**
  * The createRenderer function accepts two generic arguments:
  * HostNode and HostElement, corresponding to Node and Element types in the
@@ -440,9 +500,7 @@ function baseCreateRenderer(
 
     // set ref
     if (ref != null && parentComponent) {
-      const refValue =
-        shapeFlag & ShapeFlags.STATEFUL_COMPONENT ? n2.component!.proxy : n2.el
-      setRef(ref, n1 && n1.ref, parentComponent, refValue)
+      setRef(ref, n1 && n1.ref, parentComponent, n2)
     }
   }
 
@@ -1982,50 +2040,6 @@ function baseCreateRenderer(
       return vnode.suspense!.next()
     }
     return hostNextSibling((vnode.anchor || vnode.el)!)
-  }
-
-  const setRef = (
-    rawRef: VNodeNormalizedRef,
-    oldRawRef: VNodeNormalizedRef | null,
-    parent: ComponentInternalInstance,
-    value: RendererNode | ComponentPublicInstance | null
-  ) => {
-    const [owner, ref] = rawRef
-    if (__DEV__ && !owner) {
-      warn(
-        `Missing ref owner context. ref cannot be used on hoisted vnodes. ` +
-          `A vnode with ref must be created inside the render function.`
-      )
-      return
-    }
-    const oldRef = oldRawRef && oldRawRef[1]
-    const refs = owner.refs === EMPTY_OBJ ? (owner.refs = {}) : owner.refs
-    const setupState = owner.setupState
-
-    // unset old ref
-    if (oldRef != null && oldRef !== ref) {
-      if (isString(oldRef)) {
-        refs[oldRef] = null
-        if (hasOwn(setupState, oldRef)) {
-          setupState[oldRef] = null
-        }
-      } else if (isRef(oldRef)) {
-        oldRef.value = null
-      }
-    }
-
-    if (isString(ref)) {
-      refs[ref] = value
-      if (hasOwn(setupState, ref)) {
-        setupState[ref] = value
-      }
-    } else if (isRef(ref)) {
-      ref.value = value
-    } else if (isFunction(ref)) {
-      callWithErrorHandling(ref, parent, ErrorCodes.FUNCTION_REF, [value, refs])
-    } else if (__DEV__) {
-      warn('Invalid template ref type:', value, `(${typeof value})`)
-    }
   }
 
   /**
