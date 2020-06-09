@@ -314,7 +314,7 @@ export interface ComponentInternalInstance {
    * hmr marker (dev only)
    * @internal
    */
-  renderUpdated?: boolean
+  hmrUpdated?: boolean
 }
 
 const emptyAppContext = createAppContext()
