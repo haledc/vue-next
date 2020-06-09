@@ -19,7 +19,7 @@ export interface Ref<T = any> {
 
 export type ToRefs<T = any> = { [K in keyof T]: Ref<T[K]> }
 
-// ! 转换 -> 普通对象转响应式对象，原始类型直接返回自身s
+// ! 转换 -> 普通对象转响应式对象，原始类型直接返回自身
 const convert = <T extends unknown>(val: T): T =>
   isObject(val) ? reactive(val) : val
 

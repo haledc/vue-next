@@ -148,7 +148,7 @@ export const mutableHandlers: ProxyHandler<object> = {
   ownKeys
 }
 
-// ! 只读的代理的 handlers，
+// ! 只读的代理的 handlers
 export const readonlyHandlers: ProxyHandler<object> = {
   get: readonlyGet,
   has,
