@@ -12,12 +12,18 @@ import { warn } from '../warning'
 const COMPONENTS = 'components'
 const DIRECTIVES = 'directives'
 
+/**
+ * @private
+ */
 export function resolveComponent(name: string): Component | string | undefined {
   return resolveAsset(COMPONENTS, name) || name
 }
 
 export const NULL_DYNAMIC_COMPONENT = Symbol()
 
+/**
+ * @private
+ */
 export function resolveDynamicComponent(
   component: unknown
 ): Component | string | typeof NULL_DYNAMIC_COMPONENT {
@@ -29,11 +35,17 @@ export function resolveDynamicComponent(
   }
 }
 
+/**
+ * @private
+ */
 export function resolveDirective(name: string): Directive | undefined {
   return resolveAsset(DIRECTIVES, name)
 }
 
-// overload 1: components
+/**
+ * @private
+ * overload 1: components
+ */
 function resolveAsset(
   type: typeof COMPONENTS,
   name: string,
@@ -44,8 +56,7 @@ function resolveAsset(
   type: typeof DIRECTIVES,
   name: string
 ): Directive | undefined
-
-// ! 解析资源 -> 获取组件 or 指令
+// implementation
 function resolveAsset(
   type: typeof COMPONENTS | typeof DIRECTIVES,
   name: string,

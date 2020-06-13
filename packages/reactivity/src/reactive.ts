@@ -37,7 +37,7 @@ const isObservableType = /*#__PURE__*/ makeMap(
 
 const canObserve = (value: Target): boolean => {
   return (
-    !value.__v_skip &&
+    !value[ReactiveFlags.skip] &&
     isObservableType(toRawType(value)) &&
     !Object.isFrozen(value)
   )
@@ -50,7 +50,7 @@ type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRef<T>
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
-  if (target && (target as Target).__v_isReadonly) {
+  if (target && (target as Target)[ReactiveFlags.isReadonly]) {
     return target
   }
   return createReactiveObject(
@@ -115,14 +115,19 @@ function createReactiveObject(
   }
   // target is already a Proxy, return it.
   // exception: calling readonly() on a reactive object
-  if (target.__v_raw && !(isReadonly && target.__v_isReactive)) {
+  if (
+    target[ReactiveFlags.raw] &&
+    !(isReadonly && target[ReactiveFlags.isReactive])
+  ) {
     return target
   }
   // target already has corresponding Proxy
   if (
     hasOwn(target, isReadonly ? ReactiveFlags.readonly : ReactiveFlags.reactive)
   ) {
-    return isReadonly ? target.__v_readonly : target.__v_reactive
+    return isReadonly
+      ? target[ReactiveFlags.readonly]
+      : target[ReactiveFlags.reactive]
   }
   // only a whitelist of value types can be observed.
   if (!canObserve(target)) {
@@ -143,13 +148,13 @@ function createReactiveObject(
 
 export function isReactive(value: unknown): boolean {
   if (isReadonly(value)) {
-    return isReactive((value as Target).__v_raw)
+    return isReactive((value as Target)[ReactiveFlags.raw])
   }
-  return !!(value && (value as Target).__v_isReactive)
+  return !!(value && (value as Target)[ReactiveFlags.isReactive])
 }
 
 export function isReadonly(value: unknown): boolean {
-  return !!(value && (value as Target).__v_isReadonly)
+  return !!(value && (value as Target)[ReactiveFlags.isReadonly])
 }
 
 // ! 判断是否是应式对象（包括只读和非只读响应式对象，只要属于其中之一即可）
@@ -158,7 +163,9 @@ export function isProxy(value: unknown): boolean {
 }
 
 export function toRaw<T>(observed: T): T {
-  return (observed && toRaw((observed as Target).__v_raw)) || observed
+  return (
+    (observed && toRaw((observed as Target)[ReactiveFlags.raw])) || observed
+  )
 }
 
 // ! 标记原生 -> 加入到原生集合中
