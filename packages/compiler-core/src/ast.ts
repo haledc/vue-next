@@ -308,7 +308,7 @@ export interface VNodeCall extends Node {
   dynamicProps: string | undefined
   directives: DirectiveArguments | undefined
   isBlock: boolean
-  isForBlock: boolean
+  disableTracking: boolean
 }
 
 // JS Node Types ---------------------------------------------------------------
@@ -533,7 +533,7 @@ export interface ForCodegenNode extends VNodeCall {
   props: undefined
   children: ForRenderListExpression
   patchFlag: string
-  isForBlock: true
+  disableTracking: boolean
 }
 
 export interface ForRenderListExpression extends CallExpression {
@@ -584,7 +584,7 @@ export function createVNodeCall(
   dynamicProps?: VNodeCall['dynamicProps'],
   directives?: VNodeCall['directives'],
   isBlock: VNodeCall['isBlock'] = false,
-  isForBlock: VNodeCall['isForBlock'] = false,
+  disableTracking: VNodeCall['disableTracking'] = false,
   loc = locStub
 ): VNodeCall {
   if (context) {
@@ -608,7 +608,7 @@ export function createVNodeCall(
     dynamicProps,
     directives,
     isBlock,
-    isForBlock,
+    disableTracking,
     loc
   }
 }

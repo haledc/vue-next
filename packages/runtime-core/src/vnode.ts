@@ -280,12 +280,13 @@ export const InternalObjectKey = `__vInternal`
 const normalizeKey = ({ key }: VNodeProps): VNode['key'] =>
   key != null ? key : null
 
-const normalizeRef = ({ ref }: VNodeProps): VNode['ref'] =>
-  (ref != null
+const normalizeRef = ({ ref }: VNodeProps): VNode['ref'] => {
+  return (ref != null
     ? isArray(ref)
       ? ref
       : [currentRenderingInstance!, ref]
     : null) as any
+}
 
 export const createVNode = (__DEV__
   ? createVNodeWithArgsTransform
@@ -411,11 +412,11 @@ export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
   extraProps?: Data & VNodeProps
 ): VNode<T, U> {
-  const props = (extraProps
+  const props = extraProps
     ? vnode.props
       ? mergeProps(vnode.props, extraProps)
       : extend({}, extraProps)
-    : vnode.props) as any
+    : vnode.props
   // This is intentionally NOT using spread or extend to avoid the runtime
   // key enumeration cost.
   return {
@@ -424,7 +425,7 @@ export function cloneVNode<T, U>(
     type: vnode.type,
     props,
     key: props && normalizeKey(props),
-    ref: props && normalizeRef(props),
+    ref: extraProps && extraProps.ref ? normalizeRef(extraProps) : vnode.ref,
     scopeId: vnode.scopeId,
     children: vnode.children,
     target: vnode.target,
@@ -576,7 +577,7 @@ export function mergeProps(...args: (Data & VNodeProps)[]) {
         const incoming = toMerge[key]
         if (existing !== incoming) {
           ret[key] = existing
-            ? [].concat(existing as any, toMerge[key] as any) // ! 合并同类事件
+            ? [].concat(existing as any, toMerge[key]) // ! 合并同类事件
             : incoming
         }
       } else {

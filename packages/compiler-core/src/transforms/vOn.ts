@@ -83,9 +83,9 @@ export const transformOn: DirectiveTransform = (
       // avoiding the need to be patched.
       if (isCacheable && isMemberExp) {
         if (exp.type === NodeTypes.SIMPLE_EXPRESSION) {
-          exp.content += `($event)`
+          exp.content += `($event, ...args)`
         } else {
-          exp.children.push(`($event)`)
+          exp.children.push(`($event, ...args)`)
         }
       }
     }
@@ -102,7 +102,9 @@ export const transformOn: DirectiveTransform = (
     if (isInlineStatement || (isCacheable && isMemberExp)) {
       // wrap inline statement in a function expression
       exp = createCompoundExpression([
-        `$event => ${hasMultipleStatements ? `{` : `(`}`,
+        `${isInlineStatement ? `$event` : `($event, ...args)`} => ${
+          hasMultipleStatements ? `{` : `(`
+        }`,
         exp,
         hasMultipleStatements ? `}` : `)`
       ])
