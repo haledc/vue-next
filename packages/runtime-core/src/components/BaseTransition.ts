@@ -8,13 +8,14 @@ import {
   Comment,
   isSameVNodeType,
   VNode,
-  VNodeArrayChildren
+  VNodeArrayChildren,
+  Fragment
 } from '../vnode'
 import { warn } from '../warning'
 import { isKeepAlive } from './KeepAlive'
 import { toRaw } from '@vue/reactivity'
 import { callWithAsyncErrorHandling, ErrorCodes } from '../errorHandling'
-import { ShapeFlags } from '@vue/shared'
+import { ShapeFlags, PatchFlags } from '@vue/shared'
 import { onBeforeUnmount, onMounted } from '../apiLifecycle'
 import { RendererElement } from '../renderer'
 
@@ -41,6 +42,11 @@ export interface BaseTransitionProps<HostElement = RendererElement> {
   onLeave?: (el: HostElement, done: () => void) => void
   onAfterLeave?: (el: HostElement) => void
   onLeaveCancelled?: (el: HostElement) => void // only fired in persisted mode
+  // appear
+  onBeforeAppear?: (el: HostElement) => void
+  onAppear?: (el: HostElement, done: () => void) => void
+  onAfterAppear?: (el: HostElement) => void
+  onAppearCancelled?: (el: HostElement) => void
 }
 
 export interface TransitionHooks<
@@ -117,7 +123,12 @@ const BaseTransitionImpl = {
     onBeforeLeave: Function,
     onLeave: Function,
     onAfterLeave: Function,
-    onLeaveCancelled: Function
+    onLeaveCancelled: Function,
+    // appear
+    onBeforeAppear: Function,
+    onAppear: Function,
+    onAfterAppear: Function,
+    onAppearCancelled: Function
   },
 
   setup(props: BaseTransitionProps, { slots }: SetupContext) {
@@ -125,7 +136,10 @@ const BaseTransitionImpl = {
     const state = useTransitionState()
 
     return () => {
-      const children = slots.default && slots.default()
+      const children = slots.default && getTransitionRawChildren(
+        slots.default(),
+        true
+      )
       if (!children || !children.length) {
         return
       }
@@ -175,7 +189,6 @@ const BaseTransitionImpl = {
         oldInnerChild.type !== Comment &&
         !isSameVNodeType(innerChild, oldInnerChild)
       ) {
-        const prevHooks = oldInnerChild.transition!
         const leavingHooks = resolveTransitionHooks(
           oldInnerChild,
           rawProps,
@@ -194,7 +207,6 @@ const BaseTransitionImpl = {
           }
           return emptyPlaceholder(child)
         } else if (mode === 'in-out') {
-          delete prevHooks.delayedLeave
           leavingHooks.delayLeave = (
             el: TransitionElement,
             earlyRemove,
@@ -256,7 +268,11 @@ export function resolveTransitionHooks(
     onBeforeLeave,
     onLeave,
     onAfterLeave,
-    onLeaveCancelled
+    onLeaveCancelled,
+    onBeforeAppear,
+    onAppear,
+    onAfterAppear,
+    onAppearCancelled
   }: BaseTransitionProps<any>,
   state: TransitionState,
   instance: ComponentInternalInstance
@@ -277,8 +293,13 @@ export function resolveTransitionHooks(
   const hooks: TransitionHooks<TransitionElement> = {
     persisted,
     beforeEnter(el) {
-      if (!appear && !state.isMounted) {
-        return
+      let hook = onBeforeEnter
+      if (!state.isMounted) {
+        if (appear) {
+          hook = onBeforeAppear || onBeforeEnter
+        } else {
+          return
+        }
       }
       // for same element (v-show)
       if (el._leaveCb) {
@@ -294,31 +315,43 @@ export function resolveTransitionHooks(
         // force early removal (not cancelled)
         leavingVNode.el!._leaveCb()
       }
-      callHook(onBeforeEnter, [el])
+      callHook(hook, [el])
     },
 
     enter(el) {
-      if (!appear && !state.isMounted) {
-        return
+      let hook = onEnter
+      let afterHook = onAfterEnter
+      let cancelHook = onEnterCancelled
+      if (!state.isMounted) {
+        if (appear) {
+          hook = onAppear || onEnter
+          afterHook = onAfterAppear || onAfterEnter
+          cancelHook = onAppearCancelled || onEnterCancelled
+        } else {
+          return
+        }
       }
       let called = false
-      const afterEnter = (el._enterCb = (cancelled?) => {
+      const done = (el._enterCb = (cancelled?) => {
         if (called) return
         called = true
         if (cancelled) {
-          callHook(onEnterCancelled, [el])
+          callHook(cancelHook, [el])
         } else {
-          callHook(onAfterEnter, [el])
+          callHook(afterHook, [el])
         }
         if (hooks.delayedLeave) {
           hooks.delayedLeave()
         }
         el._enterCb = undefined
       })
-      if (onEnter) {
-        onEnter(el, afterEnter)
+      if (hook) {
+        hook(el, done)
+        if (hook.length <= 1) {
+          done()
+        }
       } else {
-        afterEnter()
+        done()
       }
     },
 
@@ -332,7 +365,7 @@ export function resolveTransitionHooks(
       }
       callHook(onBeforeLeave, [el])
       let called = false
-      const afterLeave = (el._leaveCb = (cancelled?) => {
+      const done = (el._leaveCb = (cancelled?) => {
         if (called) return
         called = true
         remove()
@@ -348,9 +381,12 @@ export function resolveTransitionHooks(
       })
       leavingVNodesCache[key] = vnode
       if (onLeave) {
-        onLeave(el, afterLeave)
+        onLeave(el, done)
+        if (onLeave.length <= 1) {
+          done()
+        }
       } else {
-        afterLeave()
+        done()
       }
     }
   }
@@ -384,4 +420,36 @@ export function setTransitionHooks(vnode: VNode, hooks: TransitionHooks) {
   } else {
     vnode.transition = hooks
   }
+}
+
+export function getTransitionRawChildren(
+  children: VNode[],
+  keepComment: boolean = false
+): VNode[] {
+  let ret: VNode[] = []
+  let keyedFragmentCount = 0
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i]
+    // handle fragment children case, e.g. v-for
+    if (child.type === Fragment) {
+      if (child.patchFlag & PatchFlags.KEYED_FRAGMENT) keyedFragmentCount++
+      ret = ret.concat(
+        getTransitionRawChildren(child.children as VNode[], keepComment)
+      )
+    }
+    // comment placeholders should be skipped, e.g. v-if
+    else if (keepComment || child.type !== Comment) {
+      ret.push(child)
+    }
+  }
+  // #1126 if a transition children list contains multiple sub fragments, these
+  // fragments will be merged into a flat children array. Since each v-for
+  // fragment may contain different static bindings inside, we need to de-top
+  // these children to force full diffs to ensure correct behavior.
+  if (keyedFragmentCount > 1) {
+    for (let i = 0; i < ret.length; i++) {
+      ret[i].patchFlag = PatchFlags.BAIL
+    }
+  }
+  return ret
 }

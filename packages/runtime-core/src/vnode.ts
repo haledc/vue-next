@@ -560,8 +560,7 @@ const handlersRE = /^on|^vnode/
 
 // ! 合并属性
 export function mergeProps(...args: (Data & VNodeProps)[]) {
-  const ret: Data = {}
-  extend(ret, args[0])
+  const ret = extend({}, args[0])
   for (let i = 1; i < args.length; i++) {
     const toMerge = args[i]
     for (const key in toMerge) {
