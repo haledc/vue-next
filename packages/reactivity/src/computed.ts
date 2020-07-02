@@ -50,7 +50,6 @@ export function computed<T>(
   const runner = effect(getter, {
     lazy: true, // ! 延迟计算
     // mark effect as computed so that it gets priority during trigger
-    computed: true,
     scheduler: () => {
       if (!dirty) {
         dirty = true // ! 当 T 值发生变化，触发依赖 -> 执行这个 scheduler 函数，重置为 true

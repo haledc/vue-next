@@ -293,7 +293,7 @@ export const createVNode = (__DEV__
   : _createVNode) as typeof _createVNode
 
 function _createVNode(
-  type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
+  type: VNode | VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
   patchFlag: number = 0,
@@ -305,6 +305,10 @@ function _createVNode(
       warn(`Invalid vnode type when creating vnode: ${type}.`)
     }
     type = Comment
+  }
+
+  if (isVNode(type)) {
+    return cloneVNode(type, props, children)
   }
 
   // class component normalization.
@@ -410,7 +414,8 @@ function _createVNode(
 // ! 克隆 VNode -> 可扩展 props
 export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
-  extraProps?: Data & VNodeProps
+  extraProps?: Data & VNodeProps | null,
+  children?: unknown
 ): VNode<T, U> {
   const props = extraProps
     ? vnode.props
@@ -419,7 +424,7 @@ export function cloneVNode<T, U>(
     : vnode.props
   // This is intentionally NOT using spread or extend to avoid the runtime
   // key enumeration cost.
-  return {
+  const cloned: VNode<T, U> = {
     __v_isVNode: true,
     __v_skip: true,
     type: vnode.type,
@@ -456,6 +461,10 @@ export function cloneVNode<T, U>(
     el: vnode.el,
     anchor: vnode.anchor
   }
+  if (children) {
+    normalizeChildren(cloned, children)
+  }
+  return cloned
 }
 
 /**
