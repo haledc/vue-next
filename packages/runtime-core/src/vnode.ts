@@ -47,6 +47,7 @@ export const Static = Symbol(__DEV__ ? 'Static' : undefined)
 // ! VNode 类型
 export type VNodeTypes =
   | string
+  | VNode
   | Component
   | typeof Text
   | typeof Static
@@ -293,7 +294,7 @@ export const createVNode = (__DEV__
   : _createVNode) as typeof _createVNode
 
 function _createVNode(
-  type: VNode | VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
+  type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
   patchFlag: number = 0,
@@ -384,6 +385,11 @@ function _createVNode(
     dynamicProps,
     dynamicChildren: null,
     appContext: null
+  }
+
+  // validate key
+  if (__DEV__ && vnode.key !== vnode.key) {
+    warn(`VNode created with invalid key (NaN). VNode type:`, vnode.type)
   }
 
   normalizeChildren(vnode, children) // ! 规范化 children
