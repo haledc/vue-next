@@ -1246,6 +1246,7 @@ function baseCreateRenderer(
   ) => {
     // create reactive effect for rendering
     instance.update = effect(function componentEffect() {
+      // ! 挂载实例
       if (!instance.isMounted) {
         let vnodeHook: VNodeHook | null | undefined
         const { el, props } = initialVNode
@@ -1253,6 +1254,7 @@ function baseCreateRenderer(
         if (__DEV__) {
           startMeasure(instance, `render`)
         }
+        // ! 更新 VNode
         const subTree = (instance.subTree = renderComponentRoot(instance))
         if (__DEV__) {
           endMeasure(instance, `render`)
@@ -1283,6 +1285,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
+          // ! 打补丁
           patch(
             null,
             subTree,
@@ -1315,7 +1318,9 @@ function baseCreateRenderer(
           queuePostRenderEffect(a, parentSuspense)
         }
         instance.isMounted = true
-      } else {
+      }
+      // ! 更新实例
+      else {
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: VNode)
@@ -1327,13 +1332,14 @@ function baseCreateRenderer(
         }
 
         if (next) {
-          updateComponentPreRender(instance, next, optimized)
+          updateComponentPreRender(instance, next, optimized) // ! 更新组件 VNode
         } else {
           next = vnode
         }
         if (__DEV__) {
           startMeasure(instance, `render`)
         }
+        // ! 更新子树 VNode
         const nextTree = renderComponentRoot(instance)
         if (__DEV__) {
           endMeasure(instance, `render`)
@@ -1346,6 +1352,7 @@ function baseCreateRenderer(
           invokeArrayFns(bu)
         }
         // onVnodeBeforeUpdate
+        // ! 调用更新前钩子
         if ((vnodeHook = next.props && next.props.onVnodeBeforeUpdate)) {
           invokeVNodeHook(vnodeHook, parent, next, vnode)
         }
@@ -1357,6 +1364,7 @@ function baseCreateRenderer(
         if (__DEV__) {
           startMeasure(instance, `patch`)
         }
+        // ! 打补丁
         patch(
           prevTree,
           nextTree,
@@ -1558,6 +1566,7 @@ function baseCreateRenderer(
   }
 
   // can be all-keyed or mixed
+  // ! diff algorithms
   const patchKeyedChildren = (
     c1: VNode[],
     c2: VNodeArrayChildren,
@@ -2149,6 +2158,7 @@ export function invokeVNodeHook(
 }
 
 // https://en.wikipedia.org/wiki/Longest_increasing_subsequence
+// ! 最长增长子序列的索引
 function getSequence(arr: number[]): number[] {
   const p = arr.slice()
   const result = [0]

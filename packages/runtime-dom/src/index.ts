@@ -58,6 +58,7 @@ export const createApp = ((...args) => {
   }
 
   const { mount } = app
+  // ! 重写 dom 平台的 mount 方法
   app.mount = (containerOrSelector: Element | string): any => {
     const container = normalizeContainer(containerOrSelector)
     if (!container) return
