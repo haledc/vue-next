@@ -51,7 +51,11 @@ export function renderComponentRoot(
     slots,
     attrs,
     emit,
-    renderCache
+    render,
+    renderCache,
+    data,
+    setupState,
+    ctx
   } = instance
 
   let result
@@ -66,7 +70,15 @@ export function renderComponentRoot(
       // runtime-compiled render functions using `with` block.
       const proxyToUse = withProxy || proxy
       result = normalizeVNode(
-        instance.render!.call(proxyToUse, proxyToUse!, renderCache)
+        render!.call(
+          proxyToUse,
+          proxyToUse!,
+          renderCache,
+          props,
+          setupState,
+          data,
+          ctx
+        )
       )
       fallthroughAttrs = attrs
     } else {
@@ -155,12 +167,16 @@ export function renderComponentRoot(
 
     // inherit scopeId
     const scopeId = vnode.scopeId
+    // vite#536: if subtree root is created from parent slot if would already
+    // have the correct scopeId, in this case adding the scopeId will cause
+    // it to be removed if the original slot vnode is reused.
+    const needScopeId = scopeId && root.scopeId !== scopeId
     const treeOwnerId = parent && parent.type.__scopeId
     const slotScopeId =
       treeOwnerId && treeOwnerId !== scopeId ? treeOwnerId + '-s' : null
-    if (scopeId || slotScopeId) {
+    if (needScopeId || slotScopeId) {
       const extras: Data = {}
-      if (scopeId) extras[scopeId] = ''
+      if (needScopeId) extras[scopeId!] = ''
       if (slotScopeId) extras[slotScopeId] = ''
       root = cloneVNode(root, extras)
     }

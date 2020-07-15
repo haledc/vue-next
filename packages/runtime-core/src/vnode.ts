@@ -94,8 +94,7 @@ type VNodeChildAtom =
   | undefined
   | void
 
-export interface VNodeArrayChildren
-  extends Array<VNodeArrayChildren | VNodeChildAtom> {}
+export type VNodeArrayChildren = Array<VNodeArrayChildren | VNodeChildAtom>
 
 export type VNodeChild = VNodeChildAtom | VNodeArrayChildren
 
