@@ -37,6 +37,10 @@ run()
 
 // ! 执行打包
 async function run() {
+  if (isRelease) {
+    // remove build cache for release builds to avoid outdated enum values
+    await fs.remove(path.resolve(__dirname, '../node_modules/.rts2_cache'))
+  }
   if (!targets.length) {
     await buildAll(allTargets)
     checkAllSizes(allTargets)

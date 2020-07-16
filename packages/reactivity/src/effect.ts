@@ -22,7 +22,6 @@ export interface ReactiveEffect<T = any> {
 // ! effect 选项接口
 export interface ReactiveEffectOptions {
   lazy?: boolean // ! 延迟计算，为 true 时 effect 不会立即执行一次
-  computed?: boolean // ! 计算属性标识
   scheduler?: (job: ReactiveEffect) => void // ! 调度器函数
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
