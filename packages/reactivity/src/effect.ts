@@ -10,7 +10,7 @@ type KeyToDepMap = Map<any, Dep>
 const targetMap = new WeakMap<any, KeyToDepMap>()
 
 export interface ReactiveEffect<T = any> {
-  (...args: any[]): T // ! 函数类型声明
+  (): T // ! 函数类型声明
   _isEffect: true // ! effect 标识
   id: number // ! 唯一 ID
   active: boolean // ! 激活开关 -> 默认是 true, stop 后变为 false
@@ -89,13 +89,13 @@ let uid = 0
 
 // ! 生成 effect 的方法 -> 包装函数，并赋予其属性
 function createReactiveEffect<T = any>(
-  fn: (...args: any[]) => T,
+  fn: () => T,
   options: ReactiveEffectOptions
 ): ReactiveEffect<T> {
   // ! 创建一个 effect 函数
-  const effect = function reactiveEffect(...args: unknown[]): unknown {
+  const effect = function reactiveEffect(): unknown {
     if (!effect.active) {
-      return options.scheduler ? undefined : fn(...args)
+      return options.scheduler ? undefined : fn()
     }
     if (!effectStack.includes(effect)) {
       cleanup(effect)
@@ -103,7 +103,7 @@ function createReactiveEffect<T = any>(
         enableTracking()
         effectStack.push(effect)
         activeEffect = effect
-        return fn(...args)
+        return fn()
       } finally {
         effectStack.pop()
         resetTracking()

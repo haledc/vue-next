@@ -12,6 +12,9 @@ const p = Promise.resolve()
 
 let isFlushing = false
 let isFlushPending = false
+let flushIndex = 0
+let pendingPostFlushCbs: Function[] | null = null
+let pendingPostFlushIndex = 0
 
 const RECURSION_LIMIT = 100
 type CountMap = Map<Job | Function, number>
@@ -22,7 +25,7 @@ export function nextTick(fn?: () => void): Promise<void> {
 }
 
 export function queueJob(job: Job) {
-  if (!queue.includes(job)) {
+  if (!queue.includes(job, flushIndex)) {
     queue.push(job)
     queueFlush()
   }
@@ -37,8 +40,16 @@ export function invalidateJob(job: Job) {
 // ! cb 队列化
 export function queuePostFlushCb(cb: Function | Function[]) {
   if (!isArray(cb)) {
-    postFlushCbs.push(cb)
+    if (
+      !pendingPostFlushCbs ||
+      !pendingPostFlushCbs.includes(cb, pendingPostFlushIndex)
+    ) {
+      postFlushCbs.push(cb)
+    }
   } else {
+    // if cb is an array, it is a component lifecycle hook which can only be
+    // triggered by a job, which is already deduped in the main queue, so
+    // we can skip dupicate check here to improve perf
     postFlushCbs.push(...cb)
   }
   queueFlush()
@@ -54,17 +65,23 @@ function queueFlush() {
 
 export function flushPostFlushCbs(seen?: CountMap) {
   if (postFlushCbs.length) {
-    const cbs = [...new Set(postFlushCbs)]
+    pendingPostFlushCbs = [...new Set(postFlushCbs)]
     postFlushCbs.length = 0
     if (__DEV__) {
       seen = seen || new Map()
     }
-    for (let i = 0; i < cbs.length; i++) {
+    for (
+      pendingPostFlushIndex = 0;
+      pendingPostFlushIndex < pendingPostFlushCbs.length;
+      pendingPostFlushIndex++
+    ) {
       if (__DEV__) {
-        checkRecursiveUpdates(seen!, cbs[i])
+        checkRecursiveUpdates(seen!, pendingPostFlushCbs[pendingPostFlushIndex])
       }
-      cbs[i]()
+      pendingPostFlushCbs[pendingPostFlushIndex]()
     }
+    pendingPostFlushCbs = null
+    pendingPostFlushIndex = 0
   }
 }
 
@@ -73,7 +90,6 @@ const getId = (job: Job) => (job.id == null ? Infinity : job.id)
 function flushJobs(seen?: CountMap) {
   isFlushPending = false
   isFlushing = true
-  let job
   if (__DEV__) {
     seen = seen || new Map()
   }
@@ -89,16 +105,19 @@ function flushJobs(seen?: CountMap) {
   // during execution of another flushed job.
   queue.sort((a, b) => getId(a!) - getId(b!))
 
-  while ((job = queue.shift()) !== undefined) {
-    if (job === null) {
-      continue
+  for (flushIndex = 0; flushIndex < queue.length; flushIndex++) {
+    const job = queue[flushIndex]
+    if (job) {
+      if (__DEV__) {
+        checkRecursiveUpdates(seen!, job)
+      }
+      callWithErrorHandling(job, null, ErrorCodes.SCHEDULER)
     }
-    if (__DEV__) {
-      checkRecursiveUpdates(seen!, job)
-    }
-    callWithErrorHandling(job, null, ErrorCodes.SCHEDULER) // ! 执行 job
   }
-  flushPostFlushCbs(seen) // ! 执行 cbs -> 先执行 job 再执行 cb
+  flushIndex = 0
+  queue.length = 0
+
+  flushPostFlushCbs(seen)
   isFlushing = false
   // some postFlushCb queued jobs!
   // keep flushing until it drains.
