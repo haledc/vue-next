@@ -75,7 +75,7 @@ export function shallowReactive<T extends object>(target: T): T {
 
 type Primitive = string | number | boolean | bigint | symbol | undefined | null
 type Builtin = Primitive | Function | Date | Error | RegExp
-type DeepReadonly<T> = T extends Builtin
+export type DeepReadonly<T> = T extends Builtin
   ? T
   : T extends Map<infer K, infer V>
     ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
@@ -95,7 +95,7 @@ type DeepReadonly<T> = T extends Builtin
                   ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
                   : Readonly<T>
 
-// ! 生成只读响应式对象 -> 存储对象的映射和代理的 handlers 不一样                
+// ! 生成只读响应式对象 -> 存储对象的映射和代理的 handlers 不一样
 export function readonly<T extends object>(
   target: T
 ): DeepReadonly<UnwrapNestedRefs<T>> {

@@ -72,8 +72,14 @@ export type VNodeHook =
   | VNodeMountHook[]
   | VNodeUpdateHook[]
 
-export interface VNodeProps {
-  [key: string]: any
+export interface ComponentCustomProps {}
+export interface AllowedComponentProps {
+  class?: unknown
+  style?: unknown
+}
+
+// https://github.com/microsoft/TypeScript/issues/33099
+export type VNodeProps = {
   key?: string | number
   ref?: VNodeRef
 
@@ -105,7 +111,11 @@ export type VNodeNormalizedChildren =
   | RawSlots
   | null
 
-export interface VNode<HostNode = RendererNode, HostElement = RendererElement> {
+export interface VNode<
+  HostNode = RendererNode,
+  HostElement = RendererElement,
+  ExtraProps = { [key: string]: any }
+> {
   /**
    * @internal
    */
@@ -115,7 +125,7 @@ export interface VNode<HostNode = RendererNode, HostElement = RendererElement> {
    */
   __v_skip: true
   type: VNodeTypes
-  props: VNodeProps | null
+  props: (VNodeProps & ExtraProps) | null
   key: string | number | null
   ref: VNodeNormalizedRef | null
   scopeId: string | null // SFC only
@@ -603,7 +613,7 @@ export function mergeProps(...args: (Data & VNodeProps)[]) {
         const incoming = toMerge[key]
         if (existing !== incoming) {
           ret[key] = existing
-            ? [].concat(existing as any, toMerge[key]) // ! 合并同类事件
+            ? [].concat(existing as any, toMerge[key] as any) // ! 合并同类事件
             : incoming
         }
       } else {

@@ -53,7 +53,7 @@ import {
   queueEffectWithSuspense,
   SuspenseImpl
 } from './components/Suspense'
-import { TeleportImpl } from './components/Teleport'
+import { TeleportImpl, TeleportVNode } from './components/Teleport'
 import { isKeepAlive, KeepAliveContext } from './components/KeepAlive'
 import { registerHMR, unregisterHMR, isHmrUpdating } from './hmr'
 import {
@@ -477,8 +477,8 @@ function baseCreateRenderer(
           )
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
           ;(type as typeof TeleportImpl).process(
-            n1,
-            n2,
+            n1 as TeleportVNode,
+            n2 as TeleportVNode,
             container,
             anchor,
             parentComponent,
@@ -2034,18 +2034,16 @@ function baseCreateRenderer(
     if (bum) {
       invokeArrayFns(bum)
     }
+    if (effects) {
+      for (let i = 0; i < effects.length; i++) {
+        stop(effects[i])
+      }
+    }
     // update may be null if a component is unmounted before its async
     // setup has resolved.
     if (update) {
       stop(update)
       unmount(subTree, instance, parentSuspense, doRemove)
-    }
-    if (effects) {
-      queuePostRenderEffect(() => {
-        for (let i = 0; i < effects.length; i++) {
-          stop(effects[i])
-        }
-      }, parentSuspense)
     }
     // unmounted hook
     if (um) {
