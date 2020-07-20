@@ -72,12 +72,6 @@ export type VNodeHook =
   | VNodeMountHook[]
   | VNodeUpdateHook[]
 
-export interface ComponentCustomProps {}
-export interface AllowedComponentProps {
-  class?: unknown
-  style?: unknown
-}
-
 // https://github.com/microsoft/TypeScript/issues/33099
 export type VNodeProps = {
   key?: string | number
@@ -215,7 +209,7 @@ export function setBlockTracking(value: number) {
  */
 export function createBlock(
   type: VNodeTypes | ClassComponent,
-  props?: { [key: string]: any } | null,
+  props?: Record<string, any> | null,
   children?: any,
   patchFlag?: number,
   dynamicProps?: string[]
