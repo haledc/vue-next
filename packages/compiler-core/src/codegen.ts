@@ -182,9 +182,12 @@ function createCodegenContext(
 // ! 生成代码的方法
 export function generate(
   ast: RootNode,
-  options: CodegenOptions = {}
+  options: CodegenOptions & {
+    onContextCreated?: (context: CodegenContext) => void
+  } = {}
 ): CodegenResult {
   const context = createCodegenContext(ast, options)
+  if (options.onContextCreated) options.onContextCreated(context)
   const {
     mode,
     push,
