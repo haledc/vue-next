@@ -7,7 +7,7 @@ import {
   ReactiveEffectOptions,
   isReactive
 } from '@vue/reactivity'
-import { queueJob } from './scheduler'
+import { queueJob, SchedulerJob } from './scheduler'
 import {
   EMPTY_OBJ,
   isObject,
@@ -161,8 +161,9 @@ function doWatch(
 
   // ! 生成 getter
   let getter: () => any
-  if (isRef(source)) {
-    getter = () => source.value
+  const isRefSource = isRef(source)
+  if (isRefSource) {
+    getter = () => (source as Ref).value
   } else if (isReactive(source)) {
     getter = () => source
     deep = true
@@ -234,14 +235,14 @@ function doWatch(
   }
 
   let oldValue = isArray(source) ? [] : INITIAL_WATCHER_VALUE
-  const job = () => {
+  const job: SchedulerJob = () => {
     if (!runner.active) {
       return
     }
     if (cb) {
       // watch(source, cb)
       const newValue = runner()
-      if (deep || hasChanged(newValue, oldValue)) {
+      if (deep || isRefSource || hasChanged(newValue, oldValue)) {
         // cleanup before running cb again
         if (cleanup) {
           cleanup()
@@ -259,6 +260,10 @@ function doWatch(
       runner()
     }
   }
+
+  // important: mark the job as a watcher callback so that scheduler knows it
+  // it is allowed to self-trigger (#1727)
+  job.cb = !!cb
 
   // ! 设置调度器
   let scheduler: (job: () => any) => void

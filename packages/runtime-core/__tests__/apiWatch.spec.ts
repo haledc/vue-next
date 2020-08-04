@@ -12,15 +12,13 @@ import {
   ITERATE_KEY,
   DebuggerEvent,
   TrackOpTypes,
-  TriggerOpTypes
+  TriggerOpTypes,
+  triggerRef
 } from '@vue/reactivity'
-import { mockWarn } from '@vue/shared'
 
 // reference: https://vue-composition-api-rfc.netlify.com/api.html#watch
 
 describe('api: watch', () => {
-  mockWarn()
-
   it('effect', async () => {
     const state = reactive({ count: 0 })
     let dummy
@@ -434,6 +432,46 @@ describe('api: watch', () => {
     expect(cb).toHaveBeenCalledTimes(1)
   })
 
+  // #1763
+  it('flush: pre watcher watching props should fire before child update', async () => {
+    const a = ref(0)
+    const b = ref(0)
+    const calls: string[] = []
+
+    const Comp = {
+      props: ['a', 'b'],
+      setup(props: any) {
+        watch(
+          () => props.a + props.b,
+          () => {
+            calls.push('watcher')
+          },
+          { flush: 'pre' }
+        )
+        return () => {
+          calls.push('render')
+        }
+      }
+    }
+
+    const App = {
+      render() {
+        return h(Comp, { a: a.value, b: b.value })
+      }
+    }
+
+    render(h(App), nodeOps.createElement('div'))
+    expect(calls).toEqual(['render'])
+
+    // both props are updated
+    // should trigger pre-flush watcher first and only once
+    // then trigger child render
+    a.value++
+    b.value++
+    await nextTick()
+    expect(calls).toEqual(['render', 'watcher', 'render'])
+  })
+
   it('deep', async () => {
     const state = reactive({
       nested: {
@@ -639,5 +677,28 @@ describe('api: watch', () => {
     expect(calls).toBe(0)
     v.value++
     expect(calls).toBe(1)
+  })
+
+  test('should force trigger on triggerRef when watching a ref', async () => {
+    const v = ref({ a: 1 })
+    let sideEffect = 0
+    watch(v, obj => {
+      sideEffect = obj.a
+    })
+
+    v.value = v.value
+    await nextTick()
+    // should not trigger
+    expect(sideEffect).toBe(0)
+
+    v.value.a++
+    await nextTick()
+    // should not trigger
+    expect(sideEffect).toBe(0)
+
+    triggerRef(v)
+    await nextTick()
+    // should trigger now
+    expect(sideEffect).toBe(2)
   })
 })

@@ -144,7 +144,9 @@ function deleteProperty(target: object, key: string | symbol): boolean {
 // ! 拦截查询 -> in
 function has(target: object, key: string | symbol): boolean {
   const result = Reflect.has(target, key)
-  track(target, TrackOpTypes.HAS, key) // ! 收集依赖
+  if (!isSymbol(key) || !builtInSymbols.has(key)) {
+    track(target, TrackOpTypes.HAS, key) // ! 收集依赖
+  }
   return result
 }
 
