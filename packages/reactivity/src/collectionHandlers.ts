@@ -41,9 +41,9 @@ function get(
     track(target, TrackOpTypes.GET, key)
   }
   track(target, TrackOpTypes.GET, rawKey)
-  const { has, get } = getProto(target)
+  const { has, get } = getProto(target) // ! 获取原型对象方法
   if (has.call(target, key)) {
-    return wrap(get.call(target, key)) // ! 通过 call 绑定 this 指向原始对象
+    return wrap(get.call(target, key)) // ! 原始对象借用原型对象方法 - wrap 是响应式转换方法
   } else if (has.call(target, rawKey)) {
     return wrap(get.call(target, rawKey))
   }
@@ -123,7 +123,7 @@ function deleteEntry(this: CollectionTypes, key: unknown) {
 
 function clear(this: IterableCollections) {
   const target = toRaw(this)
-  const hadItems = target.size !== 0 // ! 判断是否有元素
+  const hadItems = target.size !== 0
   const oldTarget = __DEV__
     ? target instanceof Map
       ? new Map(target)
@@ -256,7 +256,6 @@ const shallowInstrumentations: Record<string, Function> = {
   forEach: createForEach(false, true)
 }
 
-// ! 只读可变插桩对象
 const readonlyInstrumentations: Record<string, Function> = {
   get(this: MapTypes, key: unknown) {
     return get(this, key, toReadonly)
@@ -311,8 +310,8 @@ function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
       return target
     }
 
-    // ! 改变反射的 target -> 有 key 时指向插桩对象
     return Reflect.get(
+      // ! 改变反射的 target -> 有 key 时使用插桩对象
       hasOwn(instrumentations, key) && key in target
         ? instrumentations // ! 插桩对象
         : target,

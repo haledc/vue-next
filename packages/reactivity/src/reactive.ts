@@ -163,6 +163,7 @@ function createReactiveObject(
   return observed
 }
 
+// ! 判断是否是响应式对象 或者 是通过响应式转的只读响应式对象
 export function isReactive(value: unknown): boolean {
   if (isReadonly(value)) {
     return isReactive((value as Target)[ReactiveFlags.RAW])
@@ -174,7 +175,7 @@ export function isReadonly(value: unknown): boolean {
   return !!(value && (value as Target)[ReactiveFlags.IS_READONLY])
 }
 
-// ! 判断是否是应式对象（包括只读和非只读响应式对象，只要属于其中之一即可）
+// ! 判断是否响应式对象（包括只读和非只读响应式对象，只要属于其中之一即可）
 export function isProxy(value: unknown): boolean {
   return isReactive(value) || isReadonly(value)
 }

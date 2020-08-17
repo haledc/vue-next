@@ -283,7 +283,7 @@ function doWatch(
       }
     }
   } else {
-    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense)
+    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense) // ! 异步
   }
 
   // ! 生成 effect

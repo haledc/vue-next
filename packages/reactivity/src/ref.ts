@@ -64,6 +64,7 @@ function createRef(rawValue: unknown, shallow = false) {
   return r
 }
 
+// ! 手动触发ref -> 一般用于 shallowRef
 export function triggerRef(ref: Ref) {
   trigger(ref, TriggerOpTypes.SET, 'value', __DEV__ ? ref.value : void 0)
 }
@@ -101,6 +102,7 @@ export type CustomRefFactory<T> = (
   set: (value: T) => void
 }
 
+// ! 定制 ref
 export function customRef<T>(factory: CustomRefFactory<T>): Ref<T> {
   const { get, set } = factory(
     () => track(r, TrackOpTypes.GET, 'value'),
@@ -174,7 +176,6 @@ export type ShallowUnwrapRef<T> = {
   [K in keyof T]: T[K] extends Ref<infer V> ? V : T[K]
 }
 
-// ! 解套 Ref 类型
 export type UnwrapRef<T> = T extends Ref<infer V>
   ? UnwrapRefSimple<V>
   : UnwrapRefSimple<T>

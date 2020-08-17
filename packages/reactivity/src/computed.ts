@@ -66,8 +66,8 @@ export function computed<T>(
     effect: runner,
     get value() {
       if (dirty) {
-        value = runner() // ! 调用 effect 生成 value 的值
-        dirty = false // ! 设置为 false，后面沿用 value 值，直到所依赖的 T 值发生变化
+        value = runner() // ! 手动调用 effect 更新 value 的值
+        dirty = false // ! 更新值后设置为 false，后面沿用旧值，直到所依赖的 T 值发生变化
       }
       track(computed, TrackOpTypes.GET, 'value')
       return value

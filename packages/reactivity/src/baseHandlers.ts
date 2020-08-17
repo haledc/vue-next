@@ -130,7 +130,7 @@ function createSetter(shallow = false) {
   }
 }
 
-// ! 拦截删除 -> delete
+// ! 删除 -> delete
 function deleteProperty(target: object, key: string | symbol): boolean {
   const hadKey = hasOwn(target, key)
   const oldValue = (target as any)[key]
@@ -141,22 +141,21 @@ function deleteProperty(target: object, key: string | symbol): boolean {
   return result
 }
 
-// ! 拦截查询 -> in
+// ! 查询 -> in
 function has(target: object, key: string | symbol): boolean {
   const result = Reflect.has(target, key)
   if (!isSymbol(key) || !builtInSymbols.has(key)) {
-    track(target, TrackOpTypes.HAS, key) // ! 收集依赖
+    track(target, TrackOpTypes.HAS, key)
   }
   return result
 }
 
-// ! 拦截自身读取 -> for...in Object.keys
+// ! 属性 -> Object.keys / Object.getOwnPropertyNames / Object.getOwnPropertySymbols
 function ownKeys(target: object): (string | number | symbol)[] {
-  track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! 收集依赖，这里是 ITERATE 类型
+  track(target, TrackOpTypes.ITERATE, ITERATE_KEY) // ! ITERATE 类型
   return Reflect.ownKeys(target)
 }
 
-// ! 代理的 handlers
 export const mutableHandlers: ProxyHandler<object> = {
   get,
   set,
@@ -165,7 +164,6 @@ export const mutableHandlers: ProxyHandler<object> = {
   ownKeys
 }
 
-// ! 只读的代理的 handlers
 export const readonlyHandlers: ProxyHandler<object> = {
   get: readonlyGet,
   has,

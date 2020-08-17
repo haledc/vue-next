@@ -67,7 +67,8 @@ export function effect<T = any>(
   }
   const effect = createReactiveEffect(fn, options)
 
-  // ! 如果不是延迟执行，先执行一次
+  // ! 如果不是延迟执行（计算属性），会先主动调用一次
+  // ! 此时，该 effect 被收集为 T 值的依赖
   if (!options.lazy) {
     effect()
   }
