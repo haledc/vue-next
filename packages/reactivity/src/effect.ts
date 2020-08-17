@@ -195,7 +195,11 @@ export function trigger(
   const effects = new Set<ReactiveEffect>()
   const add = (effectsToAdd: Set<ReactiveEffect> | undefined) => {
     if (effectsToAdd) {
-      effectsToAdd.forEach(effect => effects.add(effect))
+      effectsToAdd.forEach(effect => {
+        if (effect !== activeEffect) {
+          effects.add(effect)
+        }
+      })
     }
   }
 
