@@ -47,7 +47,6 @@ export const Text = Symbol(__DEV__ ? 'Text' : undefined)
 export const Comment = Symbol(__DEV__ ? 'Comment' : undefined)
 export const Static = Symbol(__DEV__ ? 'Static' : undefined)
 
-// ! VNode 类型
 export type VNodeTypes =
   | string
   | VNode
@@ -237,7 +236,6 @@ export function createBlock(
   return vnode
 }
 
-// ! 判断是否是 VNode
 export function isVNode(value: any): value is VNode {
   return value ? value.__v_isVNode === true : false
 }
@@ -425,7 +423,7 @@ function _createVNode(
   return vnode
 }
 
-// ! 克隆 VNode -> 可扩展 props
+// ! 克隆 VNode -> 同时可扩展 props
 export function cloneVNode<T, U>(
   vnode: VNode<T, U>,
   extraProps?: Data & VNodeProps | null
@@ -535,7 +533,7 @@ export function cloneIfMounted(child: VNode): VNode {
   return child.el === null ? child : cloneVNode(child)
 }
 
-// ! 规范 children
+// ! 规范 children -> children 格式和 VNode shapeFlag
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
   const { shapeFlag } = vnode
@@ -588,6 +586,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
   vnode.shapeFlag |= type
 }
 
+// ! 合并属性
 export function mergeProps(...args: (Data & VNodeProps)[]) {
   const ret = extend({}, args[0])
   for (let i = 1; i < args.length; i++) {

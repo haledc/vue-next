@@ -19,7 +19,8 @@ export function provide<T>(key: InjectionKey<T> | string, value: T) {
     const parentProvides =
       currentInstance.parent && currentInstance.parent.provides
     if (parentProvides === provides) {
-      provides = currentInstance.provides = Object.create(parentProvides) // ! 以父级原型生成自身 provides
+      // ! 以父级 provides 原型生成自身 provides -> 先查找自身（优先） 然后再查找原型链
+      provides = currentInstance.provides = Object.create(parentProvides)
     }
     // TS doesn't allow symbol as index type
     provides[key as string] = value

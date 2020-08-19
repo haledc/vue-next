@@ -13,7 +13,7 @@ import { pauseTracking, resetTracking, DebuggerEvent } from '@vue/reactivity'
 
 export { onActivated, onDeactivated } from './components/KeepAlive'
 
-// ! 注入生命周期钩子 -> 注入到实例组件中
+// ! 注入生命周期钩子 -> 把钩子函数放入到实例组件的属性中
 export function injectHook(
   type: LifecycleHooks,
   hook: Function & { __weh?: Function },
@@ -33,14 +33,14 @@ export function injectHook(
         }
         // disable tracking inside all lifecycle hooks
         // since they can potentially be called inside effects.
-        pauseTracking()
+        pauseTracking() // ! 停止依赖收集
         // Set currentInstance during hook invocation.
         // This assumes the hook does not synchronously trigger other hooks, which
         // can only be false when the user does something really funky.
         setCurrentInstance(target)
-        const res = callWithAsyncErrorHandling(hook, target, type, args)
+        const res = callWithAsyncErrorHandling(hook, target, type, args) // ! 执行钩子函数
         setCurrentInstance(null)
-        resetTracking()
+        resetTracking() // ! 恢复依赖收集
         return res
       })
     if (prepend) {
