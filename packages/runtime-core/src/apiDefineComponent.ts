@@ -16,7 +16,7 @@ import {
 import {
   CreateComponentPublicInstance,
   ComponentPublicInstanceConstructor
-} from './componentProxy'
+} from './componentPublicInstance'
 import { ExtractPropTypes, ComponentPropsOptions } from './componentProps'
 import { EmitsOptions } from './componentEmits'
 import { isFunction } from '@vue/shared'
