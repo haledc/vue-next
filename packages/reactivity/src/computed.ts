@@ -2,7 +2,7 @@ import { effect, ReactiveEffect, trigger, track } from './effect'
 import { TriggerOpTypes, TrackOpTypes } from './operations'
 import { Ref } from './ref'
 import { isFunction, NOOP } from '@vue/shared'
-import { ReactiveFlags } from './reactive'
+import { ReactiveFlags, toRaw } from './reactive'
 
 export interface ComputedRef<T = any> extends WritableComputedRef<T> {
   readonly value: T
@@ -20,7 +20,48 @@ export interface WritableComputedOptions<T> {
   set: ComputedSetter<T>
 }
 
-// ! 生成计算属性值
+class ComputedRefImpl<T> {
+  private _value!: T
+  private _dirty = true // ! 初始值为 true
+
+  public readonly effect: ReactiveEffect<T>
+
+  public readonly __v_isRef = true;
+  public readonly [ReactiveFlags.IS_READONLY]: boolean
+
+  constructor(
+    getter: ComputedGetter<T>,
+    private readonly _setter: ComputedSetter<T>,
+    isReadonly: boolean
+  ) {
+    // ! 生成 effect -> 包装 getter
+    this.effect = effect(getter, {
+      lazy: true,
+      scheduler: () => {
+        if (!this._dirty) {
+          this._dirty = true // ! 当 T 值发生变化，触发依赖 -> 执行这个 scheduler 函数，重置为 true
+          trigger(toRaw(this), TriggerOpTypes.SET, 'value')
+        }
+      }
+    })
+
+    this[ReactiveFlags.IS_READONLY] = isReadonly
+  }
+
+  get value() {
+    if (this._dirty) {
+      this._value = this.effect() // ! 手动调用 effect 更新 value 的值
+      this._dirty = false // ! 更新值后设置为 false，后面沿用旧值，直到所依赖的 T 值发生变化
+    }
+    track(toRaw(this), TrackOpTypes.GET, 'value')
+    return this._value
+  }
+
+  set value(newValue: T) {
+    this._setter(newValue) // ! 执行 setter
+  }
+}
+
 export function computed<T>(getter: ComputedGetter<T>): ComputedRef<T>
 export function computed<T>(
   options: WritableComputedOptions<T>
@@ -43,38 +84,9 @@ export function computed<T>(
     setter = getterOrOptions.set
   }
 
-  let dirty = true // ! 初始值为 true
-  let value: T
-  let computed: ComputedRef<T>
-
-  // ! 生成 effect -> 包装 getter
-  const runner = effect(getter, {
-    lazy: true, // ! 延迟计算
-    scheduler: () => {
-      if (!dirty) {
-        dirty = true // ! 当 T 值发生变化，触发依赖 -> 执行这个 scheduler 函数，重置为 true
-        trigger(computed, TriggerOpTypes.SET, 'value')
-      }
-    }
-  })
-  computed = {
-    __v_isRef: true,
-    [ReactiveFlags.IS_READONLY]:
-      isFunction(getterOrOptions) || !getterOrOptions.set,
-
-    // expose effect so computed can be stopped
-    effect: runner,
-    get value() {
-      if (dirty) {
-        value = runner() // ! 手动调用 effect 更新 value 的值
-        dirty = false // ! 更新值后设置为 false，后面沿用旧值，直到所依赖的 T 值发生变化
-      }
-      track(computed, TrackOpTypes.GET, 'value')
-      return value
-    },
-    set value(newValue: T) {
-      setter(newValue) // ! 执行 setter
-    }
-  } as any
-  return computed
+  return new ComputedRefImpl(
+    getter,
+    setter,
+    isFunction(getterOrOptions) || !getterOrOptions.set
+  ) as any
 }
