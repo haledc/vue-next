@@ -179,7 +179,7 @@ function createCodegenContext(
   return context
 }
 
-// ! 生成代码的方法
+// ! 生成代码
 export function generate(
   ast: RootNode,
   options: CodegenOptions & {
@@ -888,7 +888,7 @@ function genConditionalExpression(
   needNewline && deindent(true /* without newline */)
 }
 
-// ! 生产缓存表达式
+// ! 生成缓存表达式
 function genCacheExpression(node: CacheExpression, context: CodegenContext) {
   const { push, helper, indent, deindent, newline } = context
   push(`_cache[${node.index}] || (`)
