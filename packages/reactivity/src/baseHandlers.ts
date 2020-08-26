@@ -1,4 +1,12 @@
-import { reactive, readonly, toRaw, ReactiveFlags, Target } from './reactive'
+import {
+  reactive,
+  readonly,
+  toRaw,
+  ReactiveFlags,
+  Target,
+  readonlyMap,
+  reactiveMap
+} from './reactive'
 import { TrackOpTypes, TriggerOpTypes } from './operations'
 import { track, trigger, ITERATE_KEY } from './effect'
 import {
@@ -49,10 +57,7 @@ function createGetter(isReadonly = false, shallow = false) {
       return isReadonly
     } else if (
       key === ReactiveFlags.RAW &&
-      receiver ===
-        (isReadonly
-          ? target[ReactiveFlags.READONLY]
-          : target[ReactiveFlags.REACTIVE])
+      receiver === (isReadonly ? readonlyMap : reactiveMap).get(target)
     ) {
       return target
     }
