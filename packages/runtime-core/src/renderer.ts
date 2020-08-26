@@ -1379,7 +1379,6 @@ function baseCreateRenderer(
           invokeArrayFns(bu)
         }
         // onVnodeBeforeUpdate
-        // ! 调用更新前钩子
         if ((vnodeHook = next.props && next.props.onVnodeBeforeUpdate)) {
           invokeVNodeHook(vnodeHook, parent, next, vnode)
         }

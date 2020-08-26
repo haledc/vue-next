@@ -12,7 +12,6 @@ export const enum ShapeFlags {
 }
 
 // For runtime consumption
-// ! VNode type 类型
 export const PublicShapeFlags = {
   ELEMENT: ShapeFlags.ELEMENT,
   FUNCTIONAL_COMPONENT: ShapeFlags.FUNCTIONAL_COMPONENT,

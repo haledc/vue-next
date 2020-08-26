@@ -20,6 +20,7 @@ export interface WritableComputedOptions<T> {
   set: ComputedSetter<T>
 }
 
+// ! 计算属性类实现
 class ComputedRefImpl<T> {
   private _value!: T
   private _dirty = true // ! 初始值为 true

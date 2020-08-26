@@ -213,6 +213,7 @@ export function setBlockTracking(value: number) {
  *
  * @private
  */
+// ! 创建 Block -> 额外设置动态子节点属性
 export function createBlock(
   type: VNodeTypes | ClassComponent,
   props?: Record<string, any> | null,
@@ -301,6 +302,7 @@ export const createVNode = (__DEV__
   ? createVNodeWithArgsTransform
   : _createVNode) as typeof _createVNode
 
+// ! 创建 VNode
 function _createVNode(
   type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,
@@ -515,6 +517,7 @@ export function createCommentVNode(
     : createVNode(Comment, null, text)
 }
 
+// ! 规范化 VNode
 export function normalizeVNode(child: VNodeChild): VNode {
   if (child == null || typeof child === 'boolean') {
     // empty placeholder
@@ -537,7 +540,7 @@ export function cloneIfMounted(child: VNode): VNode {
   return child.el === null ? child : cloneVNode(child)
 }
 
-// ! 规范 children -> children 格式和 VNode shapeFlag
+// ! 规范化 children -> 规范 children 格式和确定 VNode shapeFlag
 export function normalizeChildren(vnode: VNode, children: unknown) {
   let type = 0
   const { shapeFlag } = vnode

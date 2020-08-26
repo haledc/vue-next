@@ -176,7 +176,7 @@ function parseChildren(
             node = parseBogusComment(context)
           }
         } else if (/[a-z]/i.test(s[1])) {
-          node = parseElement(context, ancestors) // ! 解析标签元素 `<x`
+          node = parseElement(context, ancestors) // ! 解析元素 `<x`开头
         } else if (s[1] === '?') {
           // ! `<?` 报错
           emitError(
@@ -256,7 +256,7 @@ function parseChildren(
       // https://html.spec.whatwg.org/multipage/grouping-content.html#the-pre-element
       const first = nodes[0]
       if (first && first.type === NodeTypes.TEXT) {
-        first.content = first.content.replace(/^\r?\n/, '')
+        first.content = first.content.replace(/^\r?\n/, '') // ! 删除前导换行符
       }
     }
   }
@@ -386,7 +386,7 @@ function parseElement(
   const wasInPre = context.inPre
   const wasInVPre = context.inVPre
   const parent = last(ancestors)
-  const element = parseTag(context, TagType.Start, parent)
+  const element = parseTag(context, TagType.Start, parent) // ! 解析开始标签
   const isPreBoundary = context.inPre && !wasInPre
   const isVPreBoundary = context.inVPre && !wasInVPre
 
@@ -395,16 +395,16 @@ function parseElement(
   }
 
   // Children.
-  ancestors.push(element)
+  ancestors.push(element) // ! 元素入栈
   const mode = context.options.getTextMode(element, parent)
   const children = parseChildren(context, mode, ancestors)
-  ancestors.pop()
+  ancestors.pop() // ! 元素出栈
 
   element.children = children
 
   // End tag.
   if (startsWithEndTagOpen(context.source, element.tag)) {
-    parseTag(context, TagType.End, parent)
+    parseTag(context, TagType.End, parent) // ! 解析结束标签
   } else {
     emitError(context, ErrorCodes.X_MISSING_END_TAG, 0, element.loc.start)
     if (context.source.length === 0 && element.tag.toLowerCase() === 'script') {
@@ -415,7 +415,7 @@ function parseElement(
     }
   }
 
-  element.loc = getSelection(context, element.loc.start)
+  element.loc = getSelection(context, element.loc.start) // ! 更新元素位置
 
   if (isPreBoundary) {
     context.inPre = false
@@ -437,8 +437,8 @@ const isSpecialTemplateDirective = /*#__PURE__*/ makeMap(
 
 /**
  * Parse a tag (E.g. `<div id=a>`) with that type (start tag or end tag).
- * ! 解析标签
  */
+// ! 解析标签
 function parseTag(
   context: ParserContext,
   type: TagType,
@@ -452,7 +452,7 @@ function parseTag(
 
   // Tag open.
   const start = getCursor(context)
-  const match = /^<\/?([a-z][^\t\r\n\f />]*)/i.exec(context.source)!
+  const match = /^<\/?([a-z][^\t\r\n\f />]*)/i.exec(context.source)! // !  匹配标签文本结束的位置
   const tag = match[1]
   const ns = context.options.getNamespace(tag, parent)
 
@@ -464,7 +464,7 @@ function parseTag(
   const currentSource = context.source
 
   // Attributes.
-  let props = parseAttributes(context, type)
+  let props = parseAttributes(context, type) // ! 解析标签属性
 
   // check <pre> tag
   if (context.options.isPreTag(tag)) {
@@ -496,6 +496,7 @@ function parseTag(
     advanceBy(context, isSelfClosing ? 2 : 1)
   }
 
+  // ! 确认标签类型
   let tagType = ElementTypes.ELEMENT
   const options = context.options
   if (!context.inVPre && !options.isCustomElement(tag)) {

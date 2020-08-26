@@ -95,6 +95,7 @@ function createReactiveEffect<T = any>(
 ): ReactiveEffect<T> {
   // ! 创建一个 effect 函数
   const effect = function reactiveEffect(): unknown {
+    // ! stop 后不会被收集依赖
     if (!effect.active) {
       return options.scheduler ? undefined : fn()
     }
@@ -121,6 +122,7 @@ function createReactiveEffect<T = any>(
   return effect
 }
 
+// ! 清除依赖引用
 function cleanup(effect: ReactiveEffect) {
   const { deps } = effect
   if (deps.length) {
@@ -134,11 +136,13 @@ function cleanup(effect: ReactiveEffect) {
 let shouldTrack = true
 const trackStack: boolean[] = []
 
+// ! 停止收集依赖
 export function pauseTracking() {
   trackStack.push(shouldTrack)
   shouldTrack = false
 }
 
+// ! 开启收集依赖
 export function enableTracking() {
   trackStack.push(shouldTrack)
   shouldTrack = true
@@ -246,7 +250,7 @@ export function trigger(
       })
     }
     if (effect.options.scheduler) {
-      effect.options.scheduler(effect)
+      effect.options.scheduler(effect) // ! 有 scheduler 优先执行
     } else {
       effect()
     }

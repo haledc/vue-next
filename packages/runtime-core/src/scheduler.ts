@@ -48,12 +48,13 @@ let currentPreFlushParentJob: SchedulerJob | null = null
 const RECURSION_LIMIT = 100
 type CountMap = Map<SchedulerJob | SchedulerCb, number>
 
-// ! nextTick -> 使用 Promise.then 异步执行函数，目前版本无兼容处理
+// ! nextTick -> 使用 Promise.then 异步调用函数
 export function nextTick(fn?: () => void): Promise<void> {
   const p = currentFlushPromise || resolvedPromise
   return fn ? p.then(fn) : p
 }
 
+// ! 队列化 job
 export function queueJob(job: SchedulerJob) {
   // the dedupe search uses the startIndex argument of Array.includes()
   // by default the search index includes the current job that is being run
@@ -81,6 +82,7 @@ function queueFlush() {
   }
 }
 
+// ! 无效化队列的 job
 export function invalidateJob(job: SchedulerJob) {
   const i = queue.indexOf(job)
   if (i > -1) {
@@ -88,6 +90,7 @@ export function invalidateJob(job: SchedulerJob) {
   }
 }
 
+// ! 队列化 cb
 function queueCb(
   cb: SchedulerCbs,
   activeQueue: SchedulerCb[] | null,
@@ -121,6 +124,7 @@ export function queuePostFlushCb(cb: SchedulerCbs) {
   queueCb(cb, activePostFlushCbs, pendingPostFlushCbs, postFlushIndex)
 }
 
+// ! 调用所有 pre cb
 export function flushPreFlushCbs(
   seen?: CountMap,
   parentJob: SchedulerJob | null = null
@@ -150,6 +154,7 @@ export function flushPreFlushCbs(
   }
 }
 
+// ! 调用所有 post cb
 export function flushPostFlushCbs(seen?: CountMap) {
   if (pendingPostFlushCbs.length) {
     activePostFlushCbs = [...new Set(pendingPostFlushCbs)]
@@ -178,6 +183,7 @@ export function flushPostFlushCbs(seen?: CountMap) {
 const getId = (job: SchedulerJob | SchedulerCb) =>
   job.id == null ? Infinity : job.id
 
+// ! 调用所有 job
 function flushJobs(seen?: CountMap) {
   isFlushPending = false
   isFlushing = true
@@ -196,7 +202,7 @@ function flushJobs(seen?: CountMap) {
   //    its update can be skipped.
   // Jobs can never be null before flush starts, since they are only invalidated
   // during execution of another flushed job.
-  queue.sort((a, b) => getId(a!) - getId(b!))
+  queue.sort((a, b) => getId(a!) - getId(b!)) // ! id 升序排序
 
   try {
     for (flushIndex = 0; flushIndex < queue.length; flushIndex++) {

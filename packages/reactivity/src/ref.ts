@@ -75,7 +75,7 @@ function createRef(rawValue: unknown, shallow = false) {
   return new RefImpl(rawValue, shallow)
 }
 
-// ! 手动触发ref -> 一般用于 shallowRef
+// ! 手动触发 ref -> 一般用于 shallowRef
 export function triggerRef(ref: Ref) {
   trigger(ref, TriggerOpTypes.SET, 'value', __DEV__ ? ref.value : void 0)
 }
@@ -113,7 +113,6 @@ export type CustomRefFactory<T> = (
   set: (value: T) => void
 }
 
-// ! 定制 ref
 class CustomRefImpl<T> {
   private readonly _get: ReturnType<CustomRefFactory<T>>['get']
   private readonly _set: ReturnType<CustomRefFactory<T>>['set']
@@ -138,6 +137,7 @@ class CustomRefImpl<T> {
   }
 }
 
+// ! 定制 ref
 export function customRef<T>(factory: CustomRefFactory<T>): Ref<T> {
   return new CustomRefImpl(factory) as any
 }

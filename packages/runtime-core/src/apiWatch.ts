@@ -235,6 +235,8 @@ function doWatch(
   }
 
   let oldValue = isArray(source) ? [] : INITIAL_WATCHER_VALUE
+
+  // ! 生成调用函数 job
   const job: SchedulerJob = () => {
     if (!runner.active) {
       return
@@ -283,7 +285,7 @@ function doWatch(
       }
     }
   } else {
-    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense) // ! 异步
+    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense) // ! 异步调用
   }
 
   // ! 生成 effect
@@ -307,6 +309,7 @@ function doWatch(
     runner()
   }
 
+  // ! 最后输出停止监听方法
   return () => {
     stop(runner)
     if (instance) {

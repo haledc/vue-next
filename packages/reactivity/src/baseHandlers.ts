@@ -22,6 +22,7 @@ const shallowGet = /*#__PURE__*/ createGetter(false, true)
 const readonlyGet = /*#__PURE__*/ createGetter(true)
 const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)
 
+// ! 数组插桩
 const arrayInstrumentations: Record<string, Function> = {}
 ;['includes', 'indexOf', 'lastIndexOf'].forEach(key => {
   arrayInstrumentations[key] = function(...args: any[]): any {
@@ -161,6 +162,7 @@ function ownKeys(target: object): (string | number | symbol)[] {
   return Reflect.ownKeys(target)
 }
 
+// ! handlers
 export const mutableHandlers: ProxyHandler<object> = {
   get,
   set,
@@ -169,6 +171,7 @@ export const mutableHandlers: ProxyHandler<object> = {
   ownKeys
 }
 
+// ! 只读 handlers -> 拦截到 set deleteProperty 报错
 export const readonlyHandlers: ProxyHandler<object> = {
   get: readonlyGet,
   has,
