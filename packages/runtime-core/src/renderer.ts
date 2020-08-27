@@ -451,19 +451,20 @@ function baseCreateRenderer(
     const { type, ref, shapeFlag } = n2
     switch (type) {
       case Text:
-        processText(n1, n2, container, anchor)
+        processText(n1, n2, container, anchor) // ! 处理文本
         break
       case Comment:
-        processCommentNode(n1, n2, container, anchor)
+        processCommentNode(n1, n2, container, anchor) // ! 处理注释节点
         break
       case Static:
         if (n1 == null) {
-          mountStaticNode(n2, container, anchor, isSVG)
+          mountStaticNode(n2, container, anchor, isSVG) // ! 挂载静态节点
         } else if (__DEV__) {
-          patchStaticNode(n1, n2, container, isSVG)
+          patchStaticNode(n1, n2, container, isSVG) // ! 更新静态节点
         }
         break
       case Fragment:
+        // ! 处理 Fragment
         processFragment(
           n1,
           n2,
@@ -477,6 +478,7 @@ function baseCreateRenderer(
         break
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
+          // ! 处理标签元素
           processElement(
             n1,
             n2,
@@ -488,6 +490,7 @@ function baseCreateRenderer(
             optimized
           )
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          // ! 处理组件
           processComponent(
             n1,
             n2,
@@ -499,6 +502,7 @@ function baseCreateRenderer(
             optimized
           )
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          // ! 处理 Teleport 组件
           ;(type as typeof TeleportImpl).process(
             n1 as TeleportVNode,
             n2 as TeleportVNode,
@@ -511,6 +515,7 @@ function baseCreateRenderer(
             internals
           )
         } else if (__FEATURE_SUSPENSE__ && shapeFlag & ShapeFlags.SUSPENSE) {
+          // ! 处理 Subpent 组件
           ;(type as typeof SuspenseImpl).process(
             n1,
             n2,
@@ -1138,6 +1143,7 @@ function baseCreateRenderer(
   ) => {
     if (n1 == null) {
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        // ! keepAlive
         ;(parentComponent!.ctx as KeepAliveContext).activate(
           n2,
           container,
@@ -1146,6 +1152,7 @@ function baseCreateRenderer(
           optimized
         )
       } else {
+        // ! 挂载组件
         mountComponent(
           n2,
           container,
@@ -1157,7 +1164,7 @@ function baseCreateRenderer(
         )
       }
     } else {
-      updateComponent(n1, n2, optimized)
+      updateComponent(n1, n2, optimized) // ! 更新组件
     }
   }
 
@@ -1217,6 +1224,7 @@ function baseCreateRenderer(
       return
     }
 
+    // ! 调用渲染副作用函数
     setupRenderEffect(
       instance,
       initialVNode,
@@ -1279,7 +1287,7 @@ function baseCreateRenderer(
   ) => {
     // create reactive effect for rendering
     instance.update = effect(function componentEffect() {
-      // ! 挂载实例
+      // ! 挂载实例 -> 创建
       if (!instance.isMounted) {
         let vnodeHook: VNodeHook | null | undefined
         const { el, props } = initialVNode
@@ -1320,7 +1328,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
-          // ! 打补丁
+          // ! 打补丁 -> 更新
           patch(
             null,
             subTree,
@@ -2151,16 +2159,17 @@ function baseCreateRenderer(
     }
   }
 
+  // ! 渲染函数
   const render: RootRenderFunction = (vnode, container) => {
     if (vnode == null) {
       if (container._vnode) {
-        unmount(container._vnode, null, null, true)
+        unmount(container._vnode, null, null, true) // ! 卸载组件
       }
     } else {
-      patch(container._vnode || null, vnode, container)
+      patch(container._vnode || null, vnode, container) // ! 创建或者更新组件
     }
     flushPostFlushCbs()
-    container._vnode = vnode
+    container._vnode = vnode // ! 更新 _vnode
   }
 
   const internals: RendererInternals = {
@@ -2192,6 +2201,7 @@ function baseCreateRenderer(
   }
 }
 
+// ! 调用钩子函数方法（异步）
 export function invokeVNodeHook(
   hook: VNodeHook,
   instance: ComponentInternalInstance | null,

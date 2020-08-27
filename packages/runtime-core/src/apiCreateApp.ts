@@ -80,7 +80,7 @@ export interface AppContext {
 
 type PluginInstallFunction = (app: App, ...options: any[]) => any
 
-// ! 插件
+// ! 插件接口
 export type Plugin =
   | PluginInstallFunction & { install?: PluginInstallFunction }
   | {
@@ -112,10 +112,12 @@ export type CreateAppFunction<HostElement> = (
   rootProps?: Data | null
 ) => App<HostElement>
 
+// ! 生成 createApp 方法
 export function createAppAPI<HostElement>(
   render: RootRenderFunction,
   hydrate?: RootHydrateFunction
 ): CreateAppFunction<HostElement> {
+  // ! 创建 App -> 通过根组件创建
   return function createApp(rootComponent, rootProps = null) {
     if (rootProps != null && !isObject(rootProps)) {
       __DEV__ && warn(`root props passed to app.mount() must be an object.`)
@@ -183,6 +185,7 @@ export function createAppAPI<HostElement>(
         return app
       },
 
+      // ! 注册组件
       component(name: string, component?: Component): any {
         if (__DEV__) {
           validateComponentName(name, context.config)
@@ -213,8 +216,10 @@ export function createAppAPI<HostElement>(
         return app
       },
 
+      // ! 挂载组件到容器中
       mount(rootContainer: HostElement, isHydrate?: boolean): any {
         if (!isMounted) {
+          // ! 生成 VNode
           const vnode = createVNode(
             rootComponent as ConcreteComponent,
             rootProps
@@ -233,7 +238,7 @@ export function createAppAPI<HostElement>(
           if (isHydrate && hydrate) {
             hydrate(vnode as VNode<Node, Element>, rootContainer as any)
           } else {
-            render(vnode, rootContainer)
+            render(vnode, rootContainer) // ! 渲染 VNode
           }
           isMounted = true
           app._container = rootContainer
@@ -255,6 +260,7 @@ export function createAppAPI<HostElement>(
         }
       },
 
+      // ! 卸载组件
       unmount() {
         if (isMounted) {
           render(null, app._container)
@@ -266,6 +272,7 @@ export function createAppAPI<HostElement>(
         }
       },
 
+      // ! 提供值
       provide(key, value) {
         if (__DEV__ && (key as string | symbol) in context.provides) {
           warn(

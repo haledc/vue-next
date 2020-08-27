@@ -76,7 +76,7 @@ export interface ParserContext {
   inVPre: boolean // v-pre, do not process directives and interpolations
 }
 
-// ! 基础解析 -> 生成 AST
+// ! 基础解析 -> 生成 AST 节点
 export function baseParse(
   content: string,
   options: ParserOptions = {}
@@ -89,7 +89,7 @@ export function baseParse(
   )
 }
 
-// ! 创建解析上下文 -> 选项 位置 字符串
+// ! 创建解析上下文
 function createParserContext(
   content: string,
   rawOptions: ParserOptions

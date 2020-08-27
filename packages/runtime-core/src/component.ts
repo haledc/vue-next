@@ -345,6 +345,7 @@ const emptyAppContext = createAppContext()
 
 let uid = 0
 
+// ! 创建组件实例
 export function createComponentInstance(
   vnode: VNode,
   parent: ComponentInternalInstance | null,

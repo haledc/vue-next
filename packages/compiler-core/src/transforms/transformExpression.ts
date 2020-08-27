@@ -102,7 +102,7 @@ export function processExpression(
     const source = hasOwn(bindingMetadata, raw)
       ? `$` + bindingMetadata[raw]
       : `_ctx`
-    return `${source}.${raw}`
+    return `${source}.${raw}` // ! 添加前缀
   }
 
   // fast path if expression is a simple identifier.

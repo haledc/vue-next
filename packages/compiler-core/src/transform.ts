@@ -107,6 +107,7 @@ export interface TransformContext extends Required<TransformOptions> {
   cache<T extends JSChildNode>(exp: T, isVNode?: boolean): CacheExpression | T
 }
 
+// ! 创建转换上下文
 export function createTransformContext(
   root: RootNode,
   {
@@ -265,9 +266,10 @@ export function createTransformContext(
   return context
 }
 
+// ! 转换 AST
 export function transform(root: RootNode, options: TransformOptions) {
-  const context = createTransformContext(root, options)
-  traverseNode(root, context)
+  const context = createTransformContext(root, options) // ! 上下文对象
+  traverseNode(root, context) // ! 遍历 AST 节点
   if (options.hoistStatic) {
     hoistStatic(root, context)
   }
@@ -343,16 +345,17 @@ export function traverseChildren(
   }
 }
 
+// ! 遍历节点
 export function traverseNode(
   node: RootNode | TemplateChildNode,
   context: TransformContext
 ) {
   context.currentNode = node
   // apply transform plugins
-  const { nodeTransforms } = context
+  const { nodeTransforms } = context // ! 获取多个节点转换函数
   const exitFns = []
   for (let i = 0; i < nodeTransforms.length; i++) {
-    const onExit = nodeTransforms[i](node, context)
+    const onExit = nodeTransforms[i](node, context) // ! 退出函数，在处理完一些子节点后执行
     if (onExit) {
       if (isArray(onExit)) {
         exitFns.push(...onExit)
@@ -365,7 +368,7 @@ export function traverseNode(
       return
     } else {
       // node may have been replaced
-      node = context.currentNode
+      node = context.currentNode // ! 恢复节点
     }
   }
 
@@ -377,7 +380,7 @@ export function traverseNode(
         context.helper(CREATE_COMMENT)
       }
       break
-    case NodeTypes.INTERPOLATION:
+    case NodeTypes.INTERPOLATION: // ! 插值
       // no need to traverse, but we need to inject toString helper
       if (!context.ssr) {
         context.helper(TO_DISPLAY_STRING)
@@ -387,21 +390,21 @@ export function traverseNode(
     // for container types, further traverse downwards
     case NodeTypes.IF:
       for (let i = 0; i < node.branches.length; i++) {
-        traverseNode(node.branches[i], context)
+        traverseNode(node.branches[i], context) // ! 递归遍历节点
       }
       break
     case NodeTypes.IF_BRANCH:
     case NodeTypes.FOR:
     case NodeTypes.ELEMENT:
     case NodeTypes.ROOT:
-      traverseChildren(node, context)
+      traverseChildren(node, context) // ! 遍历子节点
       break
   }
 
   // exit transforms
   let i = exitFns.length
   while (i--) {
-    exitFns[i]()
+    exitFns[i]() // ! 执行退出函数
   }
 }
 

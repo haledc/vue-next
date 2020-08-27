@@ -1,6 +1,7 @@
 import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { isArray } from '@vue/shared'
 
+// ! job 接口 -> 有唯一 id ； raw effect
 export interface SchedulerJob {
   (): void
   /**
@@ -23,15 +24,18 @@ export interface SchedulerJob {
   allowRecurse?: boolean
 }
 
+// ! cb 接口
 export type SchedulerCb = Function & { id?: number }
 export type SchedulerCbs = SchedulerCb | SchedulerCb[]
 
 let isFlushing = false
 let isFlushPending = false
 
+// ! job queue
 const queue: (SchedulerJob | null)[] = []
 let flushIndex = 0
 
+// ! pre and post cbs
 const pendingPreFlushCbs: SchedulerCb[] = []
 let activePreFlushCbs: SchedulerCb[] | null = null
 let preFlushIndex = 0
@@ -48,7 +52,7 @@ let currentPreFlushParentJob: SchedulerJob | null = null
 const RECURSION_LIMIT = 100
 type CountMap = Map<SchedulerJob | SchedulerCb, number>
 
-// ! nextTick -> 使用 Promise.then 异步调用函数
+// ! nextTick 异步调用 -> 使用 Promise.then 调用函数
 export function nextTick(fn?: () => void): Promise<void> {
   const p = currentFlushPromise || resolvedPromise
   return fn ? p.then(fn) : p

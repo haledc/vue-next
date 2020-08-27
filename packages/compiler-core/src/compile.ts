@@ -22,6 +22,7 @@ export type TransformPreset = [
   Record<string, DirectiveTransform>
 ]
 
+// ! 获取基础的转换方法 -> [节点, 指令]
 export function getBaseTransformPreset(
   prefixIdentifiers?: boolean
 ): TransformPreset {
@@ -37,7 +38,7 @@ export function getBaseTransformPreset(
             transformExpression
           ]
         : __BROWSER__ && __DEV__
-          ? [transformExpression]
+          ? [transformExpression] // ! 客户端开发环境才使用表达式转换（使用了 babel），生产环境使用`with`语法
           : []),
       transformSlotOutlet,
       transformElement,
@@ -78,13 +79,15 @@ export function baseCompile(
     onError(createCompilerError(ErrorCodes.X_SCOPE_ID_NOT_SUPPORTED))
   }
 
-  // ! 解析
+  // ! 解析：string -> AST
   const ast = isString(template) ? baseParse(template, options) : template
+
+  // ! 获取节点和指令转换的方法
   const [nodeTransforms, directiveTransforms] = getBaseTransformPreset(
     prefixIdentifiers
   )
 
-  // ! 转换
+  // ! 转换：AST -> new AST
   transform(
     ast,
     extend({}, options, {
@@ -101,7 +104,7 @@ export function baseCompile(
     })
   )
 
-  // ! 生成
+  // ! 生成：new AST -> code
   return generate(
     ast,
     extend({}, options, {

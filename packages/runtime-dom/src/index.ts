@@ -29,6 +29,7 @@ let renderer: Renderer<Element> | HydrationRenderer
 
 let enabledHydration = false
 
+// ! 返回渲染器
 function ensureRenderer() {
   return renderer || (renderer = createRenderer<Node, Element>(rendererOptions))
 }
@@ -50,6 +51,7 @@ export const hydrate = ((...args) => {
   ensureHydrationRenderer().hydrate(...args)
 }) as RootHydrateFunction
 
+// ! dom 平台的 createApp 方法
 export const createApp = ((...args) => {
   const app = ensureRenderer().createApp(...args)
 
@@ -58,13 +60,14 @@ export const createApp = ((...args) => {
   }
 
   const { mount } = app
-  // ! 重写 dom 平台的 mount 方法
+
+  // ! 重写 dom 平台的 mount 方法 -> 获取容器，并挂载挂载到容器中
   app.mount = (containerOrSelector: Element | string): any => {
     const container = normalizeContainer(containerOrSelector)
     if (!container) return
     const component = app._component
     if (!isFunction(component) && !component.render && !component.template) {
-      component.template = container.innerHTML
+      component.template = container.innerHTML // ! 模板字符串
     }
     // clear content before mounting
     container.innerHTML = ''

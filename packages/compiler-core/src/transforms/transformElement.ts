@@ -84,7 +84,7 @@ export const transformElement: NodeTransform = (node, context) => {
     let vnodeChildren: VNodeCall['children']
     let vnodePatchFlag: VNodeCall['patchFlag']
     let patchFlag: number = 0
-    let vnodeDynamicProps: VNodeCall['dynamicProps']
+    let vnodeDynamicProps: VNodeCall['dynamicProps'] // ! 动态绑定属性
     let dynamicPropNames: string[] | undefined
     let vnodeDirectives: VNodeCall['directives']
 
@@ -199,6 +199,7 @@ export const transformElement: NodeTransform = (node, context) => {
       }
     }
 
+    // ! 生成 VNodeCall 存储到 codegenNode 中
     node.codegenNode = createVNodeCall(
       context,
       vnodeTag,
