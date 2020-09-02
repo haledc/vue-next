@@ -30,6 +30,7 @@ export function popWarningContext() {
   stack.pop()
 }
 
+// ! 打印警告信息
 export function warn(msg: string, ...args: any[]) {
   // avoid props formatting or warn handler tracking deps that might be mutated
   // during patch, leading to infinite recursion.
@@ -137,6 +138,7 @@ function formatProps(props: Data): any[] {
   return res
 }
 
+// ! 格式化属性 -> 字符串化
 function formatProp(key: string, value: unknown): any[]
 function formatProp(key: string, value: unknown, raw: true): any
 /* istanbul ignore next */

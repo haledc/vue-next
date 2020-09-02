@@ -92,7 +92,7 @@ export function advancePositionWithClone(
   numberOfCharacters: number = source.length
 ): Position {
   return advancePositionWithMutation(
-    extend({}, pos),
+    extend({}, pos), // ! 生成新的位置 -> 不是原来的引用
     source,
     numberOfCharacters
   )
@@ -103,12 +103,12 @@ export function advancePositionWithClone(
 export function advancePositionWithMutation(
   pos: Position,
   source: string,
-  numberOfCharacters: number = source.length
+  numberOfCharacters: number = source.length // ! 字符串长度
 ): Position {
   let linesCount = 0
   let lastNewLinePos = -1
   for (let i = 0; i < numberOfCharacters; i++) {
-    // ! 匹配到 \ 符号时，加一行，并记录索引
+    // ! 匹配到 \ 符号时，加一行数，并记录位置
     if (source.charCodeAt(i) === 10 /* newline char code */) {
       linesCount++
       lastNewLinePos = i
@@ -116,15 +116,16 @@ export function advancePositionWithMutation(
   }
 
   pos.offset += numberOfCharacters // ! 偏移直接加 numberOfCharacters
-  pos.line += linesCount
+  pos.line += linesCount // ! 行号增加
   pos.column =
     lastNewLinePos === -1
-      ? pos.column + numberOfCharacters // ! 没换行，直接加 numberOfCharacters
-      : numberOfCharacters - lastNewLinePos // ! 换行后为从换行索引开始算起到前进的位置
+      ? pos.column + numberOfCharacters // ! 没换行，列号直接加 numberOfCharacters
+      : numberOfCharacters - lastNewLinePos // ! 换行后，列号从换行位置开始算起到前进的位置
 
   return pos
 }
 
+// ! 断言
 export function assert(condition: boolean, msg?: string) {
   /* istanbul ignore if */
   if (!condition) {
@@ -132,6 +133,7 @@ export function assert(condition: boolean, msg?: string) {
   }
 }
 
+// ! 获取指令
 export function findDir(
   node: ElementNode,
   name: string | RegExp,
@@ -149,6 +151,7 @@ export function findDir(
   }
 }
 
+// ! 获取属性
 export function findProp(
   node: ElementNode,
   name: string,
@@ -172,10 +175,12 @@ export function findProp(
   }
 }
 
+// ! 判断是否是绑定 key
 export function isBindKey(arg: DirectiveNode['arg'], name: string): boolean {
   return !!(arg && isStaticExp(arg) && arg.content === name)
 }
 
+// ! 是否有动态值绑定 -> v-bind
 export function hasDynamicKeyVBind(node: ElementNode): boolean {
   return node.props.some(
     p =>
@@ -187,16 +192,19 @@ export function hasDynamicKeyVBind(node: ElementNode): boolean {
   )
 }
 
+// ! 判断是否是文本 -> 插值和文本
 export function isText(
   node: TemplateChildNode
 ): node is TextNode | InterpolationNode {
   return node.type === NodeTypes.INTERPOLATION || node.type === NodeTypes.TEXT
 }
 
+// ! 判断是否是 v-slot 指令
 export function isVSlot(p: ElementNode['props'][0]): p is DirectiveNode {
   return p.type === NodeTypes.DIRECTIVE && p.name === 'slot'
 }
 
+// ! 判断是否是模板节点 -> 元素节点 +  template 标签
 export function isTemplateNode(
   node: RootNode | TemplateChildNode
 ): node is TemplateNode {
@@ -205,12 +213,14 @@ export function isTemplateNode(
   )
 }
 
+// ! 判断是否是 slot 输出节点
 export function isSlotOutlet(
   node: RootNode | TemplateChildNode
 ): node is SlotOutletNode {
   return node.type === NodeTypes.ELEMENT && node.tagType === ElementTypes.SLOT
 }
 
+// ! 判断是否是注入属性
 export function injectProp(
   node: VNodeCall | RenderSlotCall,
   prop: Property,
@@ -261,6 +271,7 @@ export function injectProp(
   }
 }
 
+// ! 校验资源 ID -> 组件和指令
 export function toValidAssetId(
   name: string,
   type: 'component' | 'directive'

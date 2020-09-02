@@ -3,6 +3,7 @@ import { ComponentInternalInstance, formatComponentName } from './component'
 let supported: boolean
 let perf: any
 
+// ! 开始测试
 export function startMeasure(
   instance: ComponentInternalInstance,
   type: string
@@ -12,6 +13,7 @@ export function startMeasure(
   }
 }
 
+// ! 结束测试
 export function endMeasure(instance: ComponentInternalInstance, type: string) {
   if (instance.appContext.config.performance && isSupported()) {
     const startTag = `vue-${type}-${instance.uid}`
@@ -27,6 +29,7 @@ export function endMeasure(instance: ComponentInternalInstance, type: string) {
   }
 }
 
+// ! 是否支持 window.performance
 function isSupported() {
   if (supported !== undefined) {
     return supported

@@ -186,7 +186,7 @@ export function generate(
     onContextCreated?: (context: CodegenContext) => void
   } = {}
 ): CodegenResult {
-  const context = createCodegenContext(ast, options)
+  const context = createCodegenContext(ast, options) // ! 上下文
   if (options.onContextCreated) options.onContextCreated(context)
   const {
     mode,
@@ -227,6 +227,7 @@ export function generate(
   }
   indent()
 
+  // ! 处理带 with 的情况，Web 端运行时编译
   if (useWithBlock) {
     push(`with (_ctx) {`)
     indent()
@@ -244,18 +245,23 @@ export function generate(
   }
 
   // generate asset resolution statements
+  // ! 生成自定义组件声明代码
   if (ast.components.length) {
     genAssets(ast.components, 'component', context)
     if (ast.directives.length || ast.temps > 0) {
       newline()
     }
   }
+
+  // ! 生成自定义指令声明代码
   if (ast.directives.length) {
     genAssets(ast.directives, 'directive', context)
     if (ast.temps > 0) {
       newline()
     }
   }
+
+  // ! 生成临时变量代码
   if (ast.temps > 0) {
     push(`let `)
     for (let i = 0; i < ast.temps; i++) {
@@ -297,6 +303,7 @@ export function generate(
   }
 }
 
+// ! 生成函数预设代码 -> 导入函数
 function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
   const {
     ssr,
@@ -355,6 +362,7 @@ function genFunctionPreamble(ast: RootNode, context: CodegenContext) {
   push(`return `)
 }
 
+// ! 生成模块预设代码 -> 导入模块
 function genModulePreamble(
   ast: RootNode,
   context: CodegenContext,
@@ -403,6 +411,7 @@ function genModulePreamble(
     }
   }
 
+  // ! ssrHelpers
   if (ast.ssrHelpers && ast.ssrHelpers.length) {
     push(
       `import { ${ast.ssrHelpers
@@ -411,11 +420,13 @@ function genModulePreamble(
     )
   }
 
+  // ! imports
   if (ast.imports.length) {
     genImports(ast.imports, context)
     newline()
   }
 
+  // ! genScopeId
   if (genScopeId) {
     push(
       `const _withId = ${PURE_ANNOTATION}${helper(WITH_SCOPE_ID)}("${scopeId}")`
@@ -423,11 +434,12 @@ function genModulePreamble(
     newline()
   }
 
-  genHoists(ast.hoists, context)
+  genHoists(ast.hoists, context) // ! hosits
   newline()
   push(`export `)
 }
 
+// ! 生成资源 -> 组件和指令
 function genAssets(
   assets: string[],
   type: 'component' | 'directive',
@@ -447,6 +459,7 @@ function genAssets(
   }
 }
 
+// ! 生成静态提升
 function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   if (!hoists.length) {
     return
@@ -478,6 +491,7 @@ function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   context.pure = false
 }
 
+// ! 生成导入语句
 function genImports(importsOptions: ImportItem[], context: CodegenContext) {
   if (!importsOptions.length) {
     return
@@ -679,6 +693,7 @@ function genCompoundExpression(
   }
 }
 
+// ! 生成表达式作为属性
 function genExpressionAsPropertyKey(
   node: ExpressionNode,
   context: CodegenContext
@@ -710,6 +725,7 @@ function genComment(node: CommentNode, context: CodegenContext) {
   }
 }
 
+// ! 生成 VNode Call
 function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   const { push, helper, pure } = context
   const {
@@ -747,6 +763,7 @@ function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   }
 }
 
+// ! 生成 Null 参数
 function genNullableArgs(args: any[]): CallExpression['arguments'] {
   let i = args.length
   while (i--) {
@@ -910,6 +927,7 @@ function genCacheExpression(node: CacheExpression, context: CodegenContext) {
   push(`)`)
 }
 
+// ! 生成模板字面量
 function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
   const { push, indent, deindent } = context
   push('`')
@@ -930,6 +948,7 @@ function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
   push('`')
 }
 
+// ! 生成 if 语句
 function genIfStatement(node: IfStatement, context: CodegenContext) {
   const { push, indent, deindent } = context
   const { test, consequent, alternate } = node
@@ -954,6 +973,7 @@ function genIfStatement(node: IfStatement, context: CodegenContext) {
   }
 }
 
+// ! 生成赋值语句
 function genAssignmentExpression(
   node: AssignmentExpression,
   context: CodegenContext
@@ -963,6 +983,7 @@ function genAssignmentExpression(
   genNode(node.right, context)
 }
 
+// ! 生成顺序表达式
 function genSequenceExpression(
   node: SequenceExpression,
   context: CodegenContext
@@ -972,6 +993,7 @@ function genSequenceExpression(
   context.push(`)`)
 }
 
+// ! 生成返回语句
 function genReturnStatement(
   { returns }: ReturnStatement,
   context: CodegenContext

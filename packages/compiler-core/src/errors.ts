@@ -13,6 +13,7 @@ export function defaultOnError(error: CompilerError) {
   throw error
 }
 
+// ! 创建编译错误
 export function createCompilerError<T extends number>(
   code: T,
   loc?: SourceLocation,
@@ -29,6 +30,7 @@ export function createCompilerError<T extends number>(
   return error as any
 }
 
+// ! 编译错误代码类型
 export const enum ErrorCodes {
   // parse errors
   ABRUPT_CLOSING_OF_EMPTY_COMMENT,
@@ -93,6 +95,7 @@ export const enum ErrorCodes {
   __EXTEND_POINT__
 }
 
+// ! 编译错误信息
 export const errorMessages: { [code: number]: string } = {
   // parse errors
   [ErrorCodes.ABRUPT_CLOSING_OF_EMPTY_COMMENT]: 'Illegal comment.',

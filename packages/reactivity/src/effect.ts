@@ -181,7 +181,7 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
   }
 }
 
-// ! 触发依赖（执行 effect）
+// ! 触发依赖（调用 effect）
 export function trigger(
   target: object,
   type: TriggerOpTypes,

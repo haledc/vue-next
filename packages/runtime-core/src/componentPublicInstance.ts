@@ -203,6 +203,7 @@ export interface ComponentRenderContext {
   _: ComponentInternalInstance
 }
 
+// ! 代理处理器 -> 为了缓存
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   get({ _: instance }: ComponentRenderContext, key: string) {
     const {

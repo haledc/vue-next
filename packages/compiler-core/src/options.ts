@@ -8,6 +8,7 @@ import {
 } from './transform'
 import { ParserPlugin } from '@babel/parser'
 
+// ! 解析选项
 export interface ParserOptions {
   /**
    * e.g. platform native elements, e.g. `<div>` for browsers
@@ -65,6 +66,7 @@ export interface BindingMetadata {
   [key: string]: 'data' | 'props' | 'setup' | 'options'
 }
 
+// ! 转换选项
 export interface TransformOptions {
   /**
    * An array of node transforms to be applied to every AST node.
@@ -147,6 +149,7 @@ export interface TransformOptions {
   onError?: (error: CompilerError) => void
 }
 
+// ! 代码生成选项
 export interface CodegenOptions {
   /**
    * - `module` mode will generate ES module import statements for helpers

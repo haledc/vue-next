@@ -81,7 +81,7 @@ export interface SourceLocation {
   source: string
 }
 
-// ! 解析的光标位置
+// ! 解析时的光标位置
 export interface Position {
   offset: number // from start of file
   line: number
@@ -238,7 +238,7 @@ export interface InterpolationNode extends Node {
   content: ExpressionNode
 }
 
-// ! 混合表达式节点
+// ! 复合表达式节点
 export interface CompoundExpressionNode extends Node {
   type: NodeTypes.COMPOUND_EXPRESSION
   children: (
@@ -283,18 +283,20 @@ export interface ForNode extends Node {
   codegenNode?: ForCodegenNode
 }
 
-// !
+// ! 文本 Call 节点
 export interface TextCallNode extends Node {
   type: NodeTypes.TEXT_CALL
   content: TextNode | InterpolationNode | CompoundExpressionNode
   codegenNode: CallExpression | SimpleExpressionNode // when hoisted
 }
 
+// ! 模板文本节点 -> 文本 插值 复合表达式
 export type TemplateTextChildNode =
   | TextNode
   | InterpolationNode
   | CompoundExpressionNode
 
+// ! VNode Call 节点
 export interface VNodeCall extends Node {
   type: NodeTypes.VNODE_CALL
   tag: string | symbol | CallExpression
@@ -329,7 +331,7 @@ export type JSChildNode =
   | AssignmentExpression
   | SequenceExpression
 
-// ! call 表达式
+// ! Call 表达式
 export interface CallExpression extends Node {
   type: NodeTypes.JS_CALL_EXPRESSION
   callee: string | symbol
@@ -517,12 +519,14 @@ export interface DynamicSlotNode extends ObjectExpression {
   properties: [Property, DynamicSlotFnProperty]
 }
 
+// ! 动态插槽函数属性
 export interface DynamicSlotFnProperty extends Property {
   value: SlotFunctionExpression
 }
 
 export type BlockCodegenNode = VNodeCall | RenderSlotCall
 
+// ! if 条件表达式
 export interface IfConditionalExpression extends ConditionalExpression {
   consequent: BlockCodegenNode
   alternate: BlockCodegenNode | IfConditionalExpression
@@ -537,11 +541,13 @@ export interface ForCodegenNode extends VNodeCall {
   disableTracking: boolean
 }
 
+// ! for 渲染列表表达式
 export interface ForRenderListExpression extends CallExpression {
   callee: typeof RENDER_LIST
   arguments: [ExpressionNode, ForIteratorExpression]
 }
 
+// ! for 迭代表达式
 export interface ForIteratorExpression extends FunctionExpression {
   returns: BlockCodegenNode
 }
@@ -577,6 +583,7 @@ export function createRoot(
   }
 }
 
+// ! 创建 VNode Call
 export function createVNodeCall(
   context: TransformContext | null,
   tag: VNodeCall['tag'],
@@ -592,12 +599,12 @@ export function createVNodeCall(
   if (context) {
     if (isBlock) {
       context.helper(OPEN_BLOCK)
-      context.helper(CREATE_BLOCK)
+      context.helper(CREATE_BLOCK) // ! 创建块
     } else {
       context.helper(CREATE_VNODE)
     }
     if (directives) {
-      context.helper(WITH_DIRECTIVES)
+      context.helper(WITH_DIRECTIVES) // ! 指令
     }
   }
 
@@ -615,6 +622,7 @@ export function createVNodeCall(
   }
 }
 
+// ! 创建数组表达式
 export function createArrayExpression(
   elements: ArrayExpression['elements'],
   loc: SourceLocation = locStub
@@ -626,6 +634,7 @@ export function createArrayExpression(
   }
 }
 
+// ! 创建对象表达式
 export function createObjectExpression(
   properties: ObjectExpression['properties'],
   loc: SourceLocation = locStub
@@ -637,6 +646,7 @@ export function createObjectExpression(
   }
 }
 
+// ! 创建对象属性
 export function createObjectProperty(
   key: Property['key'] | string,
   value: Property['value']
@@ -649,6 +659,7 @@ export function createObjectProperty(
   }
 }
 
+// ! 创建简单表达式
 export function createSimpleExpression(
   content: SimpleExpressionNode['content'],
   isStatic: SimpleExpressionNode['isStatic'],
@@ -664,6 +675,7 @@ export function createSimpleExpression(
   }
 }
 
+// ! 创建插值节点
 export function createInterpolation(
   content: InterpolationNode['content'] | string,
   loc: SourceLocation
@@ -677,6 +689,7 @@ export function createInterpolation(
   }
 }
 
+// ! 创建符合表达式
 export function createCompoundExpression(
   children: CompoundExpressionNode['children'],
   loc: SourceLocation = locStub
@@ -692,6 +705,7 @@ type InferCodegenNodeType<T> = T extends typeof RENDER_SLOT
   ? RenderSlotCall
   : CallExpression
 
+// ! 创建 Call 表达式
 export function createCallExpression<T extends CallExpression['callee']>(
   callee: T,
   args: CallExpression['arguments'] = [],
@@ -705,6 +719,7 @@ export function createCallExpression<T extends CallExpression['callee']>(
   } as any
 }
 
+// ! 创建函数表达式
 export function createFunctionExpression(
   params: FunctionExpression['params'],
   returns: FunctionExpression['returns'] = undefined,
@@ -722,6 +737,7 @@ export function createFunctionExpression(
   }
 }
 
+// ! 创建条件表达式
 export function createConditionalExpression(
   test: ConditionalExpression['test'],
   consequent: ConditionalExpression['consequent'],
@@ -738,6 +754,7 @@ export function createConditionalExpression(
   }
 }
 
+// ! 创建缓存表达式
 export function createCacheExpression(
   index: number,
   value: JSChildNode,
@@ -752,6 +769,7 @@ export function createCacheExpression(
   }
 }
 
+// ! 创建块语句
 export function createBlockStatement(
   body: BlockStatement['body']
 ): BlockStatement {
@@ -762,6 +780,7 @@ export function createBlockStatement(
   }
 }
 
+// ! 创建模板字面量
 export function createTemplateLiteral(
   elements: TemplateLiteral['elements']
 ): TemplateLiteral {
@@ -772,6 +791,7 @@ export function createTemplateLiteral(
   }
 }
 
+// ! 创建 if 语句
 export function createIfStatement(
   test: IfStatement['test'],
   consequent: IfStatement['consequent'],
@@ -786,6 +806,7 @@ export function createIfStatement(
   }
 }
 
+// ! 创建赋值语句
 export function createAssignmentExpression(
   left: AssignmentExpression['left'],
   right: AssignmentExpression['right']
@@ -798,6 +819,7 @@ export function createAssignmentExpression(
   }
 }
 
+// ! 创建顺序表达式
 export function createSequenceExpression(
   expressions: SequenceExpression['expressions']
 ): SequenceExpression {
@@ -808,6 +830,7 @@ export function createSequenceExpression(
   }
 }
 
+// ! 创建返回语句
 export function createReturnStatement(
   returns: ReturnStatement['returns']
 ): ReturnStatement {

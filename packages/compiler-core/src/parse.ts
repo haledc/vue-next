@@ -41,7 +41,7 @@ const decodeMap: Record<string, string> = {
   quot: '"'
 }
 
-// ! 解析默认选项
+// ! 默认解析选项
 export const defaultParserOptions: MergedParserOptions = {
   delimiters: [`{{`, `}}`],
   getNamespace: () => Namespaces.HTML,
@@ -65,6 +65,7 @@ export const enum TextModes {
   ATTRIBUTE_VALUE
 }
 
+// ! 解析上下文接口
 export interface ParserContext {
   options: MergedParserOptions
   readonly originalSource: string
@@ -76,13 +77,14 @@ export interface ParserContext {
   inVPre: boolean // v-pre, do not process directives and interpolations
 }
 
-// ! 基础解析 -> 生成 AST 节点
+// ! 基础解析 -> 生成 AST
 export function baseParse(
   content: string,
   options: ParserOptions = {}
 ): RootNode {
-  const context = createParserContext(content, options)
-  const start = getCursor(context)
+  const context = createParserContext(content, options) // ! 上下文
+  const start = getCursor(context) // ! 获取解析起始点位置
+  // ! 解析子节点，并生成 AST
   return createRoot(
     parseChildren(context, TextModes.DATA, []),
     getSelection(context, start)
@@ -117,28 +119,31 @@ function parseChildren(
   mode: TextModes,
   ancestors: ElementNode[]
 ): TemplateChildNode[] {
-  const parent = last(ancestors)
-  const ns = parent ? parent.ns : Namespaces.HTML
-  const nodes: TemplateChildNode[] = [] // ! AST 节点数组
+  const parent = last(ancestors) // ! 父节点
+  const ns = parent ? parent.ns : Namespaces.HTML // ! 命名空间
+  const nodes: TemplateChildNode[] = [] // ! AST 数组
 
   // ! 当解析未结束时
   while (!isEnd(context, mode, ancestors)) {
     __TEST__ && assert(context.source.length > 0)
     const s = context.source
-    let node: TemplateChildNode | TemplateChildNode[] | undefined = undefined
+    let node: TemplateChildNode | TemplateChildNode[] | undefined = undefined // ! 将要生成的 AST
 
     if (mode === TextModes.DATA || mode === TextModes.RCDATA) {
+      // ! 解析插值 `{{`
       if (!context.inVPre && startsWith(s, context.options.delimiters[0])) {
         // '{{'
-        node = parseInterpolation(context, mode) // ! 解析插值 `{{`
-      } else if (mode === TextModes.DATA && s[0] === '<') {
+        node = parseInterpolation(context, mode)
+      }
+      // ! 解析以 `<` 开头 -> `<` `<!xxx`
+      else if (mode === TextModes.DATA && s[0] === '<') {
         // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
         if (s.length === 1) {
-          emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 1)
+          emitError(context, ErrorCodes.EOF_BEFORE_TAG_NAME, 1) // ! 长度为 1，说明代码结尾是 <，报错
         } else if (s[1] === '!') {
           // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
           if (startsWith(s, '<!--')) {
-            node = parseComment(context) // ! 解析注释 `<!`
+            node = parseComment(context) // ! 解析注释节点 `<!`
           } else if (startsWith(s, '<!DOCTYPE')) {
             // Ignore DOCTYPE by a limitation.
             node = parseBogusComment(context) // ! 解析 `<!DOCTYPE`
@@ -154,7 +159,7 @@ function parseChildren(
             node = parseBogusComment(context)
           }
         }
-        // ! 解析 `</`
+        // ! 解析以 `</` 开头 ->  `</` `</>` `</xxx`
         else if (s[1] === '/') {
           // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
           if (s.length === 2) {
@@ -164,8 +169,8 @@ function parseChildren(
             advanceBy(context, 3) // ! 前进
             continue
           } else if (/[a-z]/i.test(s[2])) {
-            emitError(context, ErrorCodes.X_INVALID_END_TAG) // ! 多余结束标签 `</...` 报错
-            parseTag(context, TagType.End, parent)
+            emitError(context, ErrorCodes.X_INVALID_END_TAG) // ! 多余结束标签 `</xxx` 报错
+            parseTag(context, TagType.End, parent) // ! 解析标签
             continue
           } else {
             emitError(
@@ -175,18 +180,23 @@ function parseChildren(
             )
             node = parseBogusComment(context)
           }
-        } else if (/[a-z]/i.test(s[1])) {
-          node = parseElement(context, ancestors) // ! 解析元素 `<x`开头
-        } else if (s[1] === '?') {
-          // ! `<?` 报错
+        }
+        // ! 解析 `<x` 开头
+        else if (/[a-z]/i.test(s[1])) {
+          node = parseElement(context, ancestors) // ! 解析元素
+        }
+        // ! 计息 `<?` 开头
+        else if (s[1] === '?') {
           emitError(
             context,
             ErrorCodes.UNEXPECTED_QUESTION_MARK_INSTEAD_OF_TAG_NAME,
             1
           )
           node = parseBogusComment(context)
-        } else {
-          emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1) // ! 其它报错
+        }
+        // ! 其它情况 -> 报错
+        else {
+          emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1)
         }
       }
     }
@@ -198,7 +208,7 @@ function parseChildren(
 
     if (isArray(node)) {
       for (let i = 0; i < node.length; i++) {
-        pushNode(nodes, node[i]) // ! node 是数组，遍历放入 nodes 中
+        pushNode(nodes, node[i]) // ! node 是数组，遍历数组放入 nodes 中
       }
     } else {
       pushNode(nodes, node) // ! 单个放入 nodes 中
@@ -275,7 +285,7 @@ function pushNode(nodes: TemplateChildNode[], node: TemplateChildNode): void {
       prev.type === NodeTypes.TEXT &&
       prev.loc.end.offset === node.loc.start.offset
     ) {
-      prev.content += node.content
+      prev.content += node.content // ! 拼接文本
       prev.loc.end = node.loc.end
       prev.loc.source += node.loc.source
       return
@@ -314,9 +324,9 @@ function parseComment(context: ParserContext): CommentNode {
   let content: string
 
   // Regular comment.
-  const match = /--(\!)?>/.exec(context.source) // ! `<!-- xxx` 匹配注释节点的闭合部分 xxx
+  const match = /--(\!)?>/.exec(context.source) // ! `<!--xxx` 匹配注释节点的结束部分 xxx
   if (!match) {
-    content = context.source.slice(4) // ! 获取后面内容
+    content = context.source.slice(4) // ! 没有匹配，获取注释的结束符
     advanceBy(context, context.source.length)
     emitError(context, ErrorCodes.EOF_IN_COMMENT)
   } else {
@@ -326,7 +336,7 @@ function parseComment(context: ParserContext): CommentNode {
     if (match[1]) {
       emitError(context, ErrorCodes.INCORRECTLY_CLOSED_COMMENT) // ! 注释符号不正确报错
     }
-    content = context.source.slice(4, match.index) // ! 获取注释内容
+    content = context.source.slice(4, match.index) // ! 获取注释的内容
 
     // Advancing with reporting nested comments.
     const s = context.source.slice(0, match.index) // ! 截取到注释结尾之间的代码，用于后续判断嵌套注释
@@ -952,7 +962,7 @@ function emitError(
   )
 }
 
-// ! 判断是否是最后
+// ! 判断是否结束 -> 以相应的结束标签结束
 function isEnd(
   context: ParserContext,
   mode: TextModes,
@@ -991,7 +1001,7 @@ function isEnd(
   return !s
 }
 
-// ! 判断是否是闭合标签的
+// ! 判断是否是结束标签
 function startsWithEndTagOpen(source: string, tag: string): boolean {
   return (
     startsWith(source, '</') &&

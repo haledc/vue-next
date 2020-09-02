@@ -296,7 +296,7 @@ function doWatch(
     scheduler
   })
 
-  recordInstanceBoundEffect(runner)
+  recordInstanceBoundEffect(runner) // ! 缓存 effect
 
   // initial run
   if (cb) {

@@ -464,7 +464,7 @@ export function validateComponentName(name: string, config: AppConfig) {
 
 export let isInSSRComponentSetup = false
 
-// ! 启动组件 -> 运行 setup 函数
+// ! setup 组件 -> 运行 setup 函数
 export function setupComponent(
   instance: ComponentInternalInstance,
   isSSR = false
@@ -483,6 +483,7 @@ export function setupComponent(
   return setupResult
 }
 
+// ! setup 有状态组件
 function setupStatefulComponent(
   instance: ComponentInternalInstance,
   isSSR: boolean
@@ -507,7 +508,7 @@ function setupStatefulComponent(
     }
   }
   // 0. create render proxy property access cache
-  instance.accessCache = {}
+  instance.accessCache = {} // ! 缓存
   // 1. create public instance / render proxy
   // also mark it raw so it's never observed
   instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers)
@@ -523,6 +524,7 @@ function setupStatefulComponent(
 
     currentInstance = instance
     pauseTracking()
+    // ! 调用
     const setupResult = callWithErrorHandling(
       setup,
       instance,
@@ -564,7 +566,7 @@ export function handleSetupResult(
 ) {
   if (isFunction(setupResult)) {
     // setup returned an inline render function
-    instance.render = setupResult as InternalRenderFunction // ! 赋值为渲染函数
+    instance.render = setupResult as InternalRenderFunction // ! 渲染函数
   } else if (isObject(setupResult)) {
     if (__DEV__ && isVNode(setupResult)) {
       warn(
@@ -577,7 +579,7 @@ export function handleSetupResult(
     if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
       instance.devtoolsRawSetupState = setupResult
     }
-    instance.setupState = proxyRefs(setupResult)
+    instance.setupState = proxyRefs(setupResult) // ! 代理结果
     if (__DEV__) {
       exposeSetupStateOnRenderContext(instance)
     }
@@ -624,6 +626,7 @@ function finishComponentSetup(
       if (__DEV__) {
         startMeasure(instance, `compile`)
       }
+      // ! 生成渲染函数
       Component.render = compile(Component.template, {
         isCustomElement: instance.appContext.config.isCustomElement,
         delimiters: Component.delimiters
@@ -725,6 +728,8 @@ export function recordInstanceBoundEffect(effect: ReactiveEffect) {
 }
 
 const classifyRE = /(?:^|[-_])(\w)/g
+
+// ! 转大驼峰形式
 const classify = (str: string): string =>
   str.replace(classifyRE, c => c.toUpperCase()).replace(/[-_]/g, '')
 

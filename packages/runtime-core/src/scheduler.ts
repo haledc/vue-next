@@ -52,7 +52,7 @@ let currentPreFlushParentJob: SchedulerJob | null = null
 const RECURSION_LIMIT = 100
 type CountMap = Map<SchedulerJob | SchedulerCb, number>
 
-// ! nextTick 异步调用 -> 使用 Promise.then 调用函数
+// ! nextTick 异步函数调用 -> 使用 Promise.then 异步调用函数
 export function nextTick(fn?: () => void): Promise<void> {
   const p = currentFlushPromise || resolvedPromise
   return fn ? p.then(fn) : p

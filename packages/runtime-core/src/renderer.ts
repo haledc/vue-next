@@ -84,6 +84,7 @@ export type RootRenderFunction<HostElement = RendererElement> = (
   container: HostElement
 ) => void
 
+// ! 渲染器选项接口
 export interface RendererOptions<
   HostNode = RendererNode,
   HostElement = RendererElement

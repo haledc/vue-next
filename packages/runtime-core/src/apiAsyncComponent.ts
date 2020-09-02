@@ -61,6 +61,7 @@ export function defineAsyncComponent<
     return load()
   }
 
+  // ! 加载 -> 返回一个 promise 组件
   const load = (): Promise<ConcreteComponent> => {
     let thisRequest: Promise<ConcreteComponent>
     return (
@@ -144,12 +145,14 @@ export function defineAsyncComponent<
       const error = ref()
       const delayed = ref(!!delay)
 
+      // ! 延时处理
       if (delay) {
         setTimeout(() => {
           delayed.value = false
         }, delay)
       }
 
+      // ! 超时处理
       if (timeout != null) {
         setTimeout(() => {
           if (!loaded.value) {
@@ -164,13 +167,14 @@ export function defineAsyncComponent<
 
       load()
         .then(() => {
-          loaded.value = true
+          loaded.value = true // ! 组件加载完成
         })
         .catch(err => {
           onError(err)
           error.value = err
         })
 
+      // ! 根据情况返回一个函数组件
       return () => {
         if (loaded.value && resolvedComp) {
           return createInnerComp(resolvedComp, instance)

@@ -15,6 +15,6 @@ export function computed<T>(
   getterOrOptions: ComputedGetter<T> | WritableComputedOptions<T>
 ) {
   const c = _computed(getterOrOptions as any)
-  recordInstanceBoundEffect(c.effect)
+  recordInstanceBoundEffect(c.effect) // ! 缓存 effect
   return c
 }

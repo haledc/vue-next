@@ -154,7 +154,7 @@ export function toRefs<T extends object>(object: T): ToRefs<T> {
   return ret
 }
 
-// ! 把 value 包装成 Ref 对象的方法
+// ! Ref 类实现
 class ObjectRefImpl<T extends object, K extends keyof T> {
   public readonly __v_isRef = true
 
@@ -169,6 +169,7 @@ class ObjectRefImpl<T extends object, K extends keyof T> {
   }
 }
 
+// ! 把 value 包装成 Ref 对象的方法
 export function toRef<T extends object, K extends keyof T>(
   object: T,
   key: K

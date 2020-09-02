@@ -7,6 +7,7 @@ __DEV__ && initDev()
 
 export * from '@vue/runtime-dom'
 
+// ! 运行时编译模板报错
 export const compile = () => {
   if (__DEV__) {
     warn(

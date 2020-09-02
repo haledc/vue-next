@@ -11,6 +11,7 @@ __DEV__ && initDev()
 
 const compileCache: Record<string, RenderFunction> = Object.create(null)
 
+// ! 创建渲染函数
 function compileToFunction(
   template: string | HTMLElement,
   options?: CompilerOptions
@@ -74,7 +75,7 @@ function compileToFunction(
   // the wildcard object.
   const render = (__GLOBAL__
     ? new Function(code)()
-    : new Function('Vue', code)(runtimeDom)) as RenderFunction
+    : new Function('Vue', code)(runtimeDom)) as RenderFunction // ! 运行时只传入 runtime-dom
 
   // mark the function as runtime compiled
   ;(render as InternalRenderFunction)._rc = true

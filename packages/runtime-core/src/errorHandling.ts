@@ -58,7 +58,7 @@ export const ErrorTypeStrings: Record<number | string, string> = {
 
 export type ErrorTypes = LifecycleHooks | ErrorCodes
 
-// ! 带错误处理的同步执行
+// ! 带错误处理的同步函数调用
 export function callWithErrorHandling(
   fn: Function,
   instance: ComponentInternalInstance | null,
@@ -74,7 +74,7 @@ export function callWithErrorHandling(
   return res
 }
 
-// ! 带错误处理的异步执行 -> 返回 Promise 使用 catch 捕获错误
+// ! 带错误处理的异步函数调用 -> 返回 Promise 使用 catch 捕获错误
 export function callWithAsyncErrorHandling(
   fn: Function | Function[],
   instance: ComponentInternalInstance | null,
@@ -113,6 +113,7 @@ export function handleError(
     const errorInfo = __DEV__ ? ErrorTypeStrings[type] : type
     while (cur) {
       const errorCapturedHooks = cur.ec
+      // ! 调用 errorCaptured 钩子
       if (errorCapturedHooks) {
         for (let i = 0; i < errorCapturedHooks.length; i++) {
           if (errorCapturedHooks[i](err, exposedInstance, errorInfo)) {
@@ -137,6 +138,7 @@ export function handleError(
   logError(err, type, contextVNode)
 }
 
+// ! 打印错误
 function logError(err: unknown, type: ErrorTypes, contextVNode: VNode | null) {
   if (__DEV__) {
     const info = ErrorTypeStrings[type]

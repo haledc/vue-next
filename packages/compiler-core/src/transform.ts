@@ -77,6 +77,7 @@ export interface ImportItem {
   path: string
 }
 
+// ! 转换上下文接口
 export interface TransformContext extends Required<TransformOptions> {
   root: RootNode
   helpers: Set<symbol>
@@ -269,12 +270,12 @@ export function createTransformContext(
 // ! 转换 AST
 export function transform(root: RootNode, options: TransformOptions) {
   const context = createTransformContext(root, options) // ! 上下文对象
-  traverseNode(root, context) // ! 遍历 AST 节点
+  traverseNode(root, context) // ! 遍历 AST
   if (options.hoistStatic) {
-    hoistStatic(root, context)
+    hoistStatic(root, context) // ! 静态提升
   }
   if (!options.ssr) {
-    createRootCodegen(root, context)
+    createRootCodegen(root, context) // ! 创建根节点的代码生成节点
   }
   // finalize meta information
   root.helpers = [...context.helpers]
@@ -295,7 +296,7 @@ function createRootCodegen(root: RootNode, context: TransformContext) {
     if (isSingleElementRoot(root, child) && child.codegenNode) {
       // single element root is never hoisted so codegenNode will never be
       // SimpleExpressionNode
-      const codegenNode = child.codegenNode
+      const codegenNode = child.codegenNode // ! 代码生成节点
       if (codegenNode.type === NodeTypes.VNODE_CALL) {
         codegenNode.isBlock = true
         helper(OPEN_BLOCK)
@@ -327,6 +328,7 @@ function createRootCodegen(root: RootNode, context: TransformContext) {
   }
 }
 
+// ! 遍历子节点
 export function traverseChildren(
   parent: ParentNode,
   context: TransformContext
@@ -352,7 +354,7 @@ export function traverseNode(
 ) {
   context.currentNode = node
   // apply transform plugins
-  const { nodeTransforms } = context // ! 获取多个节点转换函数
+  const { nodeTransforms } = context // ! 获取节点的转换函数
   const exitFns = []
   for (let i = 0; i < nodeTransforms.length; i++) {
     const onExit = nodeTransforms[i](node, context) // ! 退出函数，在处理完一些子节点后执行
@@ -408,6 +410,7 @@ export function traverseNode(
   }
 }
 
+// ! 创建结构化指令转换 -> 转换 v-if v-else v-else-if v-for
 export function createStructuralDirectiveTransform(
   name: string | RegExp,
   fn: StructuralDirectiveTransform

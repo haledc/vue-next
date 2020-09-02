@@ -120,7 +120,7 @@ export function processIf(
       loc: node.loc,
       branches: [branch]
     }
-    context.replaceNode(ifNode)
+    context.replaceNode(ifNode) // ! 替换
     if (processCodegen) {
       return processCodegen(ifNode, branch, true)
     }

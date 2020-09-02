@@ -30,6 +30,7 @@ export const transformText: NodeTransform = (node, context) => {
         const child = children[i]
         if (isText(child)) {
           hasText = true
+          // ! 合并相邻文本
           for (let j = i + 1; j < children.length; j++) {
             const next = children[j]
             if (isText(next)) {

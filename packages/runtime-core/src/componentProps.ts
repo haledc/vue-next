@@ -109,6 +109,7 @@ type NormalizedProp =
 // and an array of prop keys that need value casting (booleans and defaults)
 export type NormalizedPropsOptions = [Record<string, NormalizedProp>, string[]]
 
+// ! 初始化 props
 export function initProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -139,6 +140,7 @@ export function initProps(
   instance.attrs = attrs
 }
 
+// ! 更新 props
 export function updateProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -240,6 +242,7 @@ export function updateProps(
   }
 }
 
+// ! 设置 props ->
 function setFullProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -282,6 +285,7 @@ function setFullProps(
   }
 }
 
+// ! 解析 prop 值 -> 处理 default 和设置 boolean 值
 function resolvePropValue(
   options: NormalizedPropsOptions[0],
   props: Data,
@@ -314,6 +318,7 @@ function resolvePropValue(
   return value
 }
 
+// ! 规范化 props -> 扩展属性和规范格式
 export function normalizePropsOptions(
   comp: ConcreteComponent
 ): NormalizedPropsOptions | [] {
@@ -416,6 +421,7 @@ function getTypeIndex(
 /**
  * dev only
  */
+// ! 校验 props -> 规范化和校验
 function validateProps(props: Data, comp: ConcreteComponent) {
   const rawValues = toRaw(props)
   const options = normalizePropsOptions(comp)[0]
@@ -429,6 +435,7 @@ function validateProps(props: Data, comp: ConcreteComponent) {
 /**
  * dev only
  */
+// ! 校验 prop 名称 -> 不能以 $ 开头
 function validatePropName(key: string) {
   if (key[0] !== '$') {
     return true
@@ -441,6 +448,7 @@ function validatePropName(key: string) {
 /**
  * dev only
  */
+// ! 校验 prop -> 是否缺席、类型检查、校验器验证
 function validateProp(
   name: string,
   value: unknown,
@@ -491,6 +499,7 @@ type AssertionResult = {
 /**
  * dev only
  */
+// ! 确定类型
 function assertType(value: unknown, type: PropConstructor): AssertionResult {
   let valid
   const expectedType = getType(type)
@@ -517,6 +526,7 @@ function assertType(value: unknown, type: PropConstructor): AssertionResult {
 /**
  * dev only
  */
+// ! 生成校验失败信息
 function getInvalidTypeMessage(
   name: string,
   value: unknown,
