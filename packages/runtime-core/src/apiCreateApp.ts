@@ -34,6 +34,7 @@ export interface App<HostElement = any> {
   provide<T>(key: InjectionKey<T> | string, value: T): this
 
   // internal, but we need to expose these for the server-renderer and devtools
+  _uid: number
   _component: ConcreteComponent
   _props: Data | null
   _container: HostElement | null
@@ -112,6 +113,8 @@ export type CreateAppFunction<HostElement> = (
   rootProps?: Data | null
 ) => App<HostElement>
 
+let uid = 0
+
 // ! 生成 createApp 方法
 export function createAppAPI<HostElement>(
   render: RootRenderFunction,
@@ -130,6 +133,7 @@ export function createAppAPI<HostElement>(
     let isMounted = false
 
     const app: App = (context.app = {
+      _uid: uid++,
       _component: rootComponent as ConcreteComponent,
       _props: rootProps,
       _container: null,

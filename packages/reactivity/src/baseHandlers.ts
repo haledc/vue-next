@@ -180,8 +180,6 @@ export const mutableHandlers: ProxyHandler<object> = {
 // ! 只读 handlers -> 拦截到 set deleteProperty 报错
 export const readonlyHandlers: ProxyHandler<object> = {
   get: readonlyGet,
-  has,
-  ownKeys,
   set(target, key) {
     if (__DEV__) {
       console.warn(

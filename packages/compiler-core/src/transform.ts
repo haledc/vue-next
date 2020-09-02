@@ -404,6 +404,7 @@ export function traverseNode(
   }
 
   // exit transforms
+  context.currentNode = node
   let i = exitFns.length
   while (i--) {
     exitFns[i]() // ! 执行退出函数
