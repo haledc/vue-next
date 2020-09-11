@@ -251,7 +251,7 @@ export function trigger(
       })
     }
     if (effect.options.scheduler) {
-      effect.options.scheduler(effect) // ! 有 scheduler 优先执行
+      effect.options.scheduler(effect) // ! 设置了 scheduler 会优先执行
     } else {
       effect()
     }

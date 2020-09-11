@@ -494,8 +494,8 @@ export function setupComponent(
 
   const { props, children, shapeFlag } = instance.vnode
   const isStateful = shapeFlag & ShapeFlags.STATEFUL_COMPONENT
-  initProps(instance, props, isStateful, isSSR)
-  initSlots(instance, children)
+  initProps(instance, props, isStateful, isSSR) // ! 初始化 props
+  initSlots(instance, children) // ! 初始化 slots
 
   const setupResult = isStateful
     ? setupStatefulComponent(instance, isSSR)

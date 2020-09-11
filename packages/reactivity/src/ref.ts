@@ -45,6 +45,7 @@ export function shallowRef(value?: unknown) {
   return createRef(value, true)
 }
 
+// ! ref 对象类实现
 class RefImpl<T> {
   private _value: T
 
@@ -113,6 +114,7 @@ export type CustomRefFactory<T> = (
   set: (value: T) => void
 }
 
+// ! 定制 ref 类实现
 class CustomRefImpl<T> {
   private readonly _get: ReturnType<CustomRefFactory<T>>['get']
   private readonly _set: ReturnType<CustomRefFactory<T>>['set']

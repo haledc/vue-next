@@ -558,7 +558,7 @@ function genNodeList(
   }
 }
 
-// ! 生成节点
+// ! 生成节点 -> 根据 NodeTypes 生成各种代码
 function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
   if (isString(node)) {
     context.push(node)
@@ -578,7 +578,7 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
           `Codegen node is missing for element/if/for node. ` +
             `Apply appropriate transforms first.`
         )
-      genNode(node.codegenNode!, context)
+      genNode(node.codegenNode!, context) // ! 根据 codegenNode 生成
       break
     case NodeTypes.TEXT:
       genText(node, context)
@@ -714,7 +714,7 @@ function genExpressionAsPropertyKey(
   }
 }
 
-// ! 生成注释
+// ! 生成注释 -> 开放环境才生成
 function genComment(node: CommentNode, context: CodegenContext) {
   if (__DEV__) {
     const { push, helper, pure } = context
@@ -868,7 +868,7 @@ function genFunctionExpression(
   }
 }
 
-// ! 生成条件表达式
+// ! 生成条件表达式 -> 普通表达式、三元表达式
 function genConditionalExpression(
   node: ConditionalExpression,
   context: CodegenContext

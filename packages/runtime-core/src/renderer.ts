@@ -1432,7 +1432,7 @@ function baseCreateRenderer(
         }
 
         if (next) {
-          updateComponentPreRender(instance, next, optimized) // ! 更新组件 VNode
+          updateComponentPreRender(instance, next, optimized) // ! 更新组件 VNode 节点信息
         } else {
           next = vnode
         }
@@ -1512,6 +1512,7 @@ function baseCreateRenderer(
     ;(instance.update as SchedulerJob).allowRecurse = true
   }
 
+  // ! 更新组件 VNode 节点信息
   const updateComponentPreRender = (
     instance: ComponentInternalInstance,
     nextVNode: VNode,
@@ -1521,8 +1522,8 @@ function baseCreateRenderer(
     const prevProps = instance.vnode.props
     instance.vnode = nextVNode
     instance.next = null
-    updateProps(instance, nextVNode.props, prevProps, optimized)
-    updateSlots(instance, nextVNode.children)
+    updateProps(instance, nextVNode.props, prevProps, optimized) // ! 更新 props
+    updateSlots(instance, nextVNode.children) // ! 更新 slots
 
     // props update may have triggered pre-flush watchers.
     // flush them before the render update.

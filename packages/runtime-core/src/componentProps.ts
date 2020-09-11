@@ -121,16 +121,17 @@ export function initProps(
   const props: Data = {}
   const attrs: Data = {}
   def(attrs, InternalObjectKey, 1)
-  setFullProps(instance, rawProps, props, attrs)
+  setFullProps(instance, rawProps, props, attrs) // ! 设置值
   // validation
   if (__DEV__) {
-    validateProps(props, instance)
+    validateProps(props, instance) // ! 校验值
   }
 
   if (isStateful) {
     // stateful
-    instance.props = isSSR ? props : shallowReactive(props)
+    instance.props = isSSR ? props : shallowReactive(props) // ! 有状态组件处理 -> 浅的响应式数据
   } else {
+    // ! 函数组件处理
     if (!instance.type.props) {
       // functional w/ optional props, props === attrs
       instance.props = attrs
@@ -139,10 +140,10 @@ export function initProps(
       instance.props = props
     }
   }
-  instance.attrs = attrs
+  instance.attrs = attrs // ! 普通属性赋值
 }
 
-// ! 更新 props
+// ! 更新 props -> 触发重新渲染
 export function updateProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -244,7 +245,7 @@ export function updateProps(
   }
 }
 
-// ! 设置 props ->
+// ! 设置 props 的值
 function setFullProps(
   instance: ComponentInternalInstance,
   rawProps: Data | null,
@@ -327,7 +328,7 @@ export function normalizePropsOptions(
   asMixin = false
 ): NormalizedPropsOptions {
   const appId = appContext.app ? appContext.app._uid : -1
-  const cache = comp.__props || (comp.__props = {})
+  const cache = comp.__props || (comp.__props = {}) // ! 缓存
   const cached = cache[appId]
   if (cached) {
     return cached

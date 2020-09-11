@@ -84,7 +84,7 @@ function createGetter(isReadonly = false, shallow = false) {
     }
 
     if (shallow) {
-      return res
+      return res // ! 直接返回，不执行后面的对象递归
     }
 
     if (isRef(res)) {
