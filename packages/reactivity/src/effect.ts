@@ -26,6 +26,7 @@ export interface ReactiveEffectOptions {
   onTrack?: (event: DebuggerEvent) => void
   onTrigger?: (event: DebuggerEvent) => void
   onStop?: () => void
+  allowRecurse?: boolean
 }
 
 // ! debugger 事件
@@ -199,7 +200,11 @@ export function trigger(
   const effects = new Set<ReactiveEffect>()
   const add = (effectsToAdd: Set<ReactiveEffect> | undefined) => {
     if (effectsToAdd) {
-      effectsToAdd.forEach(effect => effects.add(effect))
+      effectsToAdd.forEach(effect => {
+        if (effect !== activeEffect || effect.options.allowRecurse) {
+          effects.add(effect)
+        }
+      })
     }
   }
 

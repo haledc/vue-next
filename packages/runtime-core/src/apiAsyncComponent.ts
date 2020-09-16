@@ -118,7 +118,12 @@ export function defineAsyncComponent<
 
       const onError = (err: Error) => {
         pendingRequest = null
-        handleError(err, instance, ErrorCodes.ASYNC_COMPONENT_LOADER)
+        handleError(
+          err,
+          instance,
+          ErrorCodes.ASYNC_COMPONENT_LOADER,
+          !errorComponent /* do not throw in dev if user provided error component */
+        )
       }
 
       // suspense-controlled or SSR.
@@ -155,7 +160,7 @@ export function defineAsyncComponent<
       // ! 超时处理
       if (timeout != null) {
         setTimeout(() => {
-          if (!loaded.value) {
+          if (!loaded.value && !error.value) {
             const err = new Error(
               `Async component timed out after ${timeout}ms.`
             )
