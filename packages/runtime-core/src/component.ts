@@ -812,3 +812,7 @@ export function formatComponentName(
 
   return name ? classify(name) : isRoot ? `App` : `Anonymous`
 }
+
+export function isClassComponent(value: unknown): value is ClassComponent {
+  return isFunction(value) && '__vccOpts' in value
+}

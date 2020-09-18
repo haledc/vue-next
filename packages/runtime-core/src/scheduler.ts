@@ -120,15 +120,17 @@ function queueCb(
   queueFlush()
 }
 
+// ! 队列化 pre cb -> props
 export function queuePreFlushCb(cb: SchedulerCb) {
   queueCb(cb, activePreFlushCbs, pendingPreFlushCbs, preFlushIndex)
 }
 
+// ! 队列化 post cb -> refs hooks dirs
 export function queuePostFlushCb(cb: SchedulerCbs) {
   queueCb(cb, activePostFlushCbs, pendingPostFlushCbs, postFlushIndex)
 }
 
-// ! 调用所有 pre cb
+// ! 调用所有 pre cb -> 渲染前执行
 export function flushPreFlushCbs(
   seen?: CountMap,
   parentJob: SchedulerJob | null = null

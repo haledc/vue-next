@@ -274,9 +274,10 @@ function doWatch(
 
   if (flush === 'sync') {
     scheduler = job
-  } else if (flush === 'pre') {
-    // ensure it's queued before component updates (which have positive ids)
-    job.id = -1
+  } else if (flush === 'post') {
+    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense)
+  } else {
+    // default: 'pre'
     scheduler = () => {
       if (!instance || instance.isMounted) {
         queuePreFlushCb(job)
@@ -286,8 +287,6 @@ function doWatch(
         job()
       }
     }
-  } else {
-    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense) // ! 异步调用
   }
 
   // ! 生成 effect
@@ -307,6 +306,8 @@ function doWatch(
     } else {
       oldValue = runner()
     }
+  } else if (flush === 'post') {
+    queuePostRenderEffect(runner, instance && instance.suspense)
   } else {
     runner()
   }
