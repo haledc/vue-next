@@ -160,7 +160,7 @@ export function flushPreFlushCbs(
   }
 }
 
-// ! 调用所有 post cb
+// ! 调用所有 post cb -> 渲染后执行
 export function flushPostFlushCbs(seen?: CountMap) {
   if (pendingPostFlushCbs.length) {
     const deduped = [...new Set(pendingPostFlushCbs)]
